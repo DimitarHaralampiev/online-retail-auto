@@ -79,13 +79,6 @@ export default function SiteHeader() {
               </Link>
             ))}
           </nav>
-          <Link
-            className="header-search"
-            href="/catalog#catalog-search"
-            aria-label="Търси продукт"
-          >
-            <Icon name="search" />
-          </Link>
           <button
             className="menu-toggle"
             type="button"
