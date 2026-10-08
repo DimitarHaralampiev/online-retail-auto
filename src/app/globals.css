@@ -2095,3 +2095,13 @@ select {
     padding-bottom: 45px;
   }
 }
+
+.account-panel { max-width: 680px; margin: 0 auto 80px; }
+.account-panel .button { margin-top: 24px; }
+.account-panel > .text-link { margin-top: 24px; display: inline-flex; }
+.account-tabs { display: flex; gap: 16px; margin: 24px 0; }
+.account-tabs button { padding: 12px 20px; border: 1px solid var(--line); cursor: pointer; font: inherit; }
+.account-tabs button[aria-pressed="true"] { background: #ff682b; color: #171e1b; }
+.save-profile { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 24px; line-height: 1.6; }
+.save-profile input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 4px; }
+@media (min-width: 901px) { .header-inner { flex-wrap: wrap; } .site-nav { flex-wrap: wrap; } }

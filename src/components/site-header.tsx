@@ -7,6 +7,8 @@ import Icon from "./icon";
 import { useCart } from "./cart-provider";
 import { categories, demoProducts } from "../lib/catalog";
 
+import { useAccount } from "./account-provider";
+
 export function Brand() {
   return (
     <Link className="brand" href="/" aria-label="AUTO/SHOP — Начална страница">
@@ -26,10 +28,16 @@ export function Brand() {
 
 export default function SiteHeader() {
   const pathname = usePathname();
+  const { customer } = useAccount();
   const [open, setOpen] = useState(false);
   const { items } = useCart();
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const navigation = [
+    {
+      href: "/account",
+      label: customer ? "Моят профил" : "Вход / Регистрация",
+      active: pathname === "/account",
+    },
     { href: "/", label: "Начало", active: pathname === "/" },
     {
       href: "/promotions",
