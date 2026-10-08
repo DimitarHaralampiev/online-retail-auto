@@ -1931,7 +1931,9 @@ tbody small {
 
 /* Keep the decorative wordmark compact; shopping text remains readable. */
 @media (max-width: 950px) {
-  .header-cart { margin-left: auto; }
+  .header-cart {
+    margin-left: auto;
+  }
 }
 .brand-name small {
   font-size: 10px;
@@ -1970,5 +1972,126 @@ select {
     flex-wrap: wrap;
     justify-content: flex-start;
     gap: 10px 16px;
+  }
+}
+
+.promotions-main {
+  background: var(--surface);
+}
+.promotions-heading {
+  padding-top: 55px;
+}
+.promotions-products {
+  padding-block: 15px 75px;
+}
+.promotion-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 7px 10px;
+  background: var(--accent);
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 850;
+}
+.previous-price {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+.previous-price del {
+  font-weight: 650;
+}
+.product-pricing .demo-product-price {
+  margin-bottom: 8px;
+}
+.product-pricing:has(.previous-price) .demo-product-price strong {
+  color: var(--accent-dark);
+}
+.promotion-saving {
+  color: var(--accent-dark);
+  font-size: 12px;
+  margin-bottom: 18px;
+  line-height: 1.7;
+}
+.cart-line .demo-product-price {
+  font-size: 16px;
+}
+.cart-line .promotion-saving {
+  font-size: 12px;
+}
+.promotions-shortcut {
+  color: var(--accent-dark);
+}
+.promotions-shortcut .icon {
+  width: 18px;
+  height: 18px;
+}
+.quick-categories {
+  flex-wrap: wrap;
+  gap: 12px 25px;
+}
+.promotions-teaser {
+  background: #e6dfd1;
+  border-top: 1px solid #d4cbb9;
+}
+.promotions-banner {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 65px;
+  align-items: center;
+  padding-block: 55px;
+}
+.promotions-banner .eyebrow {
+  color: var(--accent-dark);
+}
+.promotions-banner h2 {
+  font-family: var(--display);
+  font-size: 42px;
+  line-height: 1.15;
+  margin: 0;
+}
+.promotions-banner h2 span {
+  color: var(--accent-dark);
+}
+.promotions-banner p:not(.eyebrow) {
+  font-size: 16px;
+  color: #59604f;
+  line-height: 1.8;
+}
+.promotions-banner .button {
+  font-size: 16px;
+}
+@media (max-width: 1050px) {
+  .site-nav {
+    gap: 15px;
+  }
+  .shop-toolbar-inner {
+    flex-wrap: wrap;
+  }
+  .shop-search {
+    flex: 1 1 340px;
+  }
+}
+@media (max-width: 600px) {
+  .promotions-heading {
+    padding-top: 35px;
+  }
+  .promotions-banner {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding-block: 40px;
+  }
+  .promotions-banner h2 {
+    font-size: 36px;
+  }
+  .promotions-banner .button {
+    width: 100%;
+  }
+  .promotions-products {
+    padding-bottom: 45px;
   }
 }

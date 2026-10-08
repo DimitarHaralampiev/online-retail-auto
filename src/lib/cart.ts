@@ -1,5 +1,6 @@
 import { demoProducts } from "./catalog";
 import { availableStock } from "./inventory";
+import { sellingPrice } from "./pricing";
 
 export type CartItem = { sku: string; quantity: number };
 export const CART_STORAGE_KEY = "auto-shop:cart:v1";
@@ -50,7 +51,7 @@ export function readStoredCart(raw: string | null): CartItem[] {
 export function cartSubtotal(items: CartItem[]): number {
   return normalizeCart(items).reduce((sum, item) => {
     const product = demoProducts.find((entry) => entry.sku === item.sku)!;
-    return sum + product.demoPriceCents * item.quantity;
+    return sum + sellingPrice(product) * item.quantity;
   }, 0);
 }
 

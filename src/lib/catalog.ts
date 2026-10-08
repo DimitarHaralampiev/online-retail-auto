@@ -12,6 +12,7 @@ export type Product = {
   description: string;
   image: string;
   demoPriceCents: number;
+  demoSalePriceCents?: number;
   stock: Stock;
 };
 
@@ -24,6 +25,7 @@ export const demoProducts: Product[] = [
     description: "Място за всичко необходимо по пътя.",
     image: "/images/organizer.png",
     demoPriceCents: 2990,
+    demoSalePriceCents: 2390,
     stock: { onHand: 12, reserved: 2 },
   },
   {
@@ -33,6 +35,7 @@ export const demoProducts: Product[] = [
     description: "Малък детайл за по-подреден интериор.",
     image: "/images/phone-holder.png",
     demoPriceCents: 1490,
+    demoSalePriceCents: 1190,
     stock: { onHand: 5, reserved: 4 },
   },
   {
@@ -60,6 +63,7 @@ export const demoProducts: Product[] = [
     description: "Грижа за автомобила до последния детайл.",
     image: "/images/car-shampoo.png",
     demoPriceCents: 990,
+    demoSalePriceCents: 690,
     stock: { onHand: 20, reserved: 3 },
   },
   {

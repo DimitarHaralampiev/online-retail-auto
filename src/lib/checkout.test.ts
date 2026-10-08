@@ -2,7 +2,6 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { normalizeCart, readStoredCart, cartSubtotal } from "./cart";
 import { previewCheckout, type CheckoutInput } from "./checkout";
-import { demoProducts } from "./catalog";
 
 const valid: CheckoutInput = {
   items: [{ sku: "DEMO-001", quantity: 2 }],
@@ -39,9 +38,9 @@ describe("cart and checkout", () => {
     );
   });
   it("uses integer cents from the catalog", () => {
-    assert.equal(cartSubtotal(valid.items), demoProducts[0].demoPriceCents * 2);
+    assert.equal(cartSubtotal(valid.items), 2390 * 2);
     const quote = previewCheckout(valid);
-    assert.equal(quote.subtotalCents, demoProducts[0].demoPriceCents * 2);
+    assert.equal(quote.subtotalCents, 2390 * 2);
     assert.equal(quote.orderCreated, false);
     assert.equal(quote.paymentStatus, "not_started");
     assert.equal(quote.shippingCents, null);

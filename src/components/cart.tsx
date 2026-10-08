@@ -7,6 +7,8 @@ import { demoProducts } from "../lib/catalog";
 import { availableStock } from "../lib/inventory";
 import { cartSubtotal, formatMoney } from "../lib/cart";
 import Icon from "./icon";
+import ProductPrice from "./product-price";
+import { sellingPrice } from "../lib/pricing";
 
 export default function Cart() {
   const { items, ready, storageWarning, setQuantity, remove } = useCart();
@@ -46,7 +48,7 @@ export default function Cart() {
                   <h2>
                     <Link href={`/catalog/${item.sku}`}>{product.name}</Link>
                   </h2>
-                  <p>Примерна цена: {formatMoney(product.demoPriceCents)}</p>
+                  <ProductPrice product={product} />
                   <button
                     className="remove-item"
                     type="button"
@@ -75,7 +77,7 @@ export default function Cart() {
                     </select>
                   </label>
                   <strong>
-                    {formatMoney(product.demoPriceCents * item.quantity)}
+                    {formatMoney(sellingPrice(product) * item.quantity)}
                   </strong>
                 </div>
               </article>

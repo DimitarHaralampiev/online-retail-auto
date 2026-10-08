@@ -7,7 +7,7 @@ import SiteHeader from "../../../components/site-header";
 import SiteFooter from "../../../components/site-footer";
 import Icon from "../../../components/icon";
 import AddToCart from "../../../components/add-to-cart";
-import { formatMoney } from "../../../lib/cart";
+import ProductPrice from "../../../components/product-price";
 
 export function generateStaticParams() {
   return demoProducts.map(({ sku }) => ({ sku }));
@@ -58,11 +58,8 @@ export default async function ProductPage({
                     : "Няма свободни бройки"}
                 </dd>
               </div>
-              <div>
-                <dt>Примерна цена</dt>
-                <dd>{formatMoney(product.demoPriceCents)}</dd>
-              </div>
             </dl>
+            <ProductPrice product={product} />
             <p className="demo-notice">
               Демонстрационен продукт с илюстративно изображение. Реални снимки,
               спецификации и проверена съвместимост предстоят. Все още не

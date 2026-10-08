@@ -184,6 +184,31 @@ export default function Home() {
           </div>
         </section>
         <section
+          id="promotions"
+          className="promotions-teaser"
+          aria-labelledby="promotions-title"
+        >
+          <div className="site-width promotions-banner">
+            <div>
+              <p className="eyebrow light">ПРОМОЦИИ / ДЕМО ОФЕРТИ</p>
+              <h2 id="promotions-title">
+                Добрият избор.
+                <br />
+                <span>С още по-добра цена.</span>
+              </h2>
+            </div>
+            <div>
+              <p>
+                Разгледай примерните намаления за избрани аксесоари и продукти
+                за грижа.
+              </p>
+              <Link className="button" href="/promotions">
+                Виж промоциите <Icon name="arrow" />
+              </Link>
+            </div>
+          </div>
+        </section>
+        <section
           id="approach"
           className="approach-section"
           aria-labelledby="approach-title"

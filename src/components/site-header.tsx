@@ -32,6 +32,11 @@ export default function SiteHeader() {
   const navigation = [
     { href: "/", label: "Начало", active: pathname === "/" },
     {
+      href: "/promotions",
+      label: "Промоции",
+      active: pathname === "/promotions",
+    },
+    {
       href: "/catalog",
       label: "Каталог",
       active: pathname.startsWith("/catalog"),
@@ -102,6 +107,9 @@ export default function SiteHeader() {
       <div className="shop-toolbar">
         <div className="site-width shop-toolbar-inner">
           <nav className="quick-categories" aria-label="Продуктови категории">
+            <Link className="promotions-shortcut" href="/promotions">
+              Промоции <Icon name="spark" />
+            </Link>
             {categories
               .filter((category) =>
                 demoProducts.some((product) => product.category === category),
