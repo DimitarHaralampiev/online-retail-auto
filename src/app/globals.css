@@ -1864,17 +1864,24 @@ tbody small {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-size: 12px;
+  font-size: 18px;
   font-weight: 750;
   white-space: nowrap;
+  min-height: 44px;
 }
 .quick-categories a:hover {
   color: var(--accent-dark);
 }
 .quick-categories span {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--surface);
+  min-width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
 }
 .shop-search {
   display: flex;
@@ -1915,7 +1922,7 @@ tbody small {
     gap: 12px;
   }
   .quick-categories a {
-    font-size: 12px;
+    font-size: 16px;
   }
   .shop-search {
     flex: 1 1 100%;
