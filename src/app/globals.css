@@ -27,6 +27,31 @@ h2 { font-size: 24px; }
 h3 { font-size: 21px; margin-top: 38px; }
 .card p { color: var(--muted); line-height: 1.7; font-size: 15px; }
 footer { border-top: 1px solid #303738; padding: 25px 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.page-intro { padding: 55px 0 30px; }
+.page-intro h1 { font-size: clamp(34px, 5vw, 58px); }
+.demo-notice { border-left: 3px solid var(--accent); padding: 12px 18px; background: #1c2420; color: var(--muted); line-height: 1.7; }
+.filters { display: flex; flex-wrap: wrap; gap: 18px; align-items: end; margin: 20px 0; }
+.filters label { display: flex; flex: 1 1 180px; flex-direction: column; gap: 9px; font-size: 14px; color: var(--muted); }
+input, select, button { font: inherit; }
+input, select { background: #181e1e; color: var(--text); border: 1px solid #56635c; border-radius: 6px; padding: 12px; min-width: 0; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.filters .checkbox { flex-direction: row; align-items: center; padding: 12px 0; }
+.checkbox input { accent-color: var(--accent); width: 18px; height: 18px; }
+.filters .button { margin-top: 0; border: 0; cursor: pointer; }
+.product-title { font-size: 22px; margin: 30px 0 16px; }
+.product-title a { text-decoration: none; }
+.product-title a:hover { text-decoration: underline; }
+.stock-available { color: var(--accent); font-size: 14px; }
+.empty { padding: 30px; border: 1px solid #303738; }
+.table-wrapper { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; text-align: left; }
+caption { text-align: left; font-size: 20px; margin-bottom: 20px; }
+th, td { padding: 16px; border-bottom: 1px solid #303738; }
+thead { background: #181e1e; color: var(--muted); }
+small { display: block; font-weight: normal; color: var(--muted); margin-top: 6px; }
+.error { color: #ffb4b4; }
+.history { padding-left: 24px; color: var(--muted); line-height: 2; }
+.reset-button { background: transparent; color: var(--text); border: 1px solid #56635c; padding: 12px 18px; border-radius: 6px; cursor: pointer; }
 @media (max-width: 700px) {
   main { padding: 0 20px; }
   .hero { padding: 60px 0 45px; }

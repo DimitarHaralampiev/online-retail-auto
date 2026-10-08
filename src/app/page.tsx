@@ -15,7 +15,7 @@ export default function Home() {
         <p className="eyebrow">ЗА ТЕБ И ТВОЯ АВТОМОБИЛ</p>
         <h1 id="hero-title">Следващата стъпка.<br /><span>За всяко пътуване.</span></h1>
         <p className="intro">Подготвяме онлайн магазин за автоаксесоари и части със собствена складова наличност в България.</p>
-        <a className="button" href="#categories">Разгледай направленията <span aria-hidden="true">↗</span></a>
+        <a className="button" href="/catalog">Разгледай демо каталога <span aria-hidden="true">↗</span></a>
         <p className="note">Магазинът предстои да отвори. Поръчки все още не се приемат.</p>
       </section>
       <section id="categories" className="categories" aria-labelledby="categories-title">
