@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Icon from "./icon";
+import { useCart } from "./cart-provider";
+import { categories, demoProducts } from "../lib/catalog";
 
 export function Brand() {
   return (
@@ -25,6 +27,8 @@ export function Brand() {
 export default function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { items } = useCart();
+  const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const navigation = [
     { href: "/", label: "Начало", active: pathname === "/" },
     {
@@ -92,8 +96,63 @@ export default function SiteHeader() {
           >
             <Icon name={open ? "close" : "menu"} />
           </button>
+          <Link
+            className="header-cart"
+            href="/cart"
+            aria-label={`Количка: ${cartCount} броя`}
+          >
+            <Icon name="cart" />
+            <span>{cartCount}</span>
+          </Link>
         </div>
       </header>
+      <div className="shop-toolbar">
+        <div className="site-width shop-toolbar-inner">
+          <nav className="quick-categories" aria-label="Продуктови категории">
+            {categories
+              .filter((category) =>
+                demoProducts.some((product) => product.category === category),
+              )
+              .map((category) => (
+                <Link
+                  key={category}
+                  href={{ pathname: "/catalog", query: { category } }}
+                >
+                  {category === "Части и консумативи"
+                    ? "Части"
+                    : category === "Автоаксесоари"
+                      ? "Аксесоари"
+                      : category}
+                  <span>
+                    {
+                      demoProducts.filter(
+                        (product) => product.category === category,
+                      ).length
+                    }
+                  </span>
+                </Link>
+              ))}
+          </nav>
+          <form
+            className="shop-search"
+            action="/catalog"
+            method="get"
+            role="search"
+            aria-label="Търсене в магазина"
+          >
+            <input
+              type="search"
+              name="q"
+              maxLength={120}
+              aria-label="Търсене в магазина"
+              placeholder="Потърси продукт или код…"
+            />
+            <button type="submit" aria-label="Търси в каталога">
+              <Icon name="search" />
+            </button>
+          </form>
+        </div>
+      </div>
     </>
   );
 }

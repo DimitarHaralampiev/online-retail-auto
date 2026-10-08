@@ -1,5 +1,13 @@
 type IconName =
-  "arrow" | "search" | "box" | "tool" | "spark" | "menu" | "close" | "check";
+  | "arrow"
+  | "search"
+  | "box"
+  | "tool"
+  | "spark"
+  | "menu"
+  | "close"
+  | "check"
+  | "cart";
 
 export default function Icon({
   name,
@@ -9,6 +17,13 @@ export default function Icon({
   className?: string;
 }) {
   const paths: Record<IconName, React.ReactNode> = {
+    cart: (
+      <>
+        <path d="M3 4h2l3 12h10l3-8H6" />
+        <circle cx="9" cy="20" r="1" />
+        <circle cx="18" cy="20" r="1" />
+      </>
+    ),
     arrow: (
       <>
         <path d="M5 12h14M13 6l6 6-6 6" />

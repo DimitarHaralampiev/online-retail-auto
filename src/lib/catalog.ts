@@ -11,10 +11,11 @@ export type Product = {
   category: (typeof categories)[number];
   description: string;
   image: string;
+  demoPriceCents: number;
   stock: Stock;
 };
 
-// Synthetic demo data; no supplier, price or compatibility claims.
+// Synthetic demo data and illustrative EUR prices, not commercial offers.
 export const demoProducts: Product[] = [
   {
     sku: "DEMO-001",
@@ -22,6 +23,7 @@ export const demoProducts: Product[] = [
     category: "Автоаксесоари",
     description: "Място за всичко необходимо по пътя.",
     image: "/images/organizer.png",
+    demoPriceCents: 2990,
     stock: { onHand: 12, reserved: 2 },
   },
   {
@@ -30,6 +32,7 @@ export const demoProducts: Product[] = [
     category: "Автоаксесоари",
     description: "Малък детайл за по-подреден интериор.",
     image: "/images/phone-holder.png",
+    demoPriceCents: 1490,
     stock: { onHand: 5, reserved: 4 },
   },
   {
@@ -38,6 +41,7 @@ export const demoProducts: Product[] = [
     category: "Части и консумативи",
     description: "Съвместимостта с автомобил предстои да се добави.",
     image: "/images/air-filter.png",
+    demoPriceCents: 1890,
     stock: { onHand: 8, reserved: 0 },
   },
   {
@@ -46,6 +50,7 @@ export const demoProducts: Product[] = [
     category: "Части и консумативи",
     description: "Размерите и монтажът предстои да се уточнят.",
     image: "/images/wipers.png",
+    demoPriceCents: 2490,
     stock: { onHand: 0, reserved: 0 },
   },
   {
@@ -54,6 +59,7 @@ export const demoProducts: Product[] = [
     category: "Автокозметика",
     description: "Грижа за автомобила до последния детайл.",
     image: "/images/car-shampoo.png",
+    demoPriceCents: 990,
     stock: { onHand: 20, reserved: 3 },
   },
   {
@@ -62,6 +68,7 @@ export const demoProducts: Product[] = [
     category: "Автокозметика",
     description: "Финалният щрих след всяко почистване.",
     image: "/images/microfiber.png",
+    demoPriceCents: 590,
     stock: { onHand: 3, reserved: 3 },
   },
 ];

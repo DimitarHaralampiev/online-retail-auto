@@ -5,10 +5,14 @@ import Catalog from "../../components/catalog";
 export default async function CatalogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string | string[] }>;
+  searchParams: Promise<{
+    category?: string | string[];
+    q?: string | string[];
+  }>;
 }) {
   const params = await searchParams;
   const category = typeof params.category === "string" ? params.category : "";
+  const query = typeof params.q === "string" ? params.q.slice(0, 120) : "";
   return (
     <>
       <SiteHeader />
@@ -33,7 +37,11 @@ export default async function CatalogPage({
           </p>
         </section>
         <section className="site-width catalog-section" aria-label="Продукти">
-          <Catalog key={category} initialCategory={category} />
+          <Catalog
+            key={category + "|" + query}
+            initialCategory={category}
+            initialQuery={query}
+          />
         </section>
       </main>
       <SiteFooter />

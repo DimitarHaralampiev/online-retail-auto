@@ -3,6 +3,8 @@ import Link from "next/link";
 import type { Product } from "../lib/catalog";
 import { availableStock } from "../lib/inventory";
 import Icon from "./icon";
+import AddToCart from "./add-to-cart";
+import { formatMoney } from "../lib/cart";
 
 export default function ProductCard({ product }: { product: Product }) {
   const available = availableStock(product.stock) > 0;
@@ -25,6 +27,9 @@ export default function ProductCard({ product }: { product: Product }) {
         </span>
       </Link>
       <div className="product-info">
+        <p className="demo-product-price">
+          {formatMoney(product.demoPriceCents)} <small>примерна цена</small>
+        </p>
         <p className="product-category">{product.category}</p>
         <h2 className="product-title">
           <Link href={`/catalog/${product.sku}`}>{product.name}</Link>
@@ -37,6 +42,7 @@ export default function ProductCard({ product }: { product: Product }) {
           </span>
           <span className="product-code">{product.sku}</span>
         </div>
+        <AddToCart product={product} />
       </div>
     </article>
   );

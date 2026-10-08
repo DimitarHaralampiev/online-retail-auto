@@ -6,6 +6,8 @@ import { availableStock } from "../../../lib/inventory";
 import SiteHeader from "../../../components/site-header";
 import SiteFooter from "../../../components/site-footer";
 import Icon from "../../../components/icon";
+import AddToCart from "../../../components/add-to-cart";
+import { formatMoney } from "../../../lib/cart";
 
 export function generateStaticParams() {
   return demoProducts.map(({ sku }) => ({ sku }));
@@ -57,8 +59,8 @@ export default async function ProductPage({
                 </dd>
               </div>
               <div>
-                <dt>Продажна цена</dt>
-                <dd>Предстои</dd>
+                <dt>Примерна цена</dt>
+                <dd>{formatMoney(product.demoPriceCents)}</dd>
               </div>
             </dl>
             <p className="demo-notice">
@@ -66,6 +68,7 @@ export default async function ProductPage({
               спецификации и проверена съвместимост предстоят. Все още не
               приемаме поръчки.
             </p>
+            <AddToCart product={product} />
             <Link className="button" href="/catalog">
               Към каталога <Icon name="arrow" />
             </Link>

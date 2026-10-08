@@ -8,10 +8,12 @@ import Icon from "./icon";
 
 export default function Catalog({
   initialCategory = "",
+  initialQuery = "",
 }: {
   initialCategory?: string;
+  initialQuery?: string;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [category, setCategory] = useState<string>(
     categories.some((item) => item === initialCategory) ? initialCategory : "",
   );
