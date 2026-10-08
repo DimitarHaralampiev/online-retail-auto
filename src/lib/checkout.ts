@@ -2,6 +2,7 @@ import { z } from "zod";
 import { demoProducts } from "./catalog";
 import { availableStock } from "./inventory";
 import { demoOffices, courierLabels, paymentLabels } from "./delivery";
+import { sellingPrice } from "./pricing";
 
 const text = (label: string, maximum = 120) =>
   z
@@ -93,7 +94,7 @@ export function previewCheckout(value: unknown): CheckoutPreview {
     if (!product) throw new Error("Количката съдържа непознат продукт.");
     if (quantity > availableStock(product.stock) || quantity > 50)
       throw new Error(`Недостатъчна наличност: ${product.name}.`);
-    subtotalCents += product.demoPriceCents * quantity;
+    subtotalCents += sellingPrice(product) * quantity;
   }
   let destination: string;
   if (input.delivery.type === "office") {

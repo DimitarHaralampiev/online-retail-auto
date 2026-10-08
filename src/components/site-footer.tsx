@@ -22,6 +22,9 @@ export default function SiteFooter() {
           <Link href="/inventory-demo">
             Демо склад <Icon name="arrow" />
           </Link>
+          <Link href="/promotions">
+            Промоции <Icon name="arrow" />
+          </Link>
         </div>
         <div className="footer-note">
           <span className="eyebrow">СЛЕДВАЩАТА СТЪПКА</span>
