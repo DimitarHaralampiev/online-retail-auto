@@ -1,12 +1,42 @@
-import Link from "next/link";
+import SiteHeader from "../../components/site-header";
+import SiteFooter from "../../components/site-footer";
 import Catalog from "../../components/catalog";
 
-export default function CatalogPage() {
+export default async function CatalogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const category = typeof params.category === "string" ? params.category : "";
   return (
-    <main>
-      <header className="header"><Link className="brand" href="/">AUTO<span>/</span>SHOP</Link><Link href="/inventory-demo">Демо склад</Link></header>
-      <section className="page-intro"><p className="eyebrow">КАТАЛОГ</p><h1>За твоя автомобил.</h1><p className="demo-notice">Демонстрация с измислени продукти и наличности. Все още няма продажни цени и поръчки.</p></section>
-      <section className="categories" aria-label="Продукти"><Catalog /></section>
-    </main>
+    <>
+      <SiteHeader />
+      <main id="main-content" className="catalog-main">
+        <section className="catalog-heading site-width">
+          <p className="eyebrow">ПОДБРАНО ЗА ТВОЯ АВТОМОБИЛ</p>
+          <div className="catalog-title-row">
+            <h1>
+              ДОБРИЯТ ИЗБОР.
+              <br />
+              <span>ДО ПОСЛЕДНИЯ ДЕТАЙЛ.</span>
+            </h1>
+            <p>
+              Аксесоари, части и грижа.
+              <br />
+              Намери своята следваща стъпка.
+            </p>
+          </div>
+          <p className="demo-notice">
+            Демо каталог · Примерни продукти, наличности и илюстративни
+            изображения. Поръчките предстоят.
+          </p>
+        </section>
+        <section className="site-width catalog-section" aria-label="Продукти">
+          <Catalog key={category} initialCategory={category} />
+        </section>
+      </main>
+      <SiteFooter />
+    </>
   );
 }

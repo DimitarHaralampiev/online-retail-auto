@@ -1,25 +1,78 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { demoProducts } from "../../../lib/catalog";
 import { availableStock } from "../../../lib/inventory";
+import SiteHeader from "../../../components/site-header";
+import SiteFooter from "../../../components/site-footer";
+import Icon from "../../../components/icon";
 
 export function generateStaticParams() {
   return demoProducts.map(({ sku }) => ({ sku }));
 }
 
-export default async function ProductPage({ params }: { params: Promise<{ sku: string }> }) {
+export default async function ProductPage({
+  params,
+}: {
+  params: Promise<{ sku: string }>;
+}) {
   const { sku } = await params;
   const product = demoProducts.find((item) => item.sku === sku);
   if (!product) notFound();
   return (
-    <main>
-      <header className="header"><Link className="brand" href="/">AUTO<span>/</span>SHOP</Link><Link href="/catalog">Към каталога</Link></header>
-      <section className="page-intro">
-        <p className="eyebrow">{product.category} · {product.sku}</p>
-        <h1>{product.name}</h1><p className="intro">{product.description}</p>
-        <p>{availableStock(product.stock) > 0 ? "Примерна наличност" : "Няма свободни бройки"}</p>
-        <p className="demo-notice">Това е демонстрационен продукт. Цена, снимки и проверена съвместимост предстоят. Не се приемат поръчки.</p>
-      </section>
-    </main>
+    <>
+      <SiteHeader />
+      <main id="main-content" className="site-width product-page">
+        <nav className="breadcrumbs" aria-label="Път до продукта">
+          <Link href="/catalog">Каталог</Link>
+          <span>/</span>
+          <span>{product.name}</span>
+        </nav>
+        <div className="product-detail">
+          <div className="product-detail-photo">
+            <Image
+              src={product.image}
+              alt={"Илюстрация: " + product.name}
+              fill
+              priority
+              sizes="(max-width: 800px) 100vw, 50vw"
+            />
+            <span className="product-demo-tag">ИЛЮСТРАЦИЯ</span>
+          </div>
+          <section className="product-detail-info">
+            <p className="eyebrow">{product.category}</p>
+            <h1>{product.name}</h1>
+            <p className="intro">{product.description}</p>
+            <dl className="product-specs">
+              <div>
+                <dt>Продуктов код</dt>
+                <dd>{product.sku}</dd>
+              </div>
+              <div>
+                <dt>Демо наличност</dt>
+                <dd>
+                  {availableStock(product.stock) > 0
+                    ? "Свободни бройки"
+                    : "Няма свободни бройки"}
+                </dd>
+              </div>
+              <div>
+                <dt>Продажна цена</dt>
+                <dd>Предстои</dd>
+              </div>
+            </dl>
+            <p className="demo-notice">
+              Демонстрационен продукт с илюстративно изображение. Реални снимки,
+              спецификации и проверена съвместимост предстоят. Все още не
+              приемаме поръчки.
+            </p>
+            <Link className="button" href="/catalog">
+              Към каталога <Icon name="arrow" />
+            </Link>
+          </section>
+        </div>
+      </main>
+      <SiteFooter />
+    </>
   );
 }
