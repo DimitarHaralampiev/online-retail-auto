@@ -14,8 +14,13 @@ import {
 import type { CheckoutInput, CheckoutPreview } from "../lib/checkout";
 import Icon from "./icon";
 
+import { useAccount } from "./account-provider";
+
 export default function Checkout() {
   const { items, ready, storageWarning } = useCart();
+  const { customer, ready: accountReady, setCustomer } = useAccount();
+  const [saveProfile, setSaveProfile] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const [courier, setCourier] = useState<Courier>("speedy");
   const [deliveryType, setDeliveryType] = useState<"office" | "address">(
     "office",
@@ -43,6 +48,24 @@ export default function Checkout() {
     requestRef.current?.abort();
     return () => requestRef.current?.abort();
   }, [items]);
+
+  useEffect(() => {
+    const form = formRef.current;
+    for (const key of ["name", "email", "phone"] as const) {
+      const field = form?.elements.namedItem(key) as HTMLInputElement | null;
+      if (field) field.value = customer?.[key] ?? "";
+    }
+    setSaveProfile(false);
+    setPreview(null);
+    requestRef.current?.abort();
+    setBusy(false);
+    const delivery = customer?.delivery;
+    setCourier(delivery?.courier ?? "speedy");
+    setDeliveryType(delivery?.type ?? "office");
+    setCity(delivery?.city ?? "");
+    setOfficeId(delivery?.type === "office" ? delivery.officeId : "");
+    setOfficeSearch("");
+  }, [customer?.id, ready, accountReady]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -89,6 +112,25 @@ export default function Checkout() {
         );
       if (data.mode !== "demo" || data.orderCreated !== false)
         throw new Error("Невалиден отговор от сървъра.");
+      if (customer && saveProfile) {
+        const saved = await fetch("/api/account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "profile",
+            profile: {
+              name: input.contact.name,
+              phone: input.contact.phone,
+              delivery: input.delivery,
+            },
+          }),
+          signal: controller.signal,
+        });
+        const result = await saved.json();
+        if (!saved.ok)
+          throw new Error(result.error ?? "Неуспешно запазване на профила.");
+        setCustomer(result.customer);
+      }
       setPreview(data as CheckoutPreview);
     } catch (cause) {
       if (!controller.signal.aborted)
@@ -102,7 +144,7 @@ export default function Checkout() {
     }
   }
 
-  if (!ready) return <p role="status">Зареждаме количката…</p>;
+  if (!ready || !accountReady) return <p role="status">Зареждаме количката…</p>;
   if (!items.length)
     return (
       <div className="empty-cart">
@@ -118,6 +160,7 @@ export default function Checkout() {
       {storageWarning && <p className="demo-notice">{storageWarning}</p>}
       <div className="checkout-grid">
         <form
+          ref={formRef}
           className="checkout-form"
           onSubmit={submit}
           onChange={() => setPreview(null)}
@@ -128,7 +171,14 @@ export default function Checkout() {
                 <span>01</span> Данни за получателя
               </h2>
               <p className="note">
-                Използвай тестови данни за тази демонстрация.
+                {customer ? (
+                  "Данните са попълнени от профила. Можеш да ги промениш за тази поръчка."
+                ) : (
+                  <>
+                    Поръчваш като гост. Попълни всички данни или{" "}
+                    <Link href="/account">влез / създай профил</Link>.
+                  </>
+                )}
               </p>
               <div className="form-grid">
                 <label className="full-width">
@@ -306,6 +356,12 @@ export default function Checkout() {
                     Пощенски код
                     <input
                       name="postalCode"
+                      key={(customer?.id ?? "guest") + "postalCode"}
+                      defaultValue={
+                        customer?.delivery?.type === "address"
+                          ? customer.delivery.postalCode
+                          : ""
+                      }
                       required
                       pattern="[0-9]{4}"
                       inputMode="numeric"
@@ -317,6 +373,12 @@ export default function Checkout() {
                     Улица или квартал
                     <input
                       name="street"
+                      key={(customer?.id ?? "guest") + "street"}
+                      defaultValue={
+                        customer?.delivery?.type === "address"
+                          ? customer.delivery.street
+                          : ""
+                      }
                       required
                       maxLength={120}
                       autoComplete="address-line1"
@@ -324,12 +386,28 @@ export default function Checkout() {
                   </label>
                   <label>
                     Номер или блок
-                    <input name="number" required maxLength={30} />
+                    <input
+                      name="number"
+                      key={(customer?.id ?? "guest") + "number"}
+                      defaultValue={
+                        customer?.delivery?.type === "address"
+                          ? customer.delivery.number
+                          : ""
+                      }
+                      required
+                      maxLength={30}
+                    />
                   </label>
                   <label className="full-width">
                     Вход, етаж, апартамент · по желание
                     <input
                       name="details"
+                      key={(customer?.id ?? "guest") + "details"}
+                      defaultValue={
+                        customer?.delivery?.type === "address"
+                          ? customer.delivery.details
+                          : ""
+                      }
                       maxLength={200}
                       autoComplete="address-line2"
                     />
@@ -374,6 +452,17 @@ export default function Checkout() {
                   : "В демонстрацията само записваме избора. Реалният наложен платеж ще се заявява към куриера."}
               </p>
             </section>
+            {customer && (
+              <label className="save-profile">
+                <input
+                  type="checkbox"
+                  checked={saveProfile}
+                  onChange={(event) => setSaveProfile(event.target.checked)}
+                />{" "}
+                Запази получателя и доставката в профила за следваща поръчка
+                (имейлът на профила остава същият).
+              </label>
+            )}
             <button className="button" type="submit">
               {busy ? "Проверяваме…" : "Преглед на демо поръчката"}
               <Icon name="arrow" />

@@ -1,0 +1,13 @@
+services:
+  database:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: auto
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:?Set LOCAL_DB_PASSWORD}
+      POSTGRES_DB: auto
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - auto_database:/var/lib/postgresql/data
+volumes:
+  auto_database:

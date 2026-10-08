@@ -4,6 +4,8 @@ import "@fontsource-variable/roboto-condensed";
 import "./globals.css";
 import CartProvider from "../components/cart-provider";
 
+import AccountProvider from "../components/account-provider";
+
 export const metadata: Metadata = {
   title: "Авто магазин — в разработка",
   description:
@@ -17,7 +19,9 @@ export default function RootLayout({
   return (
     <html lang="bg">
       <body>
-        <CartProvider>{children}</CartProvider>
+        <AccountProvider>
+          <CartProvider>{children}</CartProvider>
+        </AccountProvider>
       </body>
     </html>
   );
