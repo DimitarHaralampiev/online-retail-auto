@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { previewCheckout } from "../../../../lib/checkout";
+import { courierOffices } from "../../../../lib/courier-offices";
+import { checkoutSchema, previewCheckout } from "../../../../lib/checkout";
 
 const headers = { "Cache-Control": "no-store" };
 
@@ -42,7 +43,12 @@ export async function POST(request: Request) {
       );
     }
     try {
-      return NextResponse.json(previewCheckout(input), { headers });
+      const parsed = checkoutSchema.parse(input);
+      const offices =
+        parsed.delivery.type === "office"
+          ? await courierOffices(parsed.delivery.courier)
+          : [];
+      return NextResponse.json(previewCheckout(parsed, offices), { headers });
     } catch (error) {
       if (error instanceof ZodError)
         return NextResponse.json(

@@ -1,3 +1,4 @@
+process.env.COURIER_OFFICES_MODE = "demo";
 import { it } from "node:test";
 import assert from "node:assert/strict";
 import { POST } from "../app/api/checkout/preview/route";

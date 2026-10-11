@@ -1,0 +1,32 @@
+import type { CheckoutInput } from "./checkout";
+import type { OrderStatus, PaymentStatus } from "./order-state";
+export type OrderLine = {
+  sku: string;
+  name: string;
+  quantity: number;
+  unitPriceCents: number;
+};
+export type OrderRecord = {
+  id: string;
+  mode: "test";
+  customer_id: string | null;
+  request_key: string;
+  request_hash: string;
+  access_hash: string;
+  contact: CheckoutInput["contact"];
+  delivery: CheckoutInput["delivery"];
+  destination: string;
+  lines: OrderLine[];
+  subtotal_cents: number;
+  shipping_cents: number;
+  total_cents: number;
+  currency: "eur";
+  payment_method: "cod" | "card";
+  payment_status: PaymentStatus;
+  status: OrderStatus;
+  stripe_session_id: string | null;
+  payment_url: string | null;
+  tracking_number: string | null;
+  created_at: Date;
+  updated_at: Date;
+};

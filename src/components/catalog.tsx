@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useCustomerFeatures } from "./customer-provider";
 import { useState } from "react";
 import { categories, demoProducts } from "../lib/catalog";
 import { availableStock } from "../lib/inventory";
@@ -18,11 +20,16 @@ export default function Catalog({
     categories.some((item) => item === initialCategory) ? initialCategory : "",
   );
   const [onlyAvailable, setOnlyAvailable] = useState(false);
+  const [onlyForCar, setOnlyForCar] = useState(false);
+  const { data, ready } = useCustomerFeatures();
+  const selectedVehicle = data.vehicles.find((v) => v.selected);
+  const carFilter = onlyForCar && !!selectedVehicle;
   const normalizedQuery = query.trim().toLocaleLowerCase("bg");
   const products = demoProducts.filter(
     (product) =>
       (!category || product.category === category) &&
       (!onlyAvailable || availableStock(product.stock) > 0) &&
+      (!carFilter || data.compatibleSkus.includes(product.sku)) &&
       `${product.name} ${product.sku}`
         .toLocaleLowerCase("bg")
         .includes(normalizedQuery),
@@ -64,6 +71,31 @@ export default function Catalog({
           />{" "}
           Само налични
         </label>
+      </div>
+      <div className="catalog-car-filter">
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={carFilter}
+            disabled={!ready || !selectedVehicle}
+            onChange={(e) => setOnlyForCar(e.target.checked)}
+          />{" "}
+          Само за моя автомобил
+        </label>
+        {selectedVehicle ? (
+          <span>
+            {selectedVehicle.make} {selectedVehicle.model} ·{" "}
+            {selectedVehicle.year} · {selectedVehicle.engine}
+          </span>
+        ) : (
+          <Link href="/garage">Добави и избери автомобил →</Link>
+        )}
+        {carFilter && (
+          <p className="note">
+            Показваме само продукти с проверена съвместимост. За
+            демонстрационните части още няма въведени такива данни.
+          </p>
+        )}
       </div>
       <div className="catalog-results">
         <p role="status">

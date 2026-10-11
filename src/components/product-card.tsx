@@ -7,6 +7,8 @@ import AddToCart from "./add-to-cart";
 import ProductPrice from "./product-price";
 import { getPromotion } from "../lib/pricing";
 
+import ProductActions from "./product-actions";
+
 export default function ProductCard({ product }: { product: Product }) {
   const available = availableStock(product.stock) > 0;
   const promotion = getPromotion(product);
@@ -51,6 +53,7 @@ export default function ProductCard({ product }: { product: Product }) {
           <span className="product-code">{product.sku}</span>
         </div>
         <AddToCart product={product} />
+        <ProductActions product={product} />
       </div>
     </article>
   );

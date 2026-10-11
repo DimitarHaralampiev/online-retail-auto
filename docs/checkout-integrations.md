@@ -4,11 +4,15 @@
 
 Products have illustrative EUR prices in integer cents. The cart persists only SKU and quantity in browser storage; recipient information is not persisted there. `/cart` supports quantity changes and removal. `/checkout` supports Speedy or Econt, office or address delivery, and cash on delivery or card selection.
 
-Office fixtures are **fictional**, limited to Sofia, Plovdiv and Varna. Their `DEMO-` identifiers must never be sent to a live courier API. Selecting a different courier, city, or delivery type clears the office. Address delivery accepts Bulgarian towns and four-digit postal codes.
+Live mode now loads real Econt offices and Speedy offices from its public widget or credentialed REST API. Office fixtures are **fictional** and used only in explicit demo mode, limited to Sofia, Plovdiv and Varna. Their `DEMO-` identifiers must never be sent to a live courier API. Selecting a different courier, city, or delivery type clears the office. Address delivery accepts Bulgarian towns and four-digit postal codes.
 
 `POST /api/checkout/preview` is read-only. It validates contact details, the delivery branch, office/courier/city consistency, quantities, and available stock. Subtotals are recalculated from the catalog. Client prices or totals are rejected. Shipping and the final payable total remain `null` until a real shipping quote exists. A preview does not reserve stock, create an order or label, or initiate payment. Responses are not cached; request bodies are limited to 16 KiB and are not logged by application code.
 
-## Courier adapters to implement
+## Current test orders and admin delivery policy
+
+Test orders, status history, notification outbox and simulated card payments are persisted in PostgreSQL. `/admin/settings` stores the free-delivery threshold and an enable/disable switch. Above the discounted goods threshold, customer shipping is zero; at or below it the test base rate applies. Saved order totals stay immutable. Stripe test checkout requires separate credentials. See the README for commands and production boundaries.
+
+## Remaining courier adapters
 
 - **Speedy:** server-side office/location lookup, address validation, service availability, calculation, shipment creation, and tracking. Authentication stays on the server. Use the merchant's agreed services and prices. [Official API documentation](https://api.speedy.bg/api/docs/)
 - **Econt:** nomenclature services for cities and offices, address validation, and shipment calculation/label creation. Office codes and addresses must be validated against current data. [Nomenclatures](https://ee.econt.com/services/Nomenclatures/), [Shipments](https://ee.econt.com/services/Shipments/)
