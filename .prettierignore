@@ -1,0 +1,15 @@
+AGENTS.md
+.agents/
+.aws/
+.codex/
+.next/
+node_modules/
+docs/screenshots/
+package-lock.json
+.env*
+
+# Untouched baseline modules; format them when their implementation changes.
+src/components/inventory-demo.tsx
+src/lib/inventory.ts
+src/lib/inventory.test.ts
+tsconfig.json

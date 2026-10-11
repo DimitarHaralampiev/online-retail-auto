@@ -1,3 +1,7 @@
+import {
+  notificationPreferencesSchema,
+  defaultPreferences,
+} from "./customer-preferences";
 import { z } from "zod";
 import { checkoutSchema } from "./checkout";
 export const profileSchema = z
@@ -20,11 +24,14 @@ export const credentialsSchema = z
   })
   .strict();
 export const registrationSchema = credentialsSchema.extend({
+  notificationPreferences:
+    notificationPreferencesSchema.default(defaultPreferences),
   name: profileSchema.shape.name,
   phone: profileSchema.shape.phone,
 });
 export type Customer = {
   id: string;
+  isAdmin?: boolean;
   email: string;
   name: string;
   phone: string;

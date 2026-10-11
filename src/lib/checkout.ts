@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { demoProducts } from "./catalog";
 import { availableStock } from "./inventory";
-import { demoOffices, courierLabels, paymentLabels } from "./delivery";
+import {
+  demoOffices,
+  courierLabels,
+  paymentLabels,
+  type Office,
+} from "./delivery";
 import { sellingPrice } from "./pricing";
 
 const text = (label: string, maximum = 120) =>
@@ -83,7 +88,10 @@ export type CheckoutPreview = {
 
 // Prices and stock come from our catalog, never from client-supplied totals.
 // This is a read-only preview: it does not reserve stock or create an order.
-export function previewCheckout(value: unknown): CheckoutPreview {
+export function previewCheckout(
+  value: unknown,
+  offices: Office[] = demoOffices,
+): CheckoutPreview {
   const input = checkoutSchema.parse(value);
   const quantities = new Map<string, number>();
   for (const item of input.items)
@@ -99,7 +107,7 @@ export function previewCheckout(value: unknown): CheckoutPreview {
   let destination: string;
   if (input.delivery.type === "office") {
     const delivery = input.delivery;
-    const office = demoOffices.find(
+    const office = offices.find(
       (item) =>
         item.id === delivery.officeId &&
         item.courier === delivery.courier &&

@@ -14,12 +14,20 @@ import {
   profileSchema,
 } from "../../../lib/account-schema";
 import { hashPassword, verifyPassword, tokenHash } from "../../../lib/password";
+import {
+  sendVerification,
+  confirmEmail,
+  mailPreviewUrl,
+} from "../../../lib/verification";
 export const runtime = "nodejs";
 const respond = (data: unknown, status = 200) =>
   NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
 export async function GET() {
   try {
-    return respond({ customer: await currentCustomer() });
+    return respond({
+      customer: await currentCustomer(),
+      mailPreviewUrl: mailPreviewUrl(),
+    });
   } catch {
     return respond({ error: "Профилите временно не са достъпни." }, 503);
   }
@@ -62,6 +70,29 @@ export async function POST(request: Request) {
     } catch {
       return respond({ error: "Невалидни данни." }, 400);
     }
+    if (!data || typeof data !== "object")
+      return respond({ error: "Невалидни данни." }, 400);
+    if (data.action === "verify") {
+      if (!(await confirmEmail(data.token)))
+        return respond(
+          {
+            error:
+              "Линкът е невалиден, изтекъл или вече използван. Поискай нов имейл.",
+          },
+          400,
+        );
+      return respond({
+        message: "Имейлът е потвърден. Вече можеш да влезеш в профила си.",
+      });
+    }
+    if (data.action === "resend") {
+      const email = credentialsSchema.shape.email.parse(data.email);
+      await sendVerification(email);
+      return respond({
+        message:
+          "Ако има непотвърден профил с този имейл, ще получиш писмо. Провери и папката Спам. Ново писмо може да се изпрати след минута, до 5 пъти на ден.",
+      });
+    }
     if (data.action === "logout") {
       const jar = await cookies();
       const token = jar.get(sessionCookie)?.value;
@@ -78,7 +109,7 @@ export async function POST(request: Request) {
       if (!customer) return respond({ error: "Влез в профила си." }, 401);
       const profile = profileSchema.parse(data.profile);
       const result = await database().query(
-        "UPDATE customers SET name=$1,phone=$2,delivery=$3 WHERE id=$4 RETURNING id,email,name,phone,delivery",
+        'UPDATE customers SET name=$1,phone=$2,delivery=$3 WHERE id=$4 RETURNING id,email,name,phone,delivery,is_admin AS "isAdmin"',
         [profile.name, profile.phone, profile.delivery, customer.id],
       );
       return respond({ customer: result.rows[0] });
@@ -104,13 +135,14 @@ export async function POST(request: Request) {
       id = randomUUID();
       try {
         await database().query(
-          "INSERT INTO customers (id,email,password_hash,name,phone) VALUES ($1,$2,$3,$4,$5)",
+          "INSERT INTO customers (id,email,password_hash,name,phone,notification_preferences) VALUES ($1,$2,$3,$4,$5,$6)",
           [
             id,
             profile.email,
             await hashPassword(profile.password),
             profile.name,
             profile.phone,
+            profile.notificationPreferences,
           ],
         );
       } catch (e) {
@@ -123,7 +155,7 @@ export async function POST(request: Request) {
       }
     } else {
       const result = await database().query(
-        "SELECT id,password_hash FROM customers WHERE email=$1",
+        "SELECT id,password_hash,email_verified_at FROM customers WHERE email=$1",
         [credentials.email],
       );
       const valid = await verifyPassword(
@@ -133,10 +165,30 @@ export async function POST(request: Request) {
       );
       if (!result.rows[0] || !valid)
         return respond({ error: "Невалиден имейл или парола." }, 401);
+      if (!result.rows[0].email_verified_at)
+        return respond(
+          {
+            error: "Потвърди имейла си, преди да влезеш.",
+            verificationRequired: true,
+          },
+          403,
+        );
       id = result.rows[0].id;
     }
+    if (data.action === "register") {
+      await sendVerification(credentials.email);
+      return respond({
+        customer: null,
+        verificationRequired: true,
+        message:
+          "Изпратихме имейл за потвърждение. Отвори линка в рамките на 1 час, после влез в профила си.",
+      });
+    }
     await createSession(id);
-    return respond({ customer: await currentCustomer() });
+    return respond({
+      customer: await currentCustomer(),
+      mailPreviewUrl: mailPreviewUrl(),
+    });
   } catch (e) {
     if (e instanceof ZodError)
       return respond({ error: e.issues[0]?.message }, 400);

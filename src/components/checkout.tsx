@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { shippingForSubtotal } from "../lib/shipping-price";
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "./cart-provider";
 import { cartSubtotal, formatMoney } from "../lib/cart";
 import {
   courierLabels,
-  demoOfficeCities,
-  demoOffices,
+  type Office,
   paymentLabels,
   type Courier,
 } from "../lib/delivery";
@@ -17,8 +17,23 @@ import Icon from "./icon";
 import { useAccount } from "./account-provider";
 
 export default function Checkout() {
-  const { items, ready, storageWarning } = useCart();
+  const { items, ready, storageWarning, clear } = useCart();
   const { customer, ready: accountReady, setCustomer } = useAccount();
+  const [orderConfig, setOrderConfig] = useState<{
+    enabled: boolean;
+    shippingCents: number | null;
+    freeShippingAboveCents: number | null;
+    cardEnabled: boolean;
+    paymentProvider: string;
+  } | null>(null);
+  const [checkedInput, setCheckedInput] = useState<CheckoutInput | null>(null);
+  const orderRequestKey = useRef("");
+  useEffect(() => {
+    fetch("/api/checkout/config")
+      .then((r) => r.json())
+      .then(setOrderConfig)
+      .catch(() => {});
+  }, []);
   const [saveProfile, setSaveProfile] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const [courier, setCourier] = useState<Courier>("speedy");
@@ -33,7 +48,38 @@ export default function Checkout() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const requestRef = useRef<AbortController | null>(null);
-  const offices = demoOffices.filter(
+  const [allOffices, setAllOffices] = useState<Office[]>([]);
+  const [officesBusy, setOfficesBusy] = useState(false);
+  const [officesError, setOfficesError] = useState("");
+  const [officesMode, setOfficesMode] = useState("live");
+  const [retryOffices, setRetryOffices] = useState(0);
+  useEffect(() => {
+    if (deliveryType !== "office") return;
+    const controller = new AbortController();
+    setAllOffices([]);
+    setOfficesError("");
+    setOfficesBusy(true);
+    fetch(`/api/delivery/offices?courier=${courier}`, {
+      signal: controller.signal,
+    })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error);
+        setAllOffices(data.offices);
+        setOfficesMode(data.mode);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) setOfficesError(e.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setOfficesBusy(false);
+      });
+    return () => controller.abort();
+  }, [courier, deliveryType, retryOffices]);
+  const officeCities = [
+    ...new Set(allOffices.map((office) => office.city)),
+  ].sort((a, b) => a.localeCompare(b, "bg"));
+  const offices = allOffices.filter(
     (office) =>
       office.courier === courier &&
       office.city === city &&
@@ -131,6 +177,8 @@ export default function Checkout() {
           throw new Error(result.error ?? "Неуспешно запазване на профила.");
         setCustomer(result.customer);
       }
+      setCheckedInput(input);
+      orderRequestKey.current = crypto.randomUUID();
       setPreview(data as CheckoutPreview);
     } catch (cause) {
       if (!controller.signal.aborted)
@@ -141,6 +189,38 @@ export default function Checkout() {
         );
     } finally {
       if (requestRef.current === controller) setBusy(false);
+    }
+  }
+
+  async function placeOrder() {
+    if (!preview || !checkedInput || orderConfig?.shippingCents == null) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestKey: orderRequestKey.current,
+          checkout: checkedInput,
+          expectedTotalCents:
+            preview.subtotalCents +
+            shippingForSubtotal(
+              preview.subtotalCents,
+              orderConfig.shippingCents,
+              orderConfig.freeShippingAboveCents,
+            ),
+          acknowledgeTest: true,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      clear();
+      window.location.assign(data.paymentUrl ?? data.trackingUrl);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -279,11 +359,28 @@ export default function Checkout() {
                   ))}
                 </div>
               </fieldset>
+              {deliveryType === "office" && officesBusy && (
+                <p role="status">
+                  Зареждаме офисите на {courierLabels[courier]}…
+                </p>
+              )}
+              {deliveryType === "office" && officesError && (
+                <div role="alert">
+                  <p className="error">{officesError}</p>
+                  <button
+                    type="button"
+                    onClick={() => setRetryOffices((value) => value + 1)}
+                  >
+                    Опитай отново
+                  </button>
+                </div>
+              )}
               {deliveryType === "office" ? (
                 <div className="form-grid">
                   <label>
                     Град
                     <select
+                      disabled={officesBusy || !!officesError}
                       aria-label="Град"
                       required
                       value={city}
@@ -294,13 +391,13 @@ export default function Checkout() {
                       }}
                     >
                       <option value="">Избери град</option>
-                      {demoOfficeCities.map((value) => (
+                      {officeCities.map((value) => (
                         <option key={value}>{value}</option>
                       ))}
                     </select>
                   </label>
                   <label>
-                    Търси тестов офис
+                    Търси офис
                     <input
                       type="search"
                       value={officeSearch}
@@ -308,7 +405,7 @@ export default function Checkout() {
                         setOfficeSearch(event.target.value);
                         setOfficeId("");
                       }}
-                      disabled={!city}
+                      disabled={!city || officesBusy || !!officesError}
                       placeholder="Напр. Център"
                     />
                   </label>
@@ -318,10 +415,10 @@ export default function Checkout() {
                       aria-label="Офис"
                       required
                       value={officeId}
-                      disabled={!city}
+                      disabled={!city || officesBusy || !!officesError}
                       onChange={(event) => setOfficeId(event.target.value)}
                     >
-                      <option value="">Избери тестов офис</option>
+                      <option value="">Избери офис</option>
                       {offices.map((office) => (
                         <option value={office.id} key={office.id}>
                           {office.name}
@@ -331,12 +428,13 @@ export default function Checkout() {
                   </label>
                   {city && offices.length === 0 && (
                     <p className="note full-width">
-                      Няма съвпадащи тестови офиси. Промени търсенето.
+                      Няма съвпадащи офиси. Промени търсенето.
                     </p>
                   )}
                   <p className="note full-width">
-                    Това са измислени тестови офиси. Реалният списък ще идва от
-                    избрания куриер.
+                    {officesMode === "demo"
+                      ? "Това са измислени тестови офиси."
+                      : "Списъкът се зарежда от избрания куриер."}
                   </p>
                 </div>
               ) : (
@@ -431,6 +529,11 @@ export default function Checkout() {
                         type="radio"
                         name="payment"
                         aria-label={paymentLabels[value]}
+                        disabled={
+                          value === "card" &&
+                          !!orderConfig?.enabled &&
+                          !orderConfig.cardEnabled
+                        }
                         checked={payment === value}
                         onChange={() => setPayment(value)}
                       />
@@ -439,7 +542,11 @@ export default function Checkout() {
                         <small>
                           {value === "cod"
                             ? "При получаване"
-                            : "Онлайн · предстои свързване"}
+                            : orderConfig?.cardEnabled
+                              ? orderConfig.paymentProvider === "simulator"
+                                ? "Локален симулатор"
+                                : "Онлайн · Stripe тест"
+                              : "Онлайн · предстои свързване"}
                         </small>
                       </span>
                     </label>
@@ -448,8 +555,8 @@ export default function Checkout() {
               </fieldset>
               <p className="note">
                 {payment === "card"
-                  ? "Картовото плащане ще преминава през защитена страница на платежен доставчик. В тази демонстрация не въвеждай данни за карта."
-                  : "В демонстрацията само записваме избора. Реалният наложен платеж ще се заявява към куриера."}
+                  ? "Тестовото картово плащане е без реално таксуване. При локалния симулатор не се въвежда карта; при Stripe тест се използват само тестови карти."
+                  : "Тестовата поръчка записва наложения платеж като дължим при получаване. Реална пратка и реално събиране на сумата още не се заявяват към куриера."}
               </p>
             </section>
             {customer && (
@@ -501,9 +608,43 @@ export default function Checkout() {
                 </div>
                 <div>
                   <dt>Доставка и окончателна сума</dt>
-                  <dd>Предстои изчисляване</dd>
+                  <dd>
+                    {orderConfig?.enabled && orderConfig.shippingCents !== null
+                      ? `${formatMoney(shippingForSubtotal(preview.subtotalCents, orderConfig.shippingCents, orderConfig.freeShippingAboveCents))} тестова доставка · ${formatMoney(preview.subtotalCents + shippingForSubtotal(preview.subtotalCents, orderConfig.shippingCents, orderConfig.freeShippingAboveCents))} общо`
+                      : "Предстои изчисляване"}
+                  </dd>
                 </div>
               </dl>
+              {orderConfig?.enabled &&
+                orderConfig.freeShippingAboveCents !== null && (
+                  <p className="note">
+                    Безплатна тестова доставка при стойност на продуктите над{" "}
+                    {formatMoney(orderConfig.freeShippingAboveCents)} след
+                    намаления. Точните тарифи на куриерите ще се свържат при
+                    реалното пускане.
+                  </p>
+                )}
+              {orderConfig?.enabled && orderConfig.shippingCents !== null && (
+                <>
+                  <p className="demo-notice">
+                    Тестова поръчка с примерна доставка. Записва се за
+                    проследяване и изпраща тестови известия. Не поръчваш реални
+                    продукти и не плащаш реални пари.
+                  </p>
+                  <button
+                    type="button"
+                    className="button"
+                    disabled={busy}
+                    onClick={placeOrder}
+                  >
+                    {busy
+                      ? "Записваме…"
+                      : payment === "card"
+                        ? "Създай поръчка и пробвай тестово плащане"
+                        : "Потвърди тестова поръчка с наложен платеж"}
+                  </button>
+                </>
+              )}
             </section>
           )}
         </form>

@@ -13,8 +13,10 @@ type CartContextValue = {
   ready: boolean;
   storageWarning: string;
   add: (sku: string) => void;
+  addItems: (items: CartItem[]) => void;
   setQuantity: (sku: string, quantity: number) => void;
   remove: (sku: string) => void;
+  clear: () => void;
 };
 const CartContext = createContext<CartContextValue | null>(null);
 
@@ -52,9 +54,12 @@ export default function CartProvider({
   return (
     <CartContext.Provider
       value={{
+        clear: () => setItems([]),
         items,
         ready,
         storageWarning,
+        addItems: (incoming) =>
+          setItems((previous) => normalizeCart([...previous, ...incoming])),
         add: (sku) =>
           setItems((previous) =>
             normalizeCart([...previous, { sku, quantity: 1 }]),

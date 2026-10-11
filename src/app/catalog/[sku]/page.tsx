@@ -9,6 +9,8 @@ import Icon from "../../../components/icon";
 import AddToCart from "../../../components/add-to-cart";
 import ProductPrice from "../../../components/product-price";
 
+import ProductActions from "../../../components/product-actions";
+
 export function generateStaticParams() {
   return demoProducts.map(({ sku }) => ({ sku }));
 }
@@ -66,6 +68,7 @@ export default async function ProductPage({
               приемаме поръчки.
             </p>
             <AddToCart product={product} />
+            <ProductActions product={product} />
             <Link className="button" href="/catalog">
               Към каталога <Icon name="arrow" />
             </Link>

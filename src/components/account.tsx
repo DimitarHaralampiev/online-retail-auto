@@ -2,11 +2,18 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useAccount } from "./account-provider";
+import ServicePreferences from "./service-preferences";
+import NotificationChoices from "./notification-choices";
+import { defaultPreferences } from "../lib/customer-preferences";
+import MyOrders from "./my-orders";
 export default function Account() {
-  const { customer, ready, setCustomer } = useAccount();
+  const { customer, ready, mailPreviewUrl, setCustomer } = useAccount();
+  const [registrationPreferences, setRegistrationPreferences] =
+    useState(defaultPreferences);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
   const [message, setMessage] = useState("");
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -31,7 +38,11 @@ export default function Account() {
               email: value("email"),
               password: value("password"),
               ...(mode === "register"
-                ? { name: value("name"), phone: value("phone") }
+                ? {
+                    name: value("name"),
+                    phone: value("phone"),
+                    notificationPreferences: registrationPreferences,
+                  }
                 : {}),
             },
           };
@@ -41,11 +52,37 @@ export default function Account() {
         body: JSON.stringify(body),
       });
       const data = await response.json();
+      if (data.verificationRequired) setVerificationEmail(value("email"));
       if (!response.ok) throw new Error(data.error);
-      setCustomer(data.customer);
-      setMessage(customer ? "Данните са запазени." : "Успешен вход.");
+      setCustomer(data.customer ?? null);
+      setMessage(
+        data.message ?? (customer ? "Данните са запазени." : "Успешен вход."),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Опитай отново.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function resend(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const email = String(
+      new FormData(event.currentTarget).get("verificationEmail") ?? "",
+    );
+    try {
+      const r = await fetch("/api/account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resend", email }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error);
+      setMessage(data.message);
+    } catch (e) {
+      setError((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -78,6 +115,15 @@ export default function Account() {
             ? "Добре дошъл отново."
             : "Създай своя профил."}
       </h2>
+      {!customer && mailPreviewUrl && (
+        <p className="demo-notice">
+          Локален тест: писмата за потвърждение пристигат в{" "}
+          <a href={mailPreviewUrl} target="_blank" rel="noopener noreferrer">
+            тестовата поща
+          </a>
+          , а не в Gmail. Отвори писмото там и потвърди имейла си преди вход.
+        </p>
+      )}
       {!customer && (
         <div className="account-tabs">
           <button
@@ -159,6 +205,22 @@ export default function Account() {
               </label>
             )}
           </div>
+          {!customer && mode === "register" && (
+            <section className="registration-services">
+              <h3>Направи профила си по-полезен.</h3>
+              <p>Избери кои имейл услуги искаш. Всички са по желание.</p>
+              <NotificationChoices
+                value={registrationPreferences}
+                onChange={setRegistrationPreferences}
+                disabled={busy}
+              />
+              <p className="note">
+                Любими продукти, „Моят гараж“ и повторни покупки са включени в
+                профила. Можеш да променяш имейл услугите по всяко време.
+              </p>
+              <Link href="/for-you">Разгледай всички услуги</Link>
+            </section>
+          )}
           <button className="button" type="submit">
             {busy
               ? "Моля, изчакай…"
@@ -170,6 +232,30 @@ export default function Account() {
           </button>
         </fieldset>
       </form>
+      {!customer && (
+        <form onSubmit={resend} className="verification-resend">
+          <h3>Не получи писмото?</h3>
+          <p className="note">
+            Провери Спам. Можеш да поискаш нов линк, който заменя стария.
+          </p>
+          <label>
+            Имейл за потвърждение
+            <input
+              name="verificationEmail"
+              value={verificationEmail}
+              onChange={(event) => setVerificationEmail(event.target.value)}
+              type="email"
+              required
+              maxLength={254}
+              autoComplete="email"
+              disabled={busy}
+            />
+          </label>
+          <button type="submit" className="button" disabled={busy}>
+            Изпрати нов линк
+          </button>
+        </form>
+      )}
       {customer && (
         <>
           <p className="note">
@@ -188,6 +274,8 @@ export default function Account() {
           </button>
         </>
       )}
+      {customer && <ServicePreferences />}
+      {customer && <MyOrders customerId={customer.id} />}
       {error && (
         <p className="error" role="alert">
           {error}

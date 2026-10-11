@@ -8,22 +8,35 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test src/lib/*.test.ts",
-    "db:migrate": "node --env-file=.env.local scripts/migrate.mjs"
+    "db:migrate": "node --env-file=.env.local scripts/migrate.mjs",
+    "admin:grant": "node --env-file=.env.local scripts/grant-admin.mjs",
+    "orders:send-emails": "node --env-file=.env.local --import tsx scripts/send-order-emails.ts",
+    "test:orders": "node --env-file=.env.local --import tsx scripts/test-order-flow.ts",
+    "mail:check": "node --env-file=.env.local --import tsx scripts/check-mail.ts",
+    "customers:worker": "node --env-file=.env.local --import tsx scripts/customer-worker.ts",
+    "test:features": "node --env-file=.env.local --import tsx scripts/test-customer-invoices.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",
     "@fontsource-variable/roboto-condensed": "^5.3.0",
+    "cheerio": "^1.0.0",
     "next": "16.4.0",
+    "nodemailer": "^10.1.0",
     "pg": "^8.23.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "stripe": "^23.0.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "prettier": "^3.6.2",
     "tsx": "^4.23.15",
     "typescript": "^5.9.0"
   }

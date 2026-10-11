@@ -19,8 +19,8 @@ export default function SiteFooter() {
           <Link href="/catalog">
             Каталог <Icon name="arrow" />
           </Link>
-          <Link href="/inventory-demo">
-            Демо склад <Icon name="arrow" />
+          <Link href="/for-you">
+            За теб <Icon name="arrow" />
           </Link>
           <Link href="/promotions">
             Промоции <Icon name="arrow" />
@@ -36,7 +36,8 @@ export default function SiteFooter() {
       </div>
       <div className="site-width footer-bottom">
         <span>
-          © {new Date().getFullYear()} AUTO/SHOP · Временна визуална идентичност
+          © {new Date().getFullYear()} AUTO/SHOP · Временна визуална
+          идентичност
         </span>
         <span>Демо версия · Все още не приемаме поръчки</span>
       </div>

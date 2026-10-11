@@ -33,6 +33,20 @@ export default function SiteHeader() {
   const { items } = useCart();
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const navigation = [
+    ...(customer?.isAdmin
+      ? [
+          {
+            href: "/admin/orders",
+            label: "Поръчки",
+            active: pathname.startsWith("/admin/orders"),
+          },
+          {
+            href: "/admin/invoices",
+            label: "Фактури / ИИ",
+            active: pathname.startsWith("/admin/invoices"),
+          },
+        ]
+      : []),
     {
       href: "/account",
       label: customer ? "Моят профил" : "Вход / Регистрация",
@@ -49,11 +63,11 @@ export default function SiteHeader() {
       label: "Каталог",
       active: pathname.startsWith("/catalog"),
     },
-    { href: "/#approach", label: "Нашият подход", active: false },
+    { href: "/for-you", label: "За теб", active: pathname === "/for-you" },
     {
-      href: "/inventory-demo",
-      label: "Демо склад",
-      active: pathname === "/inventory-demo",
+      href: "/favorites",
+      label: "Любими",
+      active: pathname === "/favorites",
     },
   ];
   return (

@@ -4,6 +4,7 @@ import "@fontsource-variable/roboto-condensed";
 import "./globals.css";
 import CartProvider from "../components/cart-provider";
 
+import CustomerProvider from "../components/customer-provider";
 import AccountProvider from "../components/account-provider";
 
 export const metadata: Metadata = {
@@ -20,7 +21,9 @@ export default function RootLayout({
     <html lang="bg">
       <body>
         <AccountProvider>
-          <CartProvider>{children}</CartProvider>
+          <CustomerProvider>
+            <CartProvider>{children}</CartProvider>
+          </CustomerProvider>
         </AccountProvider>
       </body>
     </html>
