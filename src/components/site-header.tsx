@@ -3,6 +3,7 @@ import Localize from "./localize";
 
 import Link from "next/link";
 import LanguageSwitcher from "./language-switcher";
+import CategoryMenu from "./category-menu";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Icon from "./icon";
@@ -136,6 +137,7 @@ export default function SiteHeader() {
           </header>
           <div className="shop-toolbar">
             <div className="site-width shop-toolbar-inner">
+              <CategoryMenu />
               <nav
                 className="quick-categories"
                 aria-label="Продуктови категории"

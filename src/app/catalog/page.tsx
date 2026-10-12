@@ -9,10 +9,13 @@ export default async function CatalogPage({
   searchParams: Promise<{
     category?: string | string[];
     q?: string | string[];
+    subcategory?: string | string[];
   }>;
 }) {
   const params = await searchParams;
   const category = typeof params.category === "string" ? params.category : "";
+  const subcategory =
+    typeof params.subcategory === "string" ? params.subcategory : "";
   const query = typeof params.q === "string" ? params.q.slice(0, 120) : "";
   return (
     <Localize>
@@ -44,9 +47,10 @@ export default async function CatalogPage({
               aria-label="Продукти"
             >
               <Catalog
-                key={category + "|" + query}
+                key={category + "|" + subcategory + "|" + query}
                 initialCategory={category}
                 initialQuery={query}
+                initialSubcategory={subcategory}
               />
             </section>
           </main>

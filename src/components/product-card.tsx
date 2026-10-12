@@ -9,6 +9,7 @@ import ProductPrice from "./product-price";
 import { getPromotion } from "../lib/pricing";
 
 import ProductActions from "./product-actions";
+import ProductQuickView from "./product-quick-view";
 
 export default function ProductCard({ product }: { product: Product }) {
   const available = availableStock(product.stock) > 0;
@@ -57,6 +58,7 @@ export default function ProductCard({ product }: { product: Product }) {
               </span>
               <span className="product-code">{product.sku}</span>
             </div>
+            <ProductQuickView product={product} />
             <AddToCart product={product} />
             <ProductActions product={product} />
           </div>
