@@ -8,7 +8,17 @@ try {
   for (const file of (await readdir(folder))
     .filter((name) => name.endsWith(".sql"))
     .sort()) {
-    await pool.query(await readFile(new URL(file, folder), "utf8"));
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(await readFile(new URL(file, folder), "utf8"));
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
     console.log(`Applied ${file}`);
   }
 } finally {

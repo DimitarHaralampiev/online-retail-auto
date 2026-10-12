@@ -1,4 +1,5 @@
 "use client";
+import Localize from "./localize";
 
 import Link from "next/link";
 import { shippingForSubtotal } from "../lib/shipping-price";
@@ -224,456 +225,475 @@ export default function Checkout() {
     }
   }
 
-  if (!ready || !accountReady) return <p role="status">Зареждаме количката…</p>;
+  if (!ready || !accountReady)
+    return <Localize>{<p role="status">Зареждаме количката…</p>}</Localize>;
   if (!items.length)
     return (
-      <div className="empty-cart">
-        <h2>Първо избери своите продукти.</h2>
-        <Link className="button" href="/catalog">
-          Към каталога <Icon name="arrow" />
-        </Link>
-      </div>
+      <Localize>
+        {
+          <div className="empty-cart">
+            <h2>Първо избери своите продукти.</h2>
+            <Link className="button" href="/catalog">
+              Към каталога <Icon name="arrow" />
+            </Link>
+          </div>
+        }
+      </Localize>
     );
 
   return (
-    <>
-      {storageWarning && <p className="demo-notice">{storageWarning}</p>}
-      <div className="checkout-grid">
-        <form
-          ref={formRef}
-          className="checkout-form"
-          onSubmit={submit}
-          onChange={() => setPreview(null)}
-        >
-          <fieldset className="checkout-fields" disabled={busy}>
-            <section className="checkout-panel">
-              <h2>
-                <span>01</span> Данни за получателя
-              </h2>
-              <p className="note">
-                {customer ? (
-                  "Данните са попълнени от профила. Можеш да ги промениш за тази поръчка."
-                ) : (
-                  <>
-                    Поръчваш като гост. Попълни всички данни или{" "}
-                    <Link href="/account">влез / създай профил</Link>.
-                  </>
-                )}
-              </p>
-              <div className="form-grid">
-                <label className="full-width">
-                  Име и фамилия
-                  <input
-                    name="name"
-                    autoComplete="name"
-                    required
-                    maxLength={120}
-                  />
-                </label>
-                <label>
-                  Имейл
-                  <input
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    maxLength={254}
-                  />
-                </label>
-                <label>
-                  Телефон
-                  <input
-                    name="phone"
-                    type="tel"
-                    autoComplete="tel"
-                    required
-                    maxLength={30}
-                    placeholder="Напр. 0888 123 456"
-                  />
-                </label>
-              </div>
-            </section>
-            <section className="checkout-panel">
-              <h2>
-                <span>02</span> Доставка
-              </h2>
-              <fieldset className="choice-group">
-                <legend>Куриер</legend>
-                <div className="choice-grid">
-                  {(Object.keys(courierLabels) as Courier[]).map((value) => (
-                    <label
-                      className={`choice-card ${courier === value ? "selected" : ""}`}
-                      key={value}
-                    >
+    <Localize>
+      {
+        <>
+          {storageWarning && <p className="demo-notice">{storageWarning}</p>}
+          <div className="checkout-grid">
+            <form
+              ref={formRef}
+              className="checkout-form"
+              onSubmit={submit}
+              onChange={() => setPreview(null)}
+            >
+              <fieldset className="checkout-fields" disabled={busy}>
+                <section className="checkout-panel">
+                  <h2>
+                    <span>01</span> Данни за получателя
+                  </h2>
+                  <p className="note">
+                    {customer ? (
+                      "Данните са попълнени от профила. Можеш да ги промениш за тази поръчка."
+                    ) : (
+                      <>
+                        Поръчваш като гост. Попълни всички данни или{" "}
+                        <Link href="/account">влез / създай профил</Link>.
+                      </>
+                    )}
+                  </p>
+                  <div className="form-grid">
+                    <label className="full-width">
+                      Име и фамилия
                       <input
-                        type="radio"
-                        name="courier"
-                        aria-label={courierLabels[value]}
-                        value={value}
-                        checked={courier === value}
-                        onChange={() => {
-                          setCourier(value);
-                          setOfficeId("");
-                          setOfficeSearch("");
-                        }}
+                        name="name"
+                        autoComplete="name"
+                        required
+                        maxLength={120}
                       />
-                      <span>
-                        <strong>{courierLabels[value]}</strong>
-                        <small>До офис или адрес</small>
-                      </span>
                     </label>
-                  ))}
-                </div>
-              </fieldset>
-              <fieldset className="choice-group">
-                <legend>Начин на доставка</legend>
-                <div className="choice-grid">
-                  {(["office", "address"] as const).map((value) => (
-                    <label
-                      className={`choice-card ${deliveryType === value ? "selected" : ""}`}
-                      key={value}
-                    >
+                    <label>
+                      Имейл
                       <input
-                        type="radio"
-                        name="deliveryType"
-                        aria-label={value === "office" ? "До офис" : "До адрес"}
-                        checked={deliveryType === value}
-                        onChange={() => {
-                          setDeliveryType(value);
-                          setCity("");
-                          setOfficeId("");
-                          setOfficeSearch("");
-                        }}
+                        name="email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        maxLength={254}
                       />
-                      <span>
-                        <strong>
-                          {value === "office" ? "До офис" : "До адрес"}
-                        </strong>
-                        <small>
-                          {value === "office"
-                            ? "Избери удобен офис"
-                            : "На посочено място"}
-                        </small>
-                      </span>
                     </label>
-                  ))}
-                </div>
-              </fieldset>
-              {deliveryType === "office" && officesBusy && (
-                <p role="status">
-                  Зареждаме офисите на {courierLabels[courier]}…
-                </p>
-              )}
-              {deliveryType === "office" && officesError && (
-                <div role="alert">
-                  <p className="error">{officesError}</p>
-                  <button
-                    type="button"
-                    onClick={() => setRetryOffices((value) => value + 1)}
-                  >
-                    Опитай отново
-                  </button>
-                </div>
-              )}
-              {deliveryType === "office" ? (
-                <div className="form-grid">
-                  <label>
-                    Град
-                    <select
-                      disabled={officesBusy || !!officesError}
-                      aria-label="Град"
-                      required
-                      value={city}
-                      onChange={(event) => {
-                        setCity(event.target.value);
-                        setOfficeId("");
-                        setOfficeSearch("");
-                      }}
-                    >
-                      <option value="">Избери град</option>
-                      {officeCities.map((value) => (
-                        <option key={value}>{value}</option>
+                    <label>
+                      Телефон
+                      <input
+                        name="phone"
+                        type="tel"
+                        autoComplete="tel"
+                        required
+                        maxLength={30}
+                        placeholder="Напр. 0888 123 456"
+                      />
+                    </label>
+                  </div>
+                </section>
+                <section className="checkout-panel">
+                  <h2>
+                    <span>02</span> Доставка
+                  </h2>
+                  <fieldset className="choice-group">
+                    <legend>Куриер</legend>
+                    <div className="choice-grid">
+                      {(Object.keys(courierLabels) as Courier[]).map(
+                        (value) => (
+                          <label
+                            className={`choice-card ${courier === value ? "selected" : ""}`}
+                            key={value}
+                          >
+                            <input
+                              type="radio"
+                              name="courier"
+                              aria-label={courierLabels[value]}
+                              value={value}
+                              checked={courier === value}
+                              onChange={() => {
+                                setCourier(value);
+                                setOfficeId("");
+                                setOfficeSearch("");
+                              }}
+                            />
+                            <span>
+                              <strong>{courierLabels[value]}</strong>
+                              <small>До офис или адрес</small>
+                            </span>
+                          </label>
+                        ),
+                      )}
+                    </div>
+                  </fieldset>
+                  <fieldset className="choice-group">
+                    <legend>Начин на доставка</legend>
+                    <div className="choice-grid">
+                      {(["office", "address"] as const).map((value) => (
+                        <label
+                          className={`choice-card ${deliveryType === value ? "selected" : ""}`}
+                          key={value}
+                        >
+                          <input
+                            type="radio"
+                            name="deliveryType"
+                            aria-label={
+                              value === "office" ? "До офис" : "До адрес"
+                            }
+                            checked={deliveryType === value}
+                            onChange={() => {
+                              setDeliveryType(value);
+                              setCity("");
+                              setOfficeId("");
+                              setOfficeSearch("");
+                            }}
+                          />
+                          <span>
+                            <strong>
+                              {value === "office" ? "До офис" : "До адрес"}
+                            </strong>
+                            <small>
+                              {value === "office"
+                                ? "Избери удобен офис"
+                                : "На посочено място"}
+                            </small>
+                          </span>
+                        </label>
                       ))}
-                    </select>
-                  </label>
-                  <label>
-                    Търси офис
-                    <input
-                      type="search"
-                      value={officeSearch}
-                      onChange={(event) => {
-                        setOfficeSearch(event.target.value);
-                        setOfficeId("");
-                      }}
-                      disabled={!city || officesBusy || !!officesError}
-                      placeholder="Напр. Център"
-                    />
-                  </label>
-                  <label className="full-width">
-                    Офис на {courierLabels[courier]}
-                    <select
-                      aria-label="Офис"
-                      required
-                      value={officeId}
-                      disabled={!city || officesBusy || !!officesError}
-                      onChange={(event) => setOfficeId(event.target.value)}
-                    >
-                      <option value="">Избери офис</option>
-                      {offices.map((office) => (
-                        <option value={office.id} key={office.id}>
-                          {office.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {city && offices.length === 0 && (
-                    <p className="note full-width">
-                      Няма съвпадащи офиси. Промени търсенето.
+                    </div>
+                  </fieldset>
+                  {deliveryType === "office" && officesBusy && (
+                    <p role="status">
+                      Зареждаме офисите на {courierLabels[courier]}…
                     </p>
                   )}
-                  <p className="note full-width">
-                    {officesMode === "demo"
-                      ? "Това са измислени тестови офиси."
-                      : "Списъкът се зарежда от избрания куриер."}
+                  {deliveryType === "office" && officesError && (
+                    <div role="alert">
+                      <p className="error">{officesError}</p>
+                      <button
+                        type="button"
+                        onClick={() => setRetryOffices((value) => value + 1)}
+                      >
+                        Опитай отново
+                      </button>
+                    </div>
+                  )}
+                  {deliveryType === "office" ? (
+                    <div className="form-grid">
+                      <label>
+                        Град
+                        <select
+                          disabled={officesBusy || !!officesError}
+                          aria-label="Град"
+                          required
+                          value={city}
+                          onChange={(event) => {
+                            setCity(event.target.value);
+                            setOfficeId("");
+                            setOfficeSearch("");
+                          }}
+                        >
+                          <option value="">Избери град</option>
+                          {officeCities.map((value) => (
+                            <option key={value}>{value}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        Търси офис
+                        <input
+                          type="search"
+                          value={officeSearch}
+                          onChange={(event) => {
+                            setOfficeSearch(event.target.value);
+                            setOfficeId("");
+                          }}
+                          disabled={!city || officesBusy || !!officesError}
+                          placeholder="Напр. Център"
+                        />
+                      </label>
+                      <label className="full-width">
+                        Офис на {courierLabels[courier]}
+                        <select
+                          aria-label="Офис"
+                          required
+                          value={officeId}
+                          disabled={!city || officesBusy || !!officesError}
+                          onChange={(event) => setOfficeId(event.target.value)}
+                        >
+                          <option value="">Избери офис</option>
+                          {offices.map((office) => (
+                            <option value={office.id} key={office.id}>
+                              {office.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {city && offices.length === 0 && (
+                        <p className="note full-width">
+                          Няма съвпадащи офиси. Промени търсенето.
+                        </p>
+                      )}
+                      <p className="note full-width">
+                        {officesMode === "demo"
+                          ? "Това са измислени тестови офиси."
+                          : "Списъкът се зарежда от избрания куриер."}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="form-grid">
+                      <label>
+                        Населено място
+                        <input
+                          name="city"
+                          required
+                          maxLength={120}
+                          autoComplete="address-level2"
+                          value={city}
+                          onChange={(event) => setCity(event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        Пощенски код
+                        <input
+                          name="postalCode"
+                          key={(customer?.id ?? "guest") + "postalCode"}
+                          defaultValue={
+                            customer?.delivery?.type === "address"
+                              ? customer.delivery.postalCode
+                              : ""
+                          }
+                          required
+                          pattern="[0-9]{4}"
+                          inputMode="numeric"
+                          maxLength={4}
+                          autoComplete="postal-code"
+                        />
+                      </label>
+                      <label>
+                        Улица или квартал
+                        <input
+                          name="street"
+                          key={(customer?.id ?? "guest") + "street"}
+                          defaultValue={
+                            customer?.delivery?.type === "address"
+                              ? customer.delivery.street
+                              : ""
+                          }
+                          required
+                          maxLength={120}
+                          autoComplete="address-line1"
+                        />
+                      </label>
+                      <label>
+                        Номер или блок
+                        <input
+                          name="number"
+                          key={(customer?.id ?? "guest") + "number"}
+                          defaultValue={
+                            customer?.delivery?.type === "address"
+                              ? customer.delivery.number
+                              : ""
+                          }
+                          required
+                          maxLength={30}
+                        />
+                      </label>
+                      <label className="full-width">
+                        Вход, етаж, апартамент · по желание
+                        <input
+                          name="details"
+                          key={(customer?.id ?? "guest") + "details"}
+                          defaultValue={
+                            customer?.delivery?.type === "address"
+                              ? customer.delivery.details
+                              : ""
+                          }
+                          maxLength={200}
+                          autoComplete="address-line2"
+                        />
+                      </label>
+                    </div>
+                  )}
+                </section>
+                <section className="checkout-panel">
+                  <h2>
+                    <span>03</span> Начин на плащане
+                  </h2>
+                  <fieldset className="choice-group">
+                    <legend>Плащане</legend>
+                    <div className="choice-grid">
+                      {(["cod", "card"] as const).map((value) => (
+                        <label
+                          className={`choice-card ${payment === value ? "selected" : ""}`}
+                          key={value}
+                        >
+                          <input
+                            type="radio"
+                            name="payment"
+                            aria-label={paymentLabels[value]}
+                            disabled={
+                              value === "card" &&
+                              !!orderConfig?.enabled &&
+                              !orderConfig.cardEnabled
+                            }
+                            checked={payment === value}
+                            onChange={() => setPayment(value)}
+                          />
+                          <span>
+                            <strong>{paymentLabels[value]}</strong>
+                            <small>
+                              {value === "cod"
+                                ? "При получаване"
+                                : orderConfig?.cardEnabled
+                                  ? orderConfig.paymentProvider === "simulator"
+                                    ? "Локален симулатор"
+                                    : "Онлайн · Stripe тест"
+                                  : "Онлайн · предстои свързване"}
+                            </small>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <p className="note">
+                    {payment === "card"
+                      ? "Тестовото картово плащане е без реално таксуване. При локалния симулатор не се въвежда карта; при Stripe тест се използват само тестови карти."
+                      : "Тестовата поръчка записва наложения платеж като дължим при получаване. Реална пратка и реално събиране на сумата още не се заявяват към куриера."}
                   </p>
-                </div>
-              ) : (
-                <div className="form-grid">
-                  <label>
-                    Населено място
+                </section>
+                {customer && (
+                  <label className="save-profile">
                     <input
-                      name="city"
-                      required
-                      maxLength={120}
-                      autoComplete="address-level2"
-                      value={city}
-                      onChange={(event) => setCity(event.target.value)}
-                    />
+                      type="checkbox"
+                      checked={saveProfile}
+                      onChange={(event) => setSaveProfile(event.target.checked)}
+                    />{" "}
+                    Запази получателя и доставката в профила за следваща поръчка
+                    (имейлът на профила остава същият).
                   </label>
-                  <label>
-                    Пощенски код
-                    <input
-                      name="postalCode"
-                      key={(customer?.id ?? "guest") + "postalCode"}
-                      defaultValue={
-                        customer?.delivery?.type === "address"
-                          ? customer.delivery.postalCode
-                          : ""
-                      }
-                      required
-                      pattern="[0-9]{4}"
-                      inputMode="numeric"
-                      maxLength={4}
-                      autoComplete="postal-code"
-                    />
-                  </label>
-                  <label>
-                    Улица или квартал
-                    <input
-                      name="street"
-                      key={(customer?.id ?? "guest") + "street"}
-                      defaultValue={
-                        customer?.delivery?.type === "address"
-                          ? customer.delivery.street
-                          : ""
-                      }
-                      required
-                      maxLength={120}
-                      autoComplete="address-line1"
-                    />
-                  </label>
-                  <label>
-                    Номер или блок
-                    <input
-                      name="number"
-                      key={(customer?.id ?? "guest") + "number"}
-                      defaultValue={
-                        customer?.delivery?.type === "address"
-                          ? customer.delivery.number
-                          : ""
-                      }
-                      required
-                      maxLength={30}
-                    />
-                  </label>
-                  <label className="full-width">
-                    Вход, етаж, апартамент · по желание
-                    <input
-                      name="details"
-                      key={(customer?.id ?? "guest") + "details"}
-                      defaultValue={
-                        customer?.delivery?.type === "address"
-                          ? customer.delivery.details
-                          : ""
-                      }
-                      maxLength={200}
-                      autoComplete="address-line2"
-                    />
-                  </label>
-                </div>
-              )}
-            </section>
-            <section className="checkout-panel">
-              <h2>
-                <span>03</span> Начин на плащане
-              </h2>
-              <fieldset className="choice-group">
-                <legend>Плащане</legend>
-                <div className="choice-grid">
-                  {(["cod", "card"] as const).map((value) => (
-                    <label
-                      className={`choice-card ${payment === value ? "selected" : ""}`}
-                      key={value}
-                    >
-                      <input
-                        type="radio"
-                        name="payment"
-                        aria-label={paymentLabels[value]}
-                        disabled={
-                          value === "card" &&
-                          !!orderConfig?.enabled &&
-                          !orderConfig.cardEnabled
-                        }
-                        checked={payment === value}
-                        onChange={() => setPayment(value)}
-                      />
-                      <span>
-                        <strong>{paymentLabels[value]}</strong>
-                        <small>
-                          {value === "cod"
-                            ? "При получаване"
-                            : orderConfig?.cardEnabled
-                              ? orderConfig.paymentProvider === "simulator"
-                                ? "Локален симулатор"
-                                : "Онлайн · Stripe тест"
-                              : "Онлайн · предстои свързване"}
-                        </small>
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                )}
+                <button className="button" type="submit">
+                  {busy ? "Проверяваме…" : "Преглед на демо поръчката"}
+                  <Icon name="arrow" />
+                </button>
               </fieldset>
-              <p className="note">
-                {payment === "card"
-                  ? "Тестовото картово плащане е без реално таксуване. При локалния симулатор не се въвежда карта; при Stripe тест се използват само тестови карти."
-                  : "Тестовата поръчка записва наложения платеж като дължим при получаване. Реална пратка и реално събиране на сумата още не се заявяват към куриера."}
-              </p>
-            </section>
-            {customer && (
-              <label className="save-profile">
-                <input
-                  type="checkbox"
-                  checked={saveProfile}
-                  onChange={(event) => setSaveProfile(event.target.checked)}
-                />{" "}
-                Запази получателя и доставката в профила за следваща поръчка
-                (имейлът на профила остава същият).
-              </label>
-            )}
-            <button className="button" type="submit">
-              {busy ? "Проверяваме…" : "Преглед на демо поръчката"}
-              <Icon name="arrow" />
-            </button>
-          </fieldset>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          {preview && (
-            <section
-              className="preview-result"
-              aria-label="Преглед на демо поръчката"
+              {error && (
+                <p className="error" role="alert">
+                  {error}
+                </p>
+              )}
+              {preview && (
+                <section
+                  className="preview-result"
+                  aria-label="Преглед на демо поръчката"
+                >
+                  <h2>Данните са проверени.</h2>
+                  <p role="status">
+                    Това е преглед. Не е създадена поръчка и не е извършено
+                    плащане.
+                  </p>
+                  <dl>
+                    <div>
+                      <dt>Куриер</dt>
+                      <dd>{preview.courier}</dd>
+                    </div>
+                    <div>
+                      <dt>Получаване</dt>
+                      <dd>{preview.destination}</dd>
+                    </div>
+                    <div>
+                      <dt>Плащане</dt>
+                      <dd>{preview.payment}</dd>
+                    </div>
+                    <div>
+                      <dt>Продукти · демо цени</dt>
+                      <dd>{formatMoney(preview.subtotalCents)}</dd>
+                    </div>
+                    <div>
+                      <dt>Доставка и окончателна сума</dt>
+                      <dd>
+                        {orderConfig?.enabled &&
+                        orderConfig.shippingCents !== null
+                          ? `${formatMoney(shippingForSubtotal(preview.subtotalCents, orderConfig.shippingCents, orderConfig.freeShippingAboveCents))} тестова доставка · ${formatMoney(preview.subtotalCents + shippingForSubtotal(preview.subtotalCents, orderConfig.shippingCents, orderConfig.freeShippingAboveCents))} общо`
+                          : "Предстои изчисляване"}
+                      </dd>
+                    </div>
+                  </dl>
+                  {orderConfig?.enabled &&
+                    orderConfig.freeShippingAboveCents !== null && (
+                      <p className="note">
+                        Безплатна тестова доставка при стойност на продуктите
+                        над {formatMoney(orderConfig.freeShippingAboveCents)}{" "}
+                        след намаления. Точните тарифи на куриерите ще се
+                        свържат при реалното пускане.
+                      </p>
+                    )}
+                  {orderConfig?.enabled &&
+                    orderConfig.shippingCents !== null && (
+                      <>
+                        <p className="demo-notice">
+                          Тестова поръчка с примерна доставка. Записва се за
+                          проследяване и изпраща тестови известия. Не поръчваш
+                          реални продукти и не плащаш реални пари.
+                        </p>
+                        <button
+                          type="button"
+                          className="button"
+                          disabled={busy}
+                          onClick={placeOrder}
+                        >
+                          {busy
+                            ? "Записваме…"
+                            : payment === "card"
+                              ? "Създай поръчка и пробвай тестово плащане"
+                              : "Потвърди тестова поръчка с наложен платеж"}
+                        </button>
+                      </>
+                    )}
+                </section>
+              )}
+            </form>
+            <aside
+              className="order-summary"
+              aria-label="Обобщение на поръчката"
             >
-              <h2>Данните са проверени.</h2>
-              <p role="status">
-                Това е преглед. Не е създадена поръчка и не е извършено плащане.
-              </p>
+              <p className="eyebrow">ТВОЯТ ИЗБОР</p>
+              <h2>Преди финала</h2>
               <dl>
                 <div>
-                  <dt>Куриер</dt>
-                  <dd>{preview.courier}</dd>
-                </div>
-                <div>
-                  <dt>Получаване</dt>
-                  <dd>{preview.destination}</dd>
-                </div>
-                <div>
-                  <dt>Плащане</dt>
-                  <dd>{preview.payment}</dd>
+                  <dt>Бройки</dt>
+                  <dd>{items.reduce((sum, item) => sum + item.quantity, 0)}</dd>
                 </div>
                 <div>
                   <dt>Продукти · демо цени</dt>
-                  <dd>{formatMoney(preview.subtotalCents)}</dd>
+                  <dd>{formatMoney(cartSubtotal(items))}</dd>
                 </div>
                 <div>
-                  <dt>Доставка и окончателна сума</dt>
-                  <dd>
-                    {orderConfig?.enabled && orderConfig.shippingCents !== null
-                      ? `${formatMoney(shippingForSubtotal(preview.subtotalCents, orderConfig.shippingCents, orderConfig.freeShippingAboveCents))} тестова доставка · ${formatMoney(preview.subtotalCents + shippingForSubtotal(preview.subtotalCents, orderConfig.shippingCents, orderConfig.freeShippingAboveCents))} общо`
-                      : "Предстои изчисляване"}
-                  </dd>
+                  <dt>Доставка</dt>
+                  <dd>Предстои изчисляване</dd>
                 </div>
               </dl>
-              {orderConfig?.enabled &&
-                orderConfig.freeShippingAboveCents !== null && (
-                  <p className="note">
-                    Безплатна тестова доставка при стойност на продуктите над{" "}
-                    {formatMoney(orderConfig.freeShippingAboveCents)} след
-                    намаления. Точните тарифи на куриерите ще се свържат при
-                    реалното пускане.
-                  </p>
-                )}
-              {orderConfig?.enabled && orderConfig.shippingCents !== null && (
-                <>
-                  <p className="demo-notice">
-                    Тестова поръчка с примерна доставка. Записва се за
-                    проследяване и изпраща тестови известия. Не поръчваш реални
-                    продукти и не плащаш реални пари.
-                  </p>
-                  <button
-                    type="button"
-                    className="button"
-                    disabled={busy}
-                    onClick={placeOrder}
-                  >
-                    {busy
-                      ? "Записваме…"
-                      : payment === "card"
-                        ? "Създай поръчка и пробвай тестово плащане"
-                        : "Потвърди тестова поръчка с наложен платеж"}
-                  </button>
-                </>
-              )}
-            </section>
-          )}
-        </form>
-        <aside className="order-summary" aria-label="Обобщение на поръчката">
-          <p className="eyebrow">ТВОЯТ ИЗБОР</p>
-          <h2>Преди финала</h2>
-          <dl>
-            <div>
-              <dt>Бройки</dt>
-              <dd>{items.reduce((sum, item) => sum + item.quantity, 0)}</dd>
-            </div>
-            <div>
-              <dt>Продукти · демо цени</dt>
-              <dd>{formatMoney(cartSubtotal(items))}</dd>
-            </div>
-            <div>
-              <dt>Доставка</dt>
-              <dd>Предстои изчисляване</dd>
-            </div>
-          </dl>
-          <p className="note">
-            Доставката и евентуалните платежни такси ще се включат в
-            окончателната сума преди реално потвърждение.
-          </p>
-          <Link className="text-link" href="/cart">
-            Редактирай количката <Icon name="arrow" />
-          </Link>
-        </aside>
-      </div>
-    </>
+              <p className="note">
+                Доставката и евентуалните платежни такси ще се включат в
+                окончателната сума преди реално потвърждение.
+              </p>
+              <Link className="text-link" href="/cart">
+                Редактирай количката <Icon name="arrow" />
+              </Link>
+            </aside>
+          </div>
+        </>
+      }
+    </Localize>
   );
 }

@@ -1,3 +1,4 @@
+import Localize from "../../components/localize";
 import Link from "next/link";
 import SiteHeader from "../../components/site-header";
 import SiteFooter from "../../components/site-footer";
@@ -60,60 +61,64 @@ const services = [
 ];
 export default function ForYouPage() {
   return (
-    <>
-      <SiteHeader />
-      <main id="main-content" className="site-width benefits-page">
-        <section className="page-intro benefits-intro">
-          <p className="eyebrow">МАЛКИТЕ УДОБСТВА. ГОЛЯМАТА РАЗЛИКА.</p>
-          <h1>
-            ТВОЯТА КОЛА.
-            <br />
-            <span>ТВОИТЕ ПРАВИЛА.</span>
-          </h1>
-          <p>
-            По-малко търсене. Повече време за пътя. Подреди своите продукти,
-            автомобили и напомняния — точно както ти е удобно.
-          </p>
-          <Link className="button" href="/account">
-            Създай своя профил
-          </Link>
-          <Link className="text-link" href="/account#services">
-            Управлявай моите услуги →
-          </Link>
-        </section>
-        <section className="benefits-grid" aria-label="Услуги за клиента">
-          {services.map((s) => (
-            <article className="benefit-card" key={s.number}>
-              <div className="benefit-top">
-                <span>{s.number}</span>
-                <small>{s.tag}</small>
-              </div>
-              <h2>{s.title}</h2>
-              <p>{s.description}</p>
-              <Link className="text-link" href={s.href}>
-                {s.label} →
+    <Localize>
+      {
+        <>
+          <SiteHeader />
+          <main id="main-content" className="site-width benefits-page">
+            <section className="page-intro benefits-intro">
+              <p className="eyebrow">МАЛКИТЕ УДОБСТВА. ГОЛЯМАТА РАЗЛИКА.</p>
+              <h1>
+                ТВОЯТА КОЛА.
+                <br />
+                <span>ТВОИТЕ ПРАВИЛА.</span>
+              </h1>
+              <p>
+                По-малко търсене. Повече време за пътя. Подреди своите продукти,
+                автомобили и напомняния — точно както ти е удобно.
+              </p>
+              <Link className="button" href="/account">
+                Създай своя профил
               </Link>
-            </article>
-          ))}
-        </section>
-        <section className="benefits-control">
-          <p className="eyebrow">ТИ ИЗБИРАШ КАКВО ПОЛУЧАВАШ</p>
-          <h2>Три отметки. Пълен контрол.</h2>
-          <p>
-            При регистрация можеш да разрешиш имейли за намаления, наличности и
-            сервизни напомняния. Всички са изключени по подразбиране. После
-            избираш конкретните продукти и дати, а настройките променяш по всяко
-            време от „Моите услуги“.
-          </p>
-          <p className="note">
-            Писмата за потвърждение на профила и етапите на поръчките се
-            изпращат отделно. В момента каталогът, плащанията и имейлите са в
-            тестов режим. За демонстрационните части още няма въведена проверена
-            съвместимост.
-          </p>
-        </section>
-      </main>
-      <SiteFooter />
-    </>
+              <Link className="text-link" href="/account#services">
+                Управлявай моите услуги →
+              </Link>
+            </section>
+            <section className="benefits-grid" aria-label="Услуги за клиента">
+              {services.map((s) => (
+                <article className="benefit-card" key={s.number}>
+                  <div className="benefit-top">
+                    <span>{s.number}</span>
+                    <small>{s.tag}</small>
+                  </div>
+                  <h2>{s.title}</h2>
+                  <p>{s.description}</p>
+                  <Link className="text-link" href={s.href}>
+                    {s.label} →
+                  </Link>
+                </article>
+              ))}
+            </section>
+            <section className="benefits-control">
+              <p className="eyebrow">ТИ ИЗБИРАШ КАКВО ПОЛУЧАВАШ</p>
+              <h2>Три отметки. Пълен контрол.</h2>
+              <p>
+                При регистрация можеш да разрешиш имейли за намаления,
+                наличности и сервизни напомняния. Всички са изключени по
+                подразбиране. После избираш конкретните продукти и дати, а
+                настройките променяш по всяко време от „Моите услуги“.
+              </p>
+              <p className="note">
+                Писмата за потвърждение на профила и етапите на поръчките се
+                изпращат отделно. В момента каталогът, плащанията и имейлите са
+                в тестов режим. За демонстрационните части още няма въведена
+                проверена съвместимост.
+              </p>
+            </section>
+          </main>
+          <SiteFooter />
+        </>
+      }
+    </Localize>
   );
 }

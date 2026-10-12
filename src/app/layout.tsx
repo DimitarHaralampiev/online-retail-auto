@@ -1,3 +1,5 @@
+import { requestLocale } from "../lib/i18n/server";
+import LocaleProvider from "../components/locale-provider";
 import type { Metadata } from "next";
 import "@fontsource-variable/manrope";
 import "@fontsource-variable/roboto-condensed";
@@ -14,17 +16,20 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const locale = await requestLocale();
   return (
-    <html lang="bg">
+    <html lang={locale}>
       <body>
-        <AccountProvider>
-          <CustomerProvider>
-            <CartProvider>{children}</CartProvider>
-          </CustomerProvider>
-        </AccountProvider>
+        <LocaleProvider initialLocale={locale}>
+          <AccountProvider>
+            <CustomerProvider>
+              <CartProvider>{children}</CartProvider>
+            </CustomerProvider>
+          </AccountProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

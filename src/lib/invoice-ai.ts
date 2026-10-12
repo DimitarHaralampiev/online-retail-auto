@@ -54,7 +54,9 @@ export function responseSources(response: ResponseData) {
   }
   return [...new Set(urls)];
 }
-async function response(body: Record<string, unknown>): Promise<ResponseData> {
+export async function response(
+  body: Record<string, unknown>,
+): Promise<ResponseData> {
   if (!aiConfigured())
     throw new Error(
       "Добави OPENAI_API_KEY в защитената конфигурация, за да използваш ИИ.",
@@ -76,7 +78,7 @@ async function response(body: Record<string, unknown>): Promise<ResponseData> {
     );
   return await result.json();
 }
-function format(schema: z.ZodType, name: string) {
+export function format(schema: z.ZodType, name: string) {
   const json = z.toJSONSchema(schema);
   delete json.$schema;
   return { format: { type: "json_schema", name, strict: true, schema: json } };

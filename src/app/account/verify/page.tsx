@@ -1,3 +1,4 @@
+import Localize from "../../../components/localize";
 import SiteHeader from "../../../components/site-header";
 import SiteFooter from "../../../components/site-footer";
 import EmailVerification from "../../../components/email-verification";
@@ -7,12 +8,16 @@ export const metadata = {
 };
 export default function VerifyPage() {
   return (
-    <>
-      <SiteHeader />
-      <main id="main-content" className="site-width checkout-page">
-        <EmailVerification />
-      </main>
-      <SiteFooter />
-    </>
+    <Localize>
+      {
+        <>
+          <SiteHeader />
+          <main id="main-content" className="site-width checkout-page">
+            <EmailVerification />
+          </main>
+          <SiteFooter />
+        </>
+      }
+    </Localize>
   );
 }

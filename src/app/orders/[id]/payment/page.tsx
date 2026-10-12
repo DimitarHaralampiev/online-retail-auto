@@ -1,3 +1,4 @@
+import Localize from "../../../../components/localize";
 import SiteHeader from "../../../../components/site-header";
 import SiteFooter from "../../../../components/site-footer";
 import TestPayment from "../../../../components/test-payment";
@@ -12,12 +13,16 @@ export default async function TestPaymentPage({
 }) {
   const { id } = await params;
   return (
-    <>
-      <SiteHeader />
-      <main id="main-content" className="site-width checkout-page">
-        <TestPayment id={id} />
-      </main>
-      <SiteFooter />
-    </>
+    <Localize>
+      {
+        <>
+          <SiteHeader />
+          <main id="main-content" className="site-width checkout-page">
+            <TestPayment id={id} />
+          </main>
+          <SiteFooter />
+        </>
+      }
+    </Localize>
   );
 }
