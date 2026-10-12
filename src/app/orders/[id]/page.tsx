@@ -1,3 +1,4 @@
+import Localize from "../../../components/localize";
 import SiteHeader from "../../../components/site-header";
 import SiteFooter from "../../../components/site-footer";
 import OrderTracking from "../../../components/order-tracking";
@@ -12,12 +13,16 @@ export default async function OrderPage({
 }) {
   const { id } = await params;
   return (
-    <>
-      <SiteHeader />
-      <main id="main-content" className="site-width checkout-page">
-        <OrderTracking id={id} />
-      </main>
-      <SiteFooter />
-    </>
+    <Localize>
+      {
+        <>
+          <SiteHeader />
+          <main id="main-content" className="site-width checkout-page">
+            <OrderTracking id={id} />
+          </main>
+          <SiteFooter />
+        </>
+      }
+    </Localize>
   );
 }

@@ -1,4 +1,6 @@
 "use client";
+import Localize from "./localize";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useCart } from "./cart-provider";
@@ -49,43 +51,47 @@ export default function MyOrders({ customerId }: { customerId: string }) {
     return () => controller.abort();
   }, [customerId]);
   return (
-    <section className="my-orders">
-      <h3>Моите поръчки</h3>
-      {repeatMessage && (
-        <p role="status">
-          {repeatMessage} <Link href="/cart">Виж количката →</Link>
-        </p>
-      )}
-      {loading && <p role="status">Зареждаме поръчките…</p>}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      {!loading && !orders.length && !error && (
-        <p>Още няма поръчки, направени с този профил.</p>
-      )}
-      <ul>
-        {orders.map((order) => (
-          <li key={order.id}>
-            <Link href={`/orders/${order.id}`}>
-              #{order.id.slice(0, 8).toUpperCase()} ·{" "}
-              {orderStatuses[order.status]}
-            </Link>
-            <p>
-              {formatMoney(order.totalCents)} ·{" "}
-              {paymentStatuses[order.paymentStatus]}
+    <Localize>
+      {
+        <section className="my-orders">
+          <h3>Моите поръчки</h3>
+          {repeatMessage && (
+            <p role="status">
+              {repeatMessage} <Link href="/cart">Виж количката →</Link>
             </p>
-            <button
-              className="text-link"
-              disabled={!ready}
-              onClick={() => repeat(order)}
-            >
-              Добави продуктите отново →
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
+          )}
+          {loading && <p role="status">Зареждаме поръчките…</p>}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          {!loading && !orders.length && !error && (
+            <p>Още няма поръчки, направени с този профил.</p>
+          )}
+          <ul>
+            {orders.map((order) => (
+              <li key={order.id}>
+                <Link href={`/orders/${order.id}`}>
+                  #{order.id.slice(0, 8).toUpperCase()} ·{" "}
+                  {orderStatuses[order.status]}
+                </Link>
+                <p>
+                  {formatMoney(order.totalCents)} ·{" "}
+                  {paymentStatuses[order.paymentStatus]}
+                </p>
+                <button
+                  className="text-link"
+                  disabled={!ready}
+                  onClick={() => repeat(order)}
+                >
+                  Добави продуктите отново →
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      }
+    </Localize>
   );
 }

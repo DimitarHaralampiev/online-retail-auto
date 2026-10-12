@@ -1,4 +1,6 @@
 "use client";
+import Localize from "./localize";
+
 
 import { useState } from "react";
 import { demoProducts } from "../lib/catalog";
@@ -34,7 +36,7 @@ export default function InventoryDemo() {
     }
   }
 
-  return (
+  return <Localize>{(
     <section className="categories" aria-label="Демонстрация на склад">
       <div className="table-wrapper"><table><caption>Примерни складови количества</caption><thead><tr><th scope="col">Продукт</th><th scope="col">В склада</th><th scope="col">Резервирани</th><th scope="col">Свободни</th></tr></thead><tbody>{products.map((product) => <tr key={product.sku}><th scope="row">{product.name}<small>{product.sku}</small></th><td>{product.stock.onHand}</td><td>{product.stock.reserved}</td><td>{availableStock(product.stock)}</td></tr>)}</tbody></table></div>
       <h2>Добави примерна операция</h2>
@@ -51,5 +53,5 @@ export default function InventoryDemo() {
       {history.length ? <ol className="history">{history.map((entry, index) => <li key={index}>{entry}</li>)}</ol> : <p className="note">Все още няма добавени движения.</p>}
       <button className="reset-button" type="button" onClick={() => { setProducts(demoProducts); setHistory([]); setError(""); setMessage("Примерните данни са възстановени."); }}>Възстанови примерните данни</button>
     </section>
-  );
+  )}</Localize>;
 }

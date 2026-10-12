@@ -1,4 +1,6 @@
 "use client";
+import Localize from "./localize";
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 export default function EmailVerification() {
@@ -33,29 +35,35 @@ export default function EmailVerification() {
     }
   }
   return (
-    <section className="checkout-panel account-panel">
-      <h2>Потвърди своя имейл.</h2>
-      <p>Натисни бутона, за да активираш профила си. Линкът е валиден 1 час.</p>
-      {token && (
-        <button className="button" disabled={busy} onClick={confirm}>
-          {busy ? "Потвърждаваме…" : "Потвърди имейла"}
-        </button>
-      )}
-      {!token && !message && (
-        <p>
-          Липсва линк за потвърждение. Отвори писмото или поискай ново от
-          страницата за вход.
-        </p>
-      )}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      {message && <p role="status">{message}</p>}
-      <Link className="text-link" href="/account">
-        Към входа / нов имейл
-      </Link>
-    </section>
+    <Localize>
+      {
+        <section className="checkout-panel account-panel">
+          <h2>Потвърди своя имейл.</h2>
+          <p>
+            Натисни бутона, за да активираш профила си. Линкът е валиден 1 час.
+          </p>
+          {token && (
+            <button className="button" disabled={busy} onClick={confirm}>
+              {busy ? "Потвърждаваме…" : "Потвърди имейла"}
+            </button>
+          )}
+          {!token && !message && (
+            <p>
+              Липсва линк за потвърждение. Отвори писмото или поискай ново от
+              страницата за вход.
+            </p>
+          )}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          {message && <p role="status">{message}</p>}
+          <Link className="text-link" href="/account">
+            Към входа / нов имейл
+          </Link>
+        </section>
+      }
+    </Localize>
   );
 }

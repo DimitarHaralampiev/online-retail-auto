@@ -1,4 +1,6 @@
 "use client";
+import Localize from "./localize";
+
 import { useState, useEffect } from "react";
 import Link from "next/link";
 export default function TestPayment({ id }: { id: string }) {
@@ -29,36 +31,40 @@ export default function TestPayment({ id }: { id: string }) {
     }
   }
   return (
-    <section className="checkout-panel account-panel">
-      <p className="eyebrow">ЛОКАЛЕН СИМУЛАТОР</p>
-      <h2>Пробвай плащането.</h2>
-      <p className="demo-notice">
-        Това е симулация. Не въвеждай карта. Няма реално таксуване.
-      </p>
-      <div className="test-payment-actions">
-        <button
-          className="button"
-          disabled={busy || token.length !== 64}
-          onClick={() => pay("success")}
-        >
-          Симулирай успешно плащане
-        </button>
-        <button
-          className="button"
-          disabled={busy || token.length !== 64}
-          onClick={() => pay("failure")}
-        >
-          Симулирай отказано плащане
-        </button>
-      </div>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      <Link className="text-link" href={`/orders/${id}#token=${token}`}>
-        Назад към поръчката
-      </Link>
-    </section>
+    <Localize>
+      {
+        <section className="checkout-panel account-panel">
+          <p className="eyebrow">ЛОКАЛЕН СИМУЛАТОР</p>
+          <h2>Пробвай плащането.</h2>
+          <p className="demo-notice">
+            Това е симулация. Не въвеждай карта. Няма реално таксуване.
+          </p>
+          <div className="test-payment-actions">
+            <button
+              className="button"
+              disabled={busy || token.length !== 64}
+              onClick={() => pay("success")}
+            >
+              Симулирай успешно плащане
+            </button>
+            <button
+              className="button"
+              disabled={busy || token.length !== 64}
+              onClick={() => pay("failure")}
+            >
+              Симулирай отказано плащане
+            </button>
+          </div>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <Link className="text-link" href={`/orders/${id}#token=${token}`}>
+            Назад към поръчката
+          </Link>
+        </section>
+      }
+    </Localize>
   );
 }
