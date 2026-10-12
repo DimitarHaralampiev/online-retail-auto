@@ -751,5 +751,11 @@
   "Съдържанието не съответства на избрания файлов формат.": "Content does not match the selected file format.",
   "Лимитът е 12 файла и общо 100 MB за продукт.": "Each product allows 12 files and 100 MB in total.",
   "Файлът не е намерен.": "File not found.",
-  "Основният файл трябва да бъде снимка.": "The cover must be an image."
+  "Основният файл трябва да бъде снимка.": "The cover must be an image.",
+  "Организация и багажник": "Organisation & trunk",
+  "Стойки за телефон": "Phone holders",
+  "Филтри": "Filters",
+  "Чистачки": "Wipers",
+  "Измиване и препарати": "Washing & cleaners",
+  "Кърпи и микрофибър": "Cloths & microfiber"
 }
