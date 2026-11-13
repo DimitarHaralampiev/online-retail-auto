@@ -163,9 +163,7 @@ export default function BusinessChat() {
             ▧ {label("Продукти и медия", "Products & media")}
           </Link>
           <Link href="/admin/orders">≡ {label("Поръчки", "Orders")}</Link>
-          <Link href="/admin/settings">
-            ⚙ {label("Настройки", "Settings")}
-          </Link>
+          <Link href="/admin/settings">⚙ {label("Настройки", "Settings")}</Link>
         </nav>
         <div className="insights-scope">
           <div className="insights-section-label">
