@@ -11,6 +11,12 @@ updates:
       # Types follow the Node.js runtime in .nvmrc; bump deliberately.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # Unsupported by typescript-eslint / eslint plugins bundled with
+      # eslint-config-next; revisit when it adds support (#66).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
     groups:
       # The lint config must match the framework version, including majors.
       nextjs:
