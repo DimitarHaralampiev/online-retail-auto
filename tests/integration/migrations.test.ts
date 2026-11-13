@@ -62,11 +62,31 @@ test("every migration file is numbered and applied in order", async () => {
     assert.ok(names.has(table), `missing table ${table}`);
 });
 
-test("the harness refuses to run against a remote database server", async () => {
+test("the harness refuses remote servers and host overrides", () => {
   const original = process.env.TEST_DATABASE_URL;
-  process.env.TEST_DATABASE_URL = "postgresql://user:pass@db.example.com/auto";
+  const refused: [string, RegExp][] = [
+    ["postgresql://user:pass@db.example.com/auto", /local server/],
+    ["postgresql://user:pass@127.0.0.2/auto", /local server/],
+    [
+      "postgresql://u:p@localhost/auto?host=db.example.com",
+      /override the host/,
+    ],
+    ["postgresql://u:p@localhost/auto?hostaddr=10.0.0.5", /override the host/],
+    ["postgresql://u:p@localhost/auto?host=/var/run/postgresql", /override/],
+  ];
   try {
-    assert.throws(() => testServerUrl(), /local server/);
+    for (const [url, error] of refused) {
+      process.env.TEST_DATABASE_URL = url;
+      assert.throws(() => testServerUrl(), error, url);
+    }
+    for (const url of [
+      "postgresql://u:p@localhost:5433/auto",
+      "postgresql://u:p@127.0.0.1/auto?sslmode=disable",
+      "postgresql://u:p@[::1]/auto",
+    ]) {
+      process.env.TEST_DATABASE_URL = url;
+      assert.doesNotThrow(() => testServerUrl(), url);
+    }
   } finally {
     if (original === undefined) delete process.env.TEST_DATABASE_URL;
     else process.env.TEST_DATABASE_URL = original;

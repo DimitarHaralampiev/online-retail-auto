@@ -16,10 +16,18 @@ Object.assign(process.env, {
 
 const db = setupTestDatabase();
 
+// Demo catalog assumptions (src/lib/catalog.ts). Epic #12 moves the catalog to
+// the database; these tests should then seed their own products instead.
+const FILTER = { sku: "DEMO-003", priceCents: 1890 };
+const ORGANIZER = { sku: "DEMO-001", salePriceCents: 2390 };
+const OUT_OF_STOCK = { sku: "DEMO-004", priceCents: 2490 };
+const SHIPPING_CENTS = 500;
+const FILTER_TOTAL = FILTER.priceCents + SHIPPING_CENTS;
+
 // Address delivery keeps these tests offline (office delivery loads courier data).
 function checkout(overrides: Record<string, unknown> = {}) {
   return {
-    items: [{ sku: "DEMO-003", quantity: 1 }],
+    items: [{ sku: FILTER.sku, quantity: 1 }],
     contact: {
       name: "Иван Петров",
       email: "buyer@example.test",
@@ -41,7 +49,7 @@ function checkout(overrides: Record<string, unknown> = {}) {
 
 function order(
   requestKey: string = randomUUID(),
-  expectedTotalCents = 2390,
+  expectedTotalCents = FILTER_TOTAL,
   checkoutOverrides: Record<string, unknown> = {},
 ) {
   return {
@@ -67,10 +75,9 @@ test("creates an order with server-side prices, history and a queued email", asy
   const created = await createOrder(order(), null);
   assert.equal(created.status, "received");
   assert.equal(created.payment_status, "due_on_delivery");
-  // DEMO-003 costs 18.90 EUR; 5.00 EUR shipping below the free threshold.
-  assert.equal(created.subtotal_cents, 1890);
-  assert.equal(created.shipping_cents, 500);
-  assert.equal(created.total_cents, 2390);
+  assert.equal(created.subtotal_cents, FILTER.priceCents);
+  assert.equal(created.shipping_cents, SHIPPING_CENTS);
+  assert.equal(created.total_cents, FILTER_TOTAL);
   const history = await db().pool.query(
     "SELECT status FROM order_history WHERE order_id=$1",
     [created.id],
@@ -89,12 +96,15 @@ test("creates an order with server-side prices, history and a queued email", asy
 });
 
 test("shipping is free above the threshold and uses discounted prices", async () => {
-  // 2 × 23.90 EUR (discounted organizer) = 47.80 EUR > 30.00 EUR.
+  // Two discounted organizers exceed the 30.00 EUR free-shipping threshold.
+  const subtotal = 2 * ORGANIZER.salePriceCents;
   const created = await createOrder(
-    order(randomUUID(), 4780, { items: [{ sku: "DEMO-001", quantity: 2 }] }),
+    order(randomUUID(), subtotal, {
+      items: [{ sku: ORGANIZER.sku, quantity: 2 }],
+    }),
     null,
   );
-  assert.equal(created.subtotal_cents, 4780);
+  assert.equal(created.subtotal_cents, subtotal);
   assert.equal(created.shipping_cents, 0);
 });
 
@@ -123,7 +133,7 @@ test("reusing a request key with different data is rejected", async () => {
   await createOrder(order(key), null);
   await assert.rejects(
     createOrder(
-      order(key, 2390, {
+      order(key, FILTER_TOTAL, {
         contact: {
           name: "Друг Човек",
           email: "other@example.test",
@@ -138,7 +148,10 @@ test("reusing a request key with different data is rejected", async () => {
 });
 
 test("a stale expected total is rejected without writing anything", async () => {
-  await assert.rejects(createOrder(order(randomUUID(), 1890), null), /Сумата/);
+  await assert.rejects(
+    createOrder(order(randomUUID(), FILTER.priceCents), null),
+    /Сумата/,
+  );
   assert.equal(await count("orders"), 0);
   assert.equal(await count("order_email_outbox"), 0);
 });
@@ -175,17 +188,13 @@ test("a stale or invalid status change rolls back completely", async () => {
     changeOrderStatus(created.id, "ready", "received", admin),
     /Невалидна промяна/,
   );
-  for (const status of ["confirmed", "preparing", "ready"] as const)
-    await changeOrderStatus(
-      created.id,
-      status,
-      status === "confirmed"
-        ? "received"
-        : status === "preparing"
-          ? "confirmed"
-          : "preparing",
-      admin,
-    );
+  const steps = [
+    ["received", "confirmed"],
+    ["confirmed", "preparing"],
+    ["preparing", "ready"],
+  ] as const;
+  for (const [from, to] of steps)
+    await changeOrderStatus(created.id, to, from, admin);
   await assert.rejects(
     changeOrderStatus(created.id, "handed_to_courier", "ready", admin, " "),
     /товарителница/,
@@ -215,7 +224,7 @@ test("only one of two concurrent status changes succeeds", async () => {
 test("card orders cannot progress before payment is confirmed", async () => {
   const admin = await insertCustomer(db().pool, { isAdmin: true });
   const created = await createOrder(
-    order(randomUUID(), 2390, { payment: "card" }),
+    order(randomUUID(), FILTER_TOTAL, { payment: "card" }),
     null,
   );
   assert.equal(created.payment_status, "pending");
@@ -226,13 +235,87 @@ test("card orders cannot progress before payment is confirmed", async () => {
 });
 
 test("orders for unavailable stock are rejected", async () => {
-  // DEMO-004 has no free stock in the demo catalog.
   await assert.rejects(
     createOrder(
-      order(randomUUID(), 2990, { items: [{ sku: "DEMO-004", quantity: 1 }] }),
+      order(randomUUID(), OUT_OF_STOCK.priceCents + SHIPPING_CENTS, {
+        items: [{ sku: OUT_OF_STOCK.sku, quantity: 1 }],
+      }),
       null,
     ),
     /Недостатъчна наличност/,
   );
   assert.equal(await count("orders"), 0);
+});
+
+test("a request key cannot be replayed by another customer", async () => {
+  const owner = await insertCustomer(db().pool);
+  const other = await insertCustomer(db().pool);
+  const key = randomUUID();
+  const first = await createOrder(order(key), owner);
+  for (const customer of [other, null])
+    await assert.rejects(
+      createOrder(order(key), customer),
+      /вече е използвана/,
+      "another customer must not receive the owner's order",
+    );
+  assert.equal((await createOrder(order(key), owner)).id, first.id);
+});
+
+test("a failure after the insert rolls back and leaves the pool usable", async () => {
+  const appUrl = process.env.APP_URL;
+  // The queued email needs APP_URL, so this fails after the order insert.
+  process.env.APP_URL = "not a url";
+  try {
+    await assert.rejects(createOrder(order(), null), /APP_URL|Invalid URL/);
+  } finally {
+    process.env.APP_URL = appUrl;
+  }
+  assert.equal(await count("orders"), 0);
+  // Every pooled connection must be back outside a transaction.
+  await Promise.all(
+    Array.from({ length: 6 }, () => createOrder(order(), null)),
+  );
+  assert.equal(await count("orders"), 6);
+});
+
+test("card payment is refused when no card provider is configured", async () => {
+  const provider = process.env.PAYMENT_PROVIDER;
+  process.env.PAYMENT_PROVIDER = "stripe"; // no Stripe keys configured
+  try {
+    await assert.rejects(
+      createOrder(order(randomUUID(), FILTER_TOTAL, { payment: "card" }), null),
+      /Картовото плащане още не е свързано/,
+    );
+  } finally {
+    process.env.PAYMENT_PROVIDER = provider;
+  }
+  assert.equal(await count("orders"), 0);
+});
+
+test("handing over stores the trimmed tracking number", async () => {
+  const admin = await insertCustomer(db().pool, { isAdmin: true });
+  const created = await createOrder(order(), null);
+  const steps = [
+    ["received", "confirmed"],
+    ["confirmed", "preparing"],
+    ["preparing", "ready"],
+  ] as const;
+  for (const [from, to] of steps)
+    await changeOrderStatus(created.id, to, from, admin);
+  const handed = await changeOrderStatus(
+    created.id,
+    "handed_to_courier",
+    "ready",
+    admin,
+    "  TRK123  ",
+  );
+  assert.equal(handed.tracking_number, "TRK123");
+});
+
+test("changing an unknown order fails cleanly", async () => {
+  const admin = await insertCustomer(db().pool, { isAdmin: true });
+  await assert.rejects(
+    changeOrderStatus(randomUUID(), "confirmed", "received", admin),
+    /не е намерена/,
+  );
 });

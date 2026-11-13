@@ -14,6 +14,12 @@ export function database() {
     max: 5,
   }));
 }
+/** Closes the shared pool; the next `database()` call opens a new one. */
+export async function closeDatabase() {
+  const pool = globalDb.accountPool;
+  globalDb.accountPool = undefined;
+  await pool?.end();
+}
 export const sessionCookie = "auto_session";
 export async function currentCustomer(): Promise<Customer | null> {
   const token = (await cookies()).get(sessionCookie)?.value;

@@ -4,15 +4,18 @@
 // database on the server in TEST_DATABASE_URL, applies all migrations twice
 // (proving they are idempotent) and points the application's DATABASE_URL at
 // it. `drop()` closes every pool and removes the database, so test files can
-// run in parallel and never touch development data.
+// run in parallel and never touch development data. Databases abandoned by
+// killed runs are swept the next time a test file starts.
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { parseEnv } from "node:util";
 import { after, before } from "node:test";
 import pg from "pg";
 import { applyMigrations } from "../../scripts/migrations.mjs";
+import { closeDatabase } from "../../src/lib/accounts";
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+// URL.hostname keeps the brackets of IPv6 literals.
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 export type TestDatabase = {
   name: string;
@@ -43,6 +46,13 @@ export function testServerUrl(): URL {
     throw new Error(
       `TEST_DATABASE_URL must point to a local server, got ${url.hostname}`,
     );
+  // pg lets query parameters override the host in the URL, which would bypass
+  // the check above, so refuse them outright.
+  for (const key of url.searchParams.keys())
+    if (/^host(addr)?$/i.test(key))
+      throw new Error(
+        `TEST_DATABASE_URL must not override the host with "${key}"`,
+      );
   return url;
 }
 
@@ -52,45 +62,86 @@ function withDatabase(server: URL, name: string): string {
   return url.toString();
 }
 
+const TEST_DATABASE_NAME = /^auto_it_(\d+)_[0-9a-f]{8}$/;
+
+function processAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM: the process exists but belongs to another user.
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+async function dropDatabase(server: URL, name: string) {
+  if (!TEST_DATABASE_NAME.test(name))
+    throw new Error(`Refusing to drop non-test database ${name}`);
+  const admin = new pg.Client({ connectionString: server.toString() });
+  await admin.connect();
+  try {
+    // Names match TEST_DATABASE_NAME ([a-z0-9_] only), so quoting is safe.
+    await admin.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+  } finally {
+    await admin.end();
+  }
+}
+
+/** Drops test databases left behind by killed runs (their process is gone). */
+async function sweepAbandonedDatabases(server: URL) {
+  const admin = new pg.Client({ connectionString: server.toString() });
+  await admin.connect();
+  let names: string[];
+  try {
+    const result = await admin.query<{ datname: string }>(
+      "SELECT datname FROM pg_database WHERE datname LIKE 'auto\\_it\\_%'",
+    );
+    names = result.rows.map((row) => row.datname);
+  } finally {
+    await admin.end();
+  }
+  for (const name of names) {
+    const pid = Number(TEST_DATABASE_NAME.exec(name)?.[1]);
+    if (pid && pid !== process.pid && !processAlive(pid))
+      await dropDatabase(server, name).catch(() => {});
+  }
+}
+
 export async function createTestDatabase(): Promise<TestDatabase> {
   const server = testServerUrl();
+  await sweepAbandonedDatabases(server);
   const name = `auto_it_${process.pid}_${randomBytes(4).toString("hex")}`;
   const admin = new pg.Client({ connectionString: server.toString() });
   await admin.connect();
   try {
-    // The name is generated above from [a-z0-9_] only, so quoting is safe.
     await admin.query(`CREATE DATABASE "${name}"`);
   } finally {
     await admin.end();
   }
   const url = withDatabase(server, name);
-  await applyMigrations(url);
-  await applyMigrations(url);
-  const pool = new pg.Pool({ connectionString: url, max: 4 });
+  let pool: pg.Pool;
+  try {
+    await applyMigrations(url);
+    await applyMigrations(url);
+    pool = new pg.Pool({ connectionString: url, max: 4 });
+  } catch (error) {
+    // A broken migration must not leave a database behind.
+    await dropDatabase(server, name);
+    throw error;
+  }
   return {
     name,
     url,
     pool,
     async drop() {
-      await pool.end();
-      await closeApplicationPool();
-      const cleanup = new pg.Client({ connectionString: server.toString() });
-      await cleanup.connect();
       try {
-        await cleanup.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+        await pool.end();
+        await closeDatabase();
       } finally {
-        await cleanup.end();
+        await dropDatabase(server, name);
       }
     },
   };
-}
-
-/** The application caches its pool on globalThis (see src/lib/accounts.ts). */
-async function closeApplicationPool() {
-  const holder = globalThis as typeof globalThis & { accountPool?: pg.Pool };
-  const pool = holder.accountPool;
-  holder.accountPool = undefined;
-  await pool?.end();
 }
 
 /**
