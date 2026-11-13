@@ -2,7 +2,7 @@
 import Localize from "./localize";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useCustomerFeatures } from "./customer-provider";
 import { useAccount } from "./account-provider";
 import { useCatalog } from "./catalog-provider";
@@ -14,9 +14,15 @@ export default function Favorites() {
   const watched = data.alerts.filter((a) => a.active);
   // Load only the products this page shows.
   const wanted = [...data.favorites, ...watched.map((a) => a.sku)].join("\n");
-  useEffect(() => {
-    if (wanted) ensureProducts(wanted.split("\n")).catch(() => undefined);
+  const [failed, setFailed] = useState(false);
+  const load = useCallback(() => {
+    if (!wanted) return;
+    ensureProducts(wanted.split("\n")).then(
+      () => setFailed(false),
+      () => setFailed(true),
+    );
   }, [wanted, ensureProducts]);
+  useEffect(load, [load]);
   const products = data.favorites.flatMap((sku) => {
     const product = productBySku(sku);
     return product ? [product] : [];
@@ -42,6 +48,14 @@ export default function Favorites() {
           ) : (
             <>
               <p className="note">Запазени продукти: {products.length}</p>
+              {failed && (
+                <p className="demo-notice" role="status">
+                  Някои продукти не се заредиха.{" "}
+                  <button type="button" className="text-button" onClick={load}>
+                    Опитай отново
+                  </button>
+                </p>
+              )}
               <div className="product-grid">
                 {products.map((p) => (
                   <ProductCard product={p} key={p.sku} />
