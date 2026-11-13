@@ -8,5 +8,6 @@ coverage/
 .agents/
 .aws/
 .codex/
+.idea/
 *.log
 .DS_Store
