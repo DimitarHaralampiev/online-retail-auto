@@ -4,6 +4,12 @@ import { database } from "./accounts";
 import { orderUrl, simulatorEnabled } from "./order-config";
 import { validPayment } from "./order-state";
 import { queueOrderEmail } from "./order-notifications";
+import {
+  CARD_PAYMENT_WINDOW_MINUTES,
+  expireUnpaidCardOrder,
+  extendReservations,
+  keepReservations,
+} from "./stock-reservations";
 export function stripeClient() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key?.startsWith("sk_test_"))
@@ -11,7 +17,11 @@ export function stripeClient() {
   return new Stripe(key, { timeout: 10000, maxNetworkRetries: 1 });
 }
 export async function checkoutPayment(order: OrderRecord) {
-  if (order.payment_method !== "card" || order.payment_status === "paid")
+  if (
+    order.payment_method !== "card" ||
+    order.payment_status === "paid" ||
+    order.status === "cancelled"
+  )
     return null;
   if (simulatorEnabled())
     return orderUrl(order.id).replace(
@@ -19,6 +29,8 @@ export async function checkoutPayment(order: OrderRecord) {
       `/orders/${order.id}/payment#`,
     );
   if (order.payment_url) return order.payment_url;
+  const sessionExpiry =
+    Math.floor(Date.now() / 1000) + (CARD_PAYMENT_WINDOW_MINUTES + 1) * 60;
   const session = await stripeClient().checkout.sessions.create(
     {
       mode: "payment",
@@ -56,6 +68,9 @@ export async function checkoutPayment(order: OrderRecord) {
       ],
       success_url: orderUrl(order.id),
       cancel_url: orderUrl(order.id),
+      // Stripe's minimum lifetime; the reservation is extended past it below,
+      // so a session never outlives the stock held for it.
+      expires_at: sessionExpiry,
     },
     { idempotencyKey: `test-order-${order.id}` },
   );
@@ -64,6 +79,11 @@ export async function checkoutPayment(order: OrderRecord) {
   await database().query(
     "UPDATE orders SET stripe_session_id=COALESCE(stripe_session_id,$1),payment_url=$2 WHERE id=$3 AND (stripe_session_id IS NULL OR stripe_session_id=$1)",
     [session.id, session.url, order.id],
+  );
+  await extendReservations(
+    database(),
+    order.id,
+    new Date((session.expires_at + 5 * 60) * 1000),
   );
   return session.url;
 }
@@ -111,18 +131,35 @@ export async function recordPaymentEvent(event: Stripe.Event) {
       await client.query("COMMIT");
       return;
     }
-    if (order.payment_status !== "paid") {
+    if (expired) {
+      // The session can no longer be paid: release the stock and cancel.
+      if (order.payment_status !== "paid")
+        await expireUnpaidCardOrder(client, order);
+    } else if (order.payment_status !== "paid") {
       await client.query(
-        "UPDATE orders SET payment_status=$1,stripe_session_id=$2,updated_at=now() WHERE id=$3",
-        [expired ? "failed" : "paid", session.id, id],
+        "UPDATE orders SET payment_status='paid',stripe_session_id=$1,updated_at=now() WHERE id=$2",
+        [session.id, id],
       );
-      await queueOrderEmail(
-        client,
-        order,
-        expired
-          ? "Срокът за картовото плащане изтече. Поръчката не е платена."
-          : "Тестовото картово плащане е потвърдено.",
-      );
+      if (order.status === "cancelled") {
+        // Paid after the order was cancelled (its stock released): record the
+        // money truthfully, keep the order cancelled and flag a refund.
+        console.error(
+          "Payment received for cancelled order; refund needed",
+          id,
+        );
+        await queueOrderEmail(
+          client,
+          order,
+          "Получихме плащане за поръчка, която вече е отказана, защото срокът за плащане изтече. Ще възстановим сумата.",
+        );
+      } else {
+        await keepReservations(client, id);
+        await queueOrderEmail(
+          client,
+          order,
+          "Тестовото картово плащане е потвърдено.",
+        );
+      }
     }
     await client.query("COMMIT");
   } catch (e) {

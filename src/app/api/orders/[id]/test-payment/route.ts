@@ -7,6 +7,7 @@ import {
   sendOrderEmails,
 } from "../../../../../lib/order-notifications";
 import { requestJson, json, orderError } from "../../../../../lib/order-http";
+import { keepReservations } from "../../../../../lib/stock-reservations";
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -39,11 +40,22 @@ export async function POST(
         await client.query("ROLLBACK");
         return json({ error: "Поръчката не е намерена." }, 404);
       }
+      // A cancelled order (e.g. its payment window passed) cannot be paid.
+      if (order.status === "cancelled" && order.payment_status !== "paid") {
+        await client.query("ROLLBACK");
+        return json(
+          { error: "Поръчката е отказана и не може да бъде платена." },
+          409,
+        );
+      }
       if (order.payment_status !== "paid") {
         await client.query(
           "UPDATE orders SET payment_status=$1,updated_at=now() WHERE id=$2",
           [data.outcome === "success" ? "paid" : "failed", id],
         );
+        // Paid: keep the stock. A failed attempt may be retried, so the
+        // reservation stays until the payment window ends.
+        if (data.outcome === "success") await keepReservations(client, id);
         const saved = await client.query(
           "INSERT INTO payment_events(id,order_id) VALUES ($1,$2) ON CONFLICT(id) DO NOTHING RETURNING id",
           [`simulator-${id}-${data.outcome}`, id],

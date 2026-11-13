@@ -21,7 +21,8 @@
     "test:integration": "node --import tsx --test --test-concurrency=4 tests/integration/*.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:docker": "scripts/e2e-docker.sh",
-    "db:seed:demo": "node --env-file=.env.local --import tsx scripts/seed-demo-catalog.ts"
+    "db:seed:demo": "node --env-file=.env.local --import tsx scripts/seed-demo-catalog.ts",
+    "orders:release-expired": "node --env-file=.env.local --import tsx scripts/release-expired-reservations.ts"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",

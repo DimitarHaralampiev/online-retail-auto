@@ -34,6 +34,7 @@ Node.js 22 LTS (`.nvmrc`; minimum 20.18.1 per `engines`) and npm. Install with `
 - Catalog source: `CATALOG_SOURCE=postgres` serves the catalog from PostgreSQL (seed it first); unset or `static` uses the built-in demo data, as builds and browser tests do.
 - `npm run db:seed:demo` — load the demo catalog (categories, translations, published products, stock, demo promotion) into the database. Idempotent; never resets stock or touches non-demo products; refuses a non-local `APP_URL` unless `ALLOW_DEMO_SEED=1`. Migrations never contain catalog data.
 - `npm run admin:grant -- <email>` — grant the admin role to an existing account with a verified email.
+- `npm run orders:release-expired` (`-- --watch` to run every minute) — release stock held by unpaid card orders whose payment window passed, cancel them and email the customer. Production must run it continuously or from cron, otherwise unpaid card orders hold stock indefinitely. With `CATALOG_SOURCE=postgres`, orders reserve stock in the order transaction (`src/lib/stock-reservations.ts`); handover consumes and cancellation releases it.
 - `npm run orders:send-emails`, `npm run customers:worker -- --watch` — order email queue and customer notification workers.
 - `npm run mail:check` — verify SMTP settings.
 - `npm run test:orders`, `npm run test:features` — end-to-end smoke flows. They need a running local app (`npm run dev`, or set `TEST_APP_URL`), a migrated local database, and Mailpit (`test:orders` also needs `PAYMENT_PROVIDER=simulator`), and refuse non-local targets.

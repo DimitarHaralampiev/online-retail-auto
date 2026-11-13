@@ -1,5 +1,6 @@
 import { randomUUID, createHash } from "node:crypto";
 import { database } from "./accounts";
+import { compareSku } from "./stock-reservations";
 import { extractInvoice, researchMarket } from "./invoice-ai";
 import {
   reviewedInvoiceSchema,
@@ -178,7 +179,7 @@ export async function postInvoice(
       .replace(/\s+/g, "");
     const ordered = invoice.lines
       .map((line, index) => ({ line, index }))
-      .sort((a, b) => a.line.sku.localeCompare(b.line.sku));
+      .sort((a, b) => compareSku(a.line.sku, b.line.sku));
     for (const { line, index } of ordered) {
       await client.query(
         "INSERT INTO warehouse_products(sku,name,brand,manufacturer_code,ean) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING",

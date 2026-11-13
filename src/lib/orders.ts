@@ -6,7 +6,14 @@ import { z } from "zod";
 import { database } from "./accounts";
 import { checkoutSchema, previewCheckout } from "./checkout";
 import { courierOffices } from "./courier-offices";
-import { lookupProducts } from "./catalog-server";
+import { productLookup } from "./catalog";
+import { createPostgresCatalog } from "./catalog-postgres";
+import { catalogSource, lookupProducts } from "./catalog-server";
+import {
+  consumeOrderStock,
+  reserveStock,
+  settleReservations,
+} from "./stock-reservations";
 import { sellingPrice } from "./pricing";
 import { trackingToken, orderUrl, simulatorEnabled } from "./order-config";
 import { tokenHash } from "./password";
@@ -92,6 +99,27 @@ export async function createOrder(value: unknown, customerId: string | null) {
       return existing.rows[0];
     }
     const order = inserted.rows[0];
+    if (catalogSource() === "postgres") {
+      // Reserve stock and re-read prices on this transaction: the conditional
+      // reservation cannot oversell, and the reserved rows' prices cannot
+      // change until commit. Promotions are read as of this moment (they are
+      // not locked). Any failure rolls the order back.
+      await reserveStock(client, id, lines, checkout.payment);
+      const current = productLookup(
+        await createPostgresCatalog(() => client).getProducts(
+          lines.map((line) => line.sku),
+        ),
+      );
+      for (const line of lines) {
+        const product = current(line.sku);
+        if (!product)
+          throw new Error(`Продуктът вече не е наличен: ${line.name}.`);
+        if (sellingPrice(product) !== line.unitPriceCents)
+          throw new Error(
+            "Сумата е променена. Направи нов преглед на поръчката.",
+          );
+      }
+    }
     await client.query(
       "INSERT INTO order_history (id,order_id,status) VALUES ($1,$2,$3)",
       [randomUUID(), id, "received"],
@@ -125,6 +153,10 @@ export async function changeOrderStatus(
     if (order.status !== expected)
       throw new Error("Етапът вече е променен. Обнови списъка.");
     validateTransition(order, next, trackingNumber);
+    // Goods leave the warehouse on handover; a cancellation frees the stock.
+    if (next === "handed_to_courier" && catalogSource() === "postgres")
+      await consumeOrderStock(client, id, order.lines);
+    if (next === "cancelled") await settleReservations(client, id, "released");
     const changed = await client.query<OrderRecord>(
       "UPDATE orders SET status=$1,tracking_number=$2,updated_at=now() WHERE id=$3 RETURNING *",
       [
