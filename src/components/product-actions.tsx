@@ -33,7 +33,7 @@ export default function ProductActions({ product }: { product: Product }) {
           <button
             className={`favorite-button ${favorite ? "is-favorite" : ""}`}
             type="button"
-            aria-label={`${favorite ? "Премахни от" : "Добави в"} любими: ${product.name}`}
+            aria-label={`${favorite ? "В любими" : "Запази в любими"}: ${product.name}`}
             aria-pressed={favorite}
             disabled={!ready || busy}
             onClick={() =>

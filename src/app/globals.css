@@ -3,7 +3,7 @@
   --paper: #faf9f6;
   --surface: #f0eee8;
   --ink: #202222;
-  --muted: #686b67;
+  --muted: #616460;
   --accent: #f36b32;
   --accent-dark: #ac3c10;
   --line: #deded7;
@@ -344,6 +344,18 @@ p {
   margin-left: 25px;
   color: var(--accent);
   font-size: 20px;
+}
+/* Text for assistive technology only. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 .principles-strip {
   background: #eae9e2;

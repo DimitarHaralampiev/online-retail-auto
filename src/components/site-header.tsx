@@ -16,11 +16,7 @@ export function Brand() {
   return (
     <Localize>
       {
-        <Link
-          className="brand"
-          href="/"
-          aria-label="AUTO/SHOP — Начална страница"
-        >
+        <Link className="brand" href="/">
           <svg className="brand-mark" viewBox="0 0 38 38" aria-hidden="true">
             <path
               d="M3 32 17 6h8L11 32H3Zm17 0 7-13 8 13H20Z"
@@ -31,6 +27,7 @@ export function Brand() {
             AUTO<span className="brand-slash">/</span>SHOP
             <small>PARTS. CARE. CHARACTER.</small>
           </span>
+          <span className="visually-hidden">— Начална страница</span>
         </Link>
       }
     </Localize>
