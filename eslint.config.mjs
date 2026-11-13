@@ -15,6 +15,31 @@ export default defineConfig([
     },
   },
   {
+    // Catalog data is read through the CatalogRepository (catalog-server.ts)
+    // on the server and the CatalogProvider on the client. Only the static
+    // adapter wiring and tests may import the demo data directly.
+    ignores: [
+      "src/lib/catalog-server.ts",
+      "src/lib/**/*.test.ts",
+      "tests/**",
+      "scripts/**",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/catalog-demo-data"],
+              message:
+                "Read products through catalog() from catalog-server or useCatalog().",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Legacy client components that set state synchronously in effects or
     // write refs during render. They power cart, checkout and account flows,
     // so they are refactored only once Playwright covers those journeys

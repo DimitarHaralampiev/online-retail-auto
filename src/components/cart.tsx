@@ -4,7 +4,7 @@ import Localize from "./localize";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "./cart-provider";
-import { demoProducts } from "../lib/catalog";
+import { useCatalog } from "./catalog-provider";
 import { availableStock } from "../lib/inventory";
 import { cartSubtotal, formatMoney } from "../lib/cart";
 import Icon from "./icon";
@@ -13,6 +13,7 @@ import { sellingPrice } from "../lib/pricing";
 
 export default function Cart() {
   const { items, ready, storageWarning, setQuantity, remove } = useCart();
+  const { productBySku } = useCatalog();
   if (!ready)
     return <Localize>{<p role="status">Зареждаме количката…</p>}</Localize>;
   if (!items.length)
@@ -38,9 +39,7 @@ export default function Cart() {
           <div className="checkout-grid">
             <section className="cart-lines" aria-label="Продукти в количката">
               {items.map((item) => {
-                const product = demoProducts.find(
-                  (entry) => entry.sku === item.sku,
-                )!;
+                const product = productBySku(item.sku)!;
                 return (
                   <article className="cart-line" key={item.sku}>
                     <Link href={`/catalog/${item.sku}`} className="cart-photo">
@@ -110,7 +109,7 @@ export default function Cart() {
               <dl>
                 <div>
                   <dt>Продукти · демо цени</dt>
-                  <dd>{formatMoney(cartSubtotal(items))}</dd>
+                  <dd>{formatMoney(cartSubtotal(items, productBySku))}</dd>
                 </div>
                 <div>
                   <dt>Доставка</dt>

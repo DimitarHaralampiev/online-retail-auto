@@ -5,7 +5,7 @@ import {
   priceFilterCents,
   type BrowseFilters,
 } from "./catalog-browse";
-import { demoProducts } from "./catalog";
+import { demoProducts } from "./catalog-demo-data";
 import { translate } from "./i18n/translate";
 const defaults: BrowseFilters = {
   category: "",

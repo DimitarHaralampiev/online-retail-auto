@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Icon from "./icon";
 import { useCart } from "./cart-provider";
-import { categories, demoProducts } from "../lib/catalog";
+import { useCatalog } from "./catalog-provider";
 
 import { useAccount } from "./account-provider";
 
@@ -39,6 +39,7 @@ export default function SiteHeader() {
   const { customer } = useAccount();
   const [open, setOpen] = useState(false);
   const { items } = useCart();
+  const { taxonomy } = useCatalog();
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const navigation = [
     ...(customer?.isAdmin
@@ -142,31 +143,19 @@ export default function SiteHeader() {
                 <Link className="promotions-shortcut" href="/promotions">
                   Промоции <Icon name="spark" />
                 </Link>
-                {categories
-                  .filter((category) =>
-                    demoProducts.some(
-                      (product) => product.category === category,
-                    ),
-                  )
-                  .map((category) => (
-                    <Link
-                      key={category}
-                      href={{ pathname: "/catalog", query: { category } }}
-                    >
-                      {category === "Части и консумативи"
-                        ? "Части"
-                        : category === "Автоаксесоари"
-                          ? "Аксесоари"
-                          : category}
-                      <span>
-                        {
-                          demoProducts.filter(
-                            (product) => product.category === category,
-                          ).length
-                        }
-                      </span>
-                    </Link>
-                  ))}
+                {taxonomy.map(({ name: category, productCount }) => (
+                  <Link
+                    key={category}
+                    href={{ pathname: "/catalog", query: { category } }}
+                  >
+                    {category === "Части и консумативи"
+                      ? "Части"
+                      : category === "Автоаксесоари"
+                        ? "Аксесоари"
+                        : category}
+                    <span>{productCount}</span>
+                  </Link>
+                ))}
               </nav>
               <form
                 className="shop-search"

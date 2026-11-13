@@ -1,4 +1,5 @@
 "use client";
+import { useCatalog } from "./catalog-provider";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useAccount } from "./account-provider";
 import { emptyFeatures, type CustomerFeatures } from "../lib/customer-rules";
@@ -26,6 +27,7 @@ export default function CustomerProvider({
   children: React.ReactNode;
 }) {
   const { customer, ready: accountReady } = useAccount();
+  const { productBySku } = useCatalog();
   const [data, setData] = useState(emptyFeatures);
   const latestData = useRef(data);
   latestData.current = data;
@@ -42,7 +44,10 @@ export default function CustomerProvider({
     setData(emptyFeatures());
     let guest: string[] = [];
     try {
-      guest = readGuestFavorites(localStorage.getItem(FAVORITES_STORAGE_KEY));
+      guest = readGuestFavorites(
+        localStorage.getItem(FAVORITES_STORAGE_KEY),
+        (sku) => !!productBySku(sku),
+      );
     } catch {}
     if (!customer) {
       setData({ ...emptyFeatures(), favorites: guest });
@@ -79,7 +84,7 @@ export default function CustomerProvider({
     }
     void load();
     return () => controller.abort();
-  }, [customer?.id, accountReady]);
+  }, [customer?.id, accountReady, productBySku]);
   async function mutate(value: unknown) {
     const id = owner.current;
     setError("");

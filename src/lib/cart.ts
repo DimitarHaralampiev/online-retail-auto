@@ -1,11 +1,14 @@
-import { demoProducts } from "./catalog";
+import type { ProductLookup } from "./catalog";
 import { availableStock } from "./inventory";
 import { sellingPrice } from "./pricing";
 
 export type CartItem = { sku: string; quantity: number };
 export const CART_STORAGE_KEY = "auto-shop:cart:v1";
 
-export function normalizeCart(value: unknown): CartItem[] {
+export function normalizeCart(
+  value: unknown,
+  lookup: ProductLookup,
+): CartItem[] {
   if (!Array.isArray(value) || value.length > 50) return [];
   const quantities = new Map<string, number>();
   for (const item of value) {
@@ -17,7 +20,7 @@ export function normalizeCart(value: unknown): CartItem[] {
       item.quantity <= 0
     )
       continue;
-    const product = demoProducts.find((entry) => entry.sku === item.sku);
+    const product = lookup(item.sku);
     if (!product) continue;
     const available = availableStock(product.stock);
     const quantity = Math.min(available, item.quantity, 50);
@@ -30,7 +33,10 @@ export function normalizeCart(value: unknown): CartItem[] {
   return Array.from(quantities, ([sku, quantity]) => ({ sku, quantity }));
 }
 
-export function readStoredCart(raw: string | null): CartItem[] {
+export function readStoredCart(
+  raw: string | null,
+  lookup: ProductLookup,
+): CartItem[] {
   if (!raw || raw.length > 16_384) return [];
   try {
     const stored: unknown = JSON.parse(raw);
@@ -42,15 +48,16 @@ export function readStoredCart(raw: string | null): CartItem[] {
       !("items" in stored)
     )
       return [];
-    return normalizeCart(stored.items);
+    return normalizeCart(stored.items, lookup);
   } catch {
     return [];
   }
 }
 
-export function cartSubtotal(items: CartItem[]): number {
-  return normalizeCart(items).reduce((sum, item) => {
-    const product = demoProducts.find((entry) => entry.sku === item.sku)!;
+export function cartSubtotal(items: CartItem[], lookup: ProductLookup): number {
+  return normalizeCart(items, lookup).reduce((sum, item) => {
+    const product = lookup(item.sku);
+    if (!product) return sum;
     return sum + sellingPrice(product) * item.quantity;
   }, 0);
 }

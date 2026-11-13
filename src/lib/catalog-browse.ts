@@ -1,47 +1,6 @@
-import { categories, type Product } from "./catalog";
+import type { Product } from "./catalog";
 import { availableStock } from "./inventory";
 import { getPromotion, sellingPrice } from "./pricing";
-export const subcategories = [
-  {
-    id: "organization",
-    name: "Организация и багажник",
-    category: categories[0],
-    skus: ["DEMO-001"],
-  },
-  {
-    id: "phone-holders",
-    name: "Стойки за телефон",
-    category: categories[0],
-    skus: ["DEMO-002"],
-  },
-  {
-    id: "filters",
-    name: "Филтри",
-    category: categories[1],
-    skus: ["DEMO-003"],
-  },
-  {
-    id: "wipers",
-    name: "Чистачки",
-    category: categories[1],
-    skus: ["DEMO-004"],
-  },
-  {
-    id: "washing",
-    name: "Измиване и препарати",
-    category: categories[2],
-    skus: ["DEMO-005"],
-  },
-  {
-    id: "microfiber",
-    name: "Кърпи и микрофибър",
-    category: categories[2],
-    skus: ["DEMO-006"],
-  },
-];
-export function productSubcategory(sku: string) {
-  return subcategories.find((s) => s.skus.includes(sku));
-}
 export type BrowseFilters = {
   category: string;
   subcategory: string;
@@ -75,8 +34,7 @@ export function browseProducts(
   const filtered = products.filter(
     (p) =>
       (!filters.category || p.category === filters.category) &&
-      (!filters.subcategory ||
-        productSubcategory(p.sku)?.id === filters.subcategory) &&
+      (!filters.subcategory || p.subcategory?.id === filters.subcategory) &&
       (!filters.available || availableStock(p.stock) > 0) &&
       (!filters.promotions || !!getPromotion(p)) &&
       (!filters.compatibleSkus || filters.compatibleSkus.includes(p.sku)) &&

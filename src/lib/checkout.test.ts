@@ -2,6 +2,10 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { normalizeCart, readStoredCart, cartSubtotal } from "./cart";
 import { previewCheckout, type CheckoutInput } from "./checkout";
+import { productLookup } from "./catalog";
+import { demoProducts } from "./catalog-demo-data";
+
+const lookup = productLookup(demoProducts);
 
 const valid: CheckoutInput = {
   items: [{ sku: "DEMO-001", quantity: 2 }],
@@ -21,25 +25,28 @@ const valid: CheckoutInput = {
 
 describe("cart and checkout", () => {
   it("recovers safely from broken storage and other versions", () => {
-    assert.deepEqual(readStoredCart("{"), []);
-    assert.deepEqual(readStoredCart('{"version":2,"items":[]}'), []);
-    assert.deepEqual(readStoredCart(null), []);
+    assert.deepEqual(readStoredCart("{", lookup), []);
+    assert.deepEqual(readStoredCart('{"version":2,"items":[]}', lookup), []);
+    assert.deepEqual(readStoredCart(null, lookup), []);
   });
   it("drops invalid lines and caps duplicates by free stock", () => {
     assert.deepEqual(
-      normalizeCart([
-        { sku: "DEMO-002", quantity: 2 },
-        { sku: "DEMO-002", quantity: 3 },
-        { sku: "DEMO-004", quantity: 1 },
-        { sku: "missing", quantity: 1 },
-        { sku: "DEMO-001", quantity: -1 },
-      ]),
+      normalizeCart(
+        [
+          { sku: "DEMO-002", quantity: 2 },
+          { sku: "DEMO-002", quantity: 3 },
+          { sku: "DEMO-004", quantity: 1 },
+          { sku: "missing", quantity: 1 },
+          { sku: "DEMO-001", quantity: -1 },
+        ],
+        lookup,
+      ),
       [{ sku: "DEMO-002", quantity: 1 }],
     );
   });
   it("uses integer cents from the catalog", () => {
-    assert.equal(cartSubtotal(valid.items), 2390 * 2);
-    const quote = previewCheckout(valid);
+    assert.equal(cartSubtotal(valid.items, lookup), 2390 * 2);
+    const quote = previewCheckout(valid, lookup);
     assert.equal(quote.subtotalCents, 2390 * 2);
     assert.equal(quote.orderCreated, false);
     assert.equal(quote.paymentStatus, "not_started");
@@ -47,19 +54,22 @@ describe("cart and checkout", () => {
     assert.equal(quote.totalCents, null);
   });
   it("accepts card selection and address delivery without charging", () => {
-    const quote = previewCheckout({
-      ...valid,
-      payment: "card",
-      delivery: {
-        type: "address",
-        courier: "econt",
-        city: "София",
-        postalCode: "1000",
-        street: "Тестова улица",
-        number: "1",
-        details: "",
+    const quote = previewCheckout(
+      {
+        ...valid,
+        payment: "card",
+        delivery: {
+          type: "address",
+          courier: "econt",
+          city: "София",
+          postalCode: "1000",
+          street: "Тестова улица",
+          number: "1",
+          details: "",
+        },
       },
-    });
+      lookup,
+    );
     assert.equal(quote.payment, "Банкова карта");
     assert.equal(quote.courier, "Еконт");
     assert.match(quote.destination, /1000 София/);
@@ -71,36 +81,45 @@ describe("cart and checkout", () => {
       { ...valid.delivery, city: "Варна" },
       { ...valid.delivery, officeId: "unknown" },
     ])
-      assert.throws(() => previewCheckout({ ...valid, delivery }));
+      assert.throws(() => previewCheckout({ ...valid, delivery }, lookup));
   });
   it("rejects overselling across duplicate lines", () => {
     assert.throws(() =>
-      previewCheckout({
-        ...valid,
-        items: [
-          { sku: "DEMO-002", quantity: 1 },
-          { sku: "DEMO-002", quantity: 1 },
-        ],
-      }),
+      previewCheckout(
+        {
+          ...valid,
+          items: [
+            { sku: "DEMO-002", quantity: 1 },
+            { sku: "DEMO-002", quantity: 1 },
+          ],
+        },
+        lookup,
+      ),
     );
   });
   it("rejects unknown or unavailable products", () => {
     for (const sku of ["unknown", "DEMO-004", "DEMO-006"])
       assert.throws(() =>
-        previewCheckout({ ...valid, items: [{ sku, quantity: 1 }] }),
+        previewCheckout({ ...valid, items: [{ sku, quantity: 1 }] }, lookup),
       );
   });
   it("rejects client-supplied prices and totals", () => {
-    assert.throws(() => previewCheckout({ ...valid, total: 1 }));
+    assert.throws(() => previewCheckout({ ...valid, total: 1 }, lookup));
     assert.throws(() =>
-      previewCheckout({ ...valid, items: [{ ...valid.items[0], price: 1 }] }),
+      previewCheckout(
+        { ...valid, items: [{ ...valid.items[0], price: 1 }] },
+        lookup,
+      ),
     );
   });
   it("rejects empty carts and invalid quantities", () => {
-    assert.throws(() => previewCheckout({ ...valid, items: [] }));
+    assert.throws(() => previewCheckout({ ...valid, items: [] }, lookup));
     for (const quantity of [0, -1, 1.5, 51])
       assert.throws(() =>
-        previewCheckout({ ...valid, items: [{ sku: "DEMO-001", quantity }] }),
+        previewCheckout(
+          { ...valid, items: [{ sku: "DEMO-001", quantity }] },
+          lookup,
+        ),
       );
   });
   it("requires recipient details", () => {
@@ -109,7 +128,7 @@ describe("cart and checkout", () => {
       { ...valid.contact, email: "wrong" },
       { ...valid.contact, phone: "123" },
     ])
-      assert.throws(() => previewCheckout({ ...valid, contact }));
+      assert.throws(() => previewCheckout({ ...valid, contact }, lookup));
   });
   it("requires a complete address and Bulgarian postcode", () => {
     const address = {
@@ -127,6 +146,6 @@ describe("cart and checkout", () => {
       { ...address, street: "" },
       { ...address, number: "" },
     ])
-      assert.throws(() => previewCheckout({ ...valid, delivery }));
+      assert.throws(() => previewCheckout({ ...valid, delivery }, lookup));
   });
 });

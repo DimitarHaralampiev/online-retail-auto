@@ -2,6 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { parseOffices } from "./courier-offices";
 import { previewCheckout } from "./checkout";
+import { productLookup } from "./catalog";
+import { demoProducts } from "./catalog-demo-data";
+
+const lookup = productLookup(demoProducts);
 test("Econt offices use shipment codes and exclude lockers and foreign locations", () => {
   const office = {
     id: 1,
@@ -72,16 +76,21 @@ test("checkout validates the office against the server courier list", () => {
     },
     payment: "cod",
   };
-  assert.equal(previewCheckout(input, offices).destination, "Офис Център");
+  assert.equal(
+    previewCheckout(input, lookup, offices).destination,
+    "Офис Център",
+  );
   assert.throws(() =>
     previewCheckout(
       { ...input, delivery: { ...input.delivery, officeId: "tampered" } },
+      lookup,
       offices,
     ),
   );
   assert.throws(() =>
     previewCheckout(
       { ...input, delivery: { ...input.delivery, courier: "speedy" } },
+      lookup,
       offices,
     ),
   );

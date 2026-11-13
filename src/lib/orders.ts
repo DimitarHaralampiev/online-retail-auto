@@ -6,7 +6,7 @@ import { z } from "zod";
 import { database } from "./accounts";
 import { checkoutSchema, previewCheckout } from "./checkout";
 import { courierOffices } from "./courier-offices";
-import { demoProducts } from "./catalog";
+import { lookupProducts } from "./catalog-server";
 import { sellingPrice } from "./pricing";
 import { trackingToken, orderUrl, simulatorEnabled } from "./order-config";
 import { tokenHash } from "./password";
@@ -38,7 +38,8 @@ export async function createOrder(value: unknown, customerId: string | null) {
     checkout.delivery.type === "office"
       ? await courierOffices(checkout.delivery.courier)
       : [];
-  const preview = previewCheckout(checkout, offices);
+  const products = await lookupProducts(checkout.items.map((i) => i.sku));
+  const preview = previewCheckout(checkout, products, offices);
   const shippingCents = shippingForSubtotal(
     preview.subtotalCents,
     config.shippingCents,
@@ -51,7 +52,7 @@ export async function createOrder(value: unknown, customerId: string | null) {
   for (const item of checkout.items)
     quantities.set(item.sku, (quantities.get(item.sku) ?? 0) + item.quantity);
   const lines = [...quantities].map(([sku, quantity]) => {
-    const p = demoProducts.find((p) => p.sku === sku)!;
+    const p = products(sku)!;
     return { sku, name: p.name, quantity, unitPriceCents: sellingPrice(p) };
   });
   const id = randomUUID();

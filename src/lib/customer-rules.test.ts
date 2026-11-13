@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   customerActionSchema,
+  customerActionSkus,
   fitmentMatches,
   prepareRepeatOrder,
   todayInSofia,
@@ -10,7 +11,9 @@ import {
 } from "./customer-rules";
 import { registrationSchema } from "./account-schema";
 import { readGuestFavorites } from "./guest-favorites";
-import { demoProducts } from "./catalog";
+import { demoProducts } from "./catalog-demo-data";
+
+const isKnownSku = (sku: string) => demoProducts.some((p) => p.sku === sku);
 test("registration leaves optional emails disabled unless explicitly selected", () => {
   const base = {
     name: "Тест Клиент",
@@ -39,7 +42,7 @@ test("registration leaves optional emails disabled unless explicitly selected", 
   );
 });
 test("guest favorites reject corrupt storage, unknown SKUs and deduplicate", () => {
-  assert.deepEqual(readGuestFavorites("broken"), []);
+  assert.deepEqual(readGuestFavorites("broken", isKnownSku), []);
   assert.deepEqual(
     readGuestFavorites(
       JSON.stringify([
@@ -48,23 +51,26 @@ test("guest favorites reject corrupt storage, unknown SKUs and deduplicate", () 
         "UNKNOWN",
         null,
       ]),
+      isKnownSku,
     ),
     [demoProducts[0].sku],
   );
   assert.deepEqual(
-    readGuestFavorites(JSON.stringify(Array(101).fill(demoProducts[0].sku))),
+    readGuestFavorites(
+      JSON.stringify(Array(101).fill(demoProducts[0].sku)),
+      isKnownSku,
+    ),
     [],
   );
 });
-test("customer actions reject unrecognized SKUs and injected ownership", () => {
-  assert.equal(
-    customerActionSchema.safeParse({
-      action: "favorite",
-      sku: "UNKNOWN",
-      enabled: true,
-    }).success,
-    false,
-  );
+test("customer actions validate SKU format and reject injected ownership", () => {
+  for (const sku of ["", " ", "X".repeat(51)])
+    assert.equal(
+      customerActionSchema.safeParse({ action: "favorite", sku, enabled: true })
+        .success,
+      false,
+      JSON.stringify(sku),
+    );
   assert.equal(
     customerActionSchema.safeParse({
       action: "favorite",
@@ -73,6 +79,34 @@ test("customer actions reject unrecognized SKUs and injected ownership", () => {
       customerId: "other",
     }).success,
     false,
+  );
+});
+test("customer actions list the SKUs that must exist in the catalog", () => {
+  const parse = (value: unknown) => customerActionSchema.parse(value);
+  assert.deepEqual(
+    customerActionSkus(parse({ action: "favorite", sku: "A", enabled: true })),
+    ["A"],
+  );
+  assert.deepEqual(
+    customerActionSkus(
+      parse({ action: "import-favorites", skus: ["A", "B", "A"] }),
+    ),
+    ["A", "B"],
+  );
+  assert.deepEqual(
+    customerActionSkus(
+      parse({ action: "alert", sku: "C", kind: "stock", enabled: true }),
+    ),
+    ["C"],
+  );
+  assert.deepEqual(
+    customerActionSkus(
+      parse({
+        action: "preferences",
+        preferences: { price: false, stock: false, reminders: false },
+      }),
+    ),
+    [],
   );
 });
 test("fitment requires matching engine, model and inclusive year range", () => {
@@ -97,13 +131,16 @@ test("fitment requires matching engine, model and inclusive year range", () => {
   assert.equal(fitmentMatches({ ...v, engine: "2.0 TDI" }, f), false);
 });
 test("repeat order uses current free stock, combines duplicates and skips missing products", () => {
-  const result = prepareRepeatOrder([
-    { sku: demoProducts[1].sku, quantity: 3 },
-    { sku: demoProducts[1].sku, quantity: 2 },
-    { sku: demoProducts[3].sku, quantity: 1 },
-    { sku: "UNKNOWN", quantity: 1 },
-    { sku: demoProducts[0].sku, quantity: -1 },
-  ]);
+  const result = prepareRepeatOrder(
+    [
+      { sku: demoProducts[1].sku, quantity: 3 },
+      { sku: demoProducts[1].sku, quantity: 2 },
+      { sku: demoProducts[3].sku, quantity: 1 },
+      { sku: "UNKNOWN", quantity: 1 },
+      { sku: demoProducts[0].sku, quantity: -1 },
+    ],
+    demoProducts,
+  );
   assert.deepEqual(result.items, [{ sku: demoProducts[1].sku, quantity: 1 }]);
   assert.equal(result.reduced.length, 1);
   assert.equal(result.skipped.length, 2);

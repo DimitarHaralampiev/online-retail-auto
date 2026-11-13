@@ -3,8 +3,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { useLocale } from "./locale-provider";
 import { useCustomerFeatures } from "./customer-provider";
-import { categories, demoProducts } from "../lib/catalog";
-import { browseProducts, subcategories } from "../lib/catalog-browse";
+import { browseProducts } from "../lib/catalog-browse";
+import { useCatalog } from "./catalog-provider";
 import ProductCard from "./product-card";
 export default function Catalog({
   initialCategory = "",
@@ -18,6 +18,11 @@ export default function Catalog({
   const { t, locale } = useLocale();
   const en = locale === "en";
   const text = (bg: string, english: string) => (en ? english : bg);
+  const { taxonomy, products } = useCatalog();
+  const categories = taxonomy.map((c) => c.name);
+  const subcategories = taxonomy.flatMap((c) =>
+    c.subcategories.map((s) => ({ ...s, category: c.name })),
+  );
   const initialSub = subcategories.find(
     (s) =>
       s.id === initialSubcategory &&
@@ -42,7 +47,7 @@ export default function Catalog({
   const selectedVehicle = data.vehicles.find((v) => v.selected);
   const carFilter = onlyForCar && !!selectedVehicle;
   const result = browseProducts(
-    demoProducts,
+    products,
     {
       category,
       subcategory,
@@ -150,10 +155,9 @@ export default function Catalog({
                 }}
               >
                 <option value="">{t("Всички категории")}</option>
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {t(c)} (
-                    {demoProducts.filter((p) => p.category === c).length})
+                {taxonomy.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {t(c.name)} ({c.productCount})
                   </option>
                 ))}
               </select>

@@ -3,7 +3,7 @@ import Localize from "./localize";
 
 
 import { useState } from "react";
-import { demoProducts } from "../lib/catalog";
+import { useCatalog } from "./catalog-provider";
 import { applyMovement, availableStock, type MovementType } from "../lib/inventory";
 
 const movementLabels: Record<MovementType, string> = {
@@ -11,8 +11,9 @@ const movementLabels: Record<MovementType, string> = {
 };
 
 export default function InventoryDemo() {
-  const [products, setProducts] = useState(demoProducts);
-  const [sku, setSku] = useState(demoProducts[0].sku);
+  const { products: initialProducts } = useCatalog();
+  const [products, setProducts] = useState(initialProducts);
+  const [sku, setSku] = useState(initialProducts[0]?.sku ?? "");
   const [type, setType] = useState<MovementType>("receipt");
   const [quantity, setQuantity] = useState("1");
   const [message, setMessage] = useState("");
@@ -51,7 +52,7 @@ export default function InventoryDemo() {
       <p role="status">{message}</p>
       <h2>Движения в тази сесия</h2>
       {history.length ? <ol className="history">{history.map((entry, index) => <li key={index}>{entry}</li>)}</ol> : <p className="note">Все още няма добавени движения.</p>}
-      <button className="reset-button" type="button" onClick={() => { setProducts(demoProducts); setHistory([]); setError(""); setMessage("Примерните данни са възстановени."); }}>Възстанови примерните данни</button>
+      <button className="reset-button" type="button" onClick={() => { setProducts(initialProducts); setHistory([]); setError(""); setMessage("Примерните данни са възстановени."); }}>Възстанови примерните данни</button>
     </section>
   )}</Localize>;
 }

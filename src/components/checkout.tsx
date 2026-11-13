@@ -5,6 +5,7 @@ import Link from "next/link";
 import { shippingForSubtotal } from "../lib/shipping-price";
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "./cart-provider";
+import { useCatalog } from "./catalog-provider";
 import { cartSubtotal, formatMoney } from "../lib/cart";
 import {
   courierLabels,
@@ -19,6 +20,7 @@ import { useAccount } from "./account-provider";
 
 export default function Checkout() {
   const { items, ready, storageWarning, clear } = useCart();
+  const { productBySku } = useCatalog();
   const { customer, ready: accountReady, setCustomer } = useAccount();
   const [orderConfig, setOrderConfig] = useState<{
     enabled: boolean;
@@ -676,7 +678,7 @@ export default function Checkout() {
                 </div>
                 <div>
                   <dt>Продукти · демо цени</dt>
-                  <dd>{formatMoney(cartSubtotal(items))}</dd>
+                  <dd>{formatMoney(cartSubtotal(items, productBySku))}</dd>
                 </div>
                 <div>
                   <dt>Доставка</dt>
