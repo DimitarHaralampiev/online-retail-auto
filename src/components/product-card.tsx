@@ -26,7 +26,7 @@ export default function ProductCard({ product }: { product: Product }) {
           >
             <Image
               src={product.image}
-              alt={`Илюстрация: ${product.name}`}
+              alt=""
               fill
               sizes="(max-width: 600px) 100vw, (max-width: 900px) 50vw, 33vw"
             />

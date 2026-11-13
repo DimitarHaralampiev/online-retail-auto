@@ -37,6 +37,16 @@ export default defineConfig({
           TEST_SHIPPING_CENTS: "500",
           FREE_SHIPPING_ABOVE_CENTS: "3000",
           DATABASE_URL: "",
+          // Blank anything .env.local could provide, so local runs match CI
+          // and never use real credentials or external services.
+          APP_URL: "",
+          PAYMENT_PROVIDER: "",
+          STRIPE_SECRET_KEY: "",
+          STRIPE_WEBHOOK_SECRET: "",
+          SMTP_HOST: "",
+          OPENAI_API_KEY: "",
+          SPEEDY_API_USER: "",
+          SPEEDY_API_PASSWORD: "",
         },
       },
 });

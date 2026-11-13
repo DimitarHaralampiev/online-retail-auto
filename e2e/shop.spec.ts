@@ -1,6 +1,14 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const addToCart = "Добави в демо количката";
+
+/** Adds the product on the current detail page and waits until it is saved. */
+async function addCurrentProductToCart(page: Page) {
+  await page.getByRole("button", { name: addToCart }).first().click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Добавено." }),
+  ).toBeVisible();
+}
 
 test("home page leads to the catalog", async ({ page }) => {
   await page.goto("/");
@@ -14,7 +22,7 @@ test("home page leads to the catalog", async ({ page }) => {
   await expect(page).toHaveURL(/\/catalog$/);
   await expect(
     page.getByRole("status").filter({ hasText: "продукта" }),
-  ).toContainText("6");
+  ).toHaveText(/^\s*6\s*продукта\s*$/);
 });
 
 test("catalog filters by category, search and promotion", async ({
@@ -36,7 +44,7 @@ test("catalog filters by category, search and promotion", async ({
     .selectOption({ label: "Автокозметика (2)" });
   await expect(
     page.getByRole("status").filter({ hasText: "продукт" }),
-  ).toContainText("2");
+  ).toHaveText(/^\s*2\s*продукта\s*$/);
   await expect(heading("Шампоан за автомобил")).toBeVisible();
   await expect(heading("Въздушен филтър")).toHaveCount(0);
 
@@ -65,7 +73,7 @@ test("cart keeps items and recalculates totals", async ({ page }) => {
   await expect(
     page.getByRole("heading", { level: 1, name: "Въздушен филтър" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: addToCart }).first().click();
+  await addCurrentProductToCart(page);
   await page.goto("/cart");
   const summary = page.getByRole("complementary", {
     name: "Обобщение на количката",
@@ -87,7 +95,7 @@ test("checkout previews an address delivery with cash on delivery", async ({
   page,
 }) => {
   await page.goto("/catalog/DEMO-003");
-  await page.getByRole("button", { name: addToCart }).first().click();
+  await addCurrentProductToCart(page);
   await page.goto("/checkout");
   await page
     .getByRole("textbox", { name: "Име и фамилия" })
@@ -114,7 +122,7 @@ test("checkout previews an address delivery with cash on delivery", async ({
 
 test("checkout rejects an invalid phone number", async ({ page }) => {
   await page.goto("/catalog/DEMO-003");
-  await page.getByRole("button", { name: addToCart }).first().click();
+  await addCurrentProductToCart(page);
   await page.goto("/checkout");
   await page
     .getByRole("textbox", { name: "Име и фамилия" })
@@ -149,4 +157,23 @@ test("the store switches to English and remembers it", async ({ page }) => {
   );
   await page.reload();
   await expect(english).toBeVisible();
+});
+
+test("each product card exposes one link and the logo names the home page", async ({
+  page,
+}) => {
+  await page.goto("/catalog");
+  await expect(
+    page
+      .getByRole("banner")
+      .getByRole("link", { name: /AUTO\/SHOP.*Начална страница/ }),
+  ).toHaveAttribute("href", "/");
+  // The photo duplicates the title link and is hidden from assistive
+  // technology, so each card exposes exactly one link to its product.
+  const card = page.getByRole("article").filter({
+    has: page.getByRole("heading", { name: "Органайзер за багажник" }),
+  });
+  await expect(
+    card.getByRole("link").and(card.locator('[href="/catalog/DEMO-001"]')),
+  ).toHaveCount(1);
 });
