@@ -17,7 +17,8 @@
     "test:features": "node --env-file=.env.local --import tsx scripts/test-customer-invoices.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint . --max-warnings 16"
+    "lint": "eslint . --max-warnings 16",
+    "test:integration": "node --import tsx --test --test-concurrency=4 tests/integration/*.test.ts"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",
