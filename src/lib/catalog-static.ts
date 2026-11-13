@@ -1,6 +1,13 @@
 // In-memory CatalogRepository over a fixed product list (the demo catalog
 // today, fixtures in tests). PostgreSQL replaces it behind the same interface.
-import { buildTaxonomy, type CatalogRepository, type Product } from "./catalog";
+import {
+  buildTaxonomy,
+  paginate,
+  type CatalogRepository,
+  type Product,
+} from "./catalog";
+import { filterProducts } from "./catalog-browse";
+import { translate } from "./i18n/translate";
 
 export function createStaticCatalog(
   products: readonly Product[],
@@ -23,6 +30,13 @@ export function createStaticCatalog(
     },
     async taxonomy() {
       return taxonomy;
+    },
+    async browse(query) {
+      const locale = query.locale ?? "bg";
+      const matches = filterProducts(products, query, (text) =>
+        translate(text, locale),
+      );
+      return paginate(matches, query);
     },
   };
 }

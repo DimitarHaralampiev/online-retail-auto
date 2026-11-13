@@ -1,9 +1,19 @@
 // CatalogRepository over PostgreSQL (warehouse_products, product_categories,
-// translations and promotions). Implements the current contract unchanged;
-// the planned contract evolution (category ids, per-request locale, price
-// field names) is recorded in docs/architecture/0001-catalog-repository.md.
+// translations and promotions). Implements the current contract; the planned
+// contract evolution (category ids, per-request locale, price field names) is
+// recorded in docs/architecture/0001-catalog-repository.md.
+//
+// All reads share one `visible` CTE, so listing, lookups, browsing and
+// category counts apply exactly the same visibility and pricing rules.
 import type pg from "pg";
-import { buildTaxonomy, type CatalogRepository, type Product } from "./catalog";
+import {
+  pageWindow,
+  type BrowseQuery,
+  type BrowseSort,
+  type CatalogRepository,
+  type CatalogTaxonomy,
+  type Product,
+} from "./catalog";
 
 /** Shown until products have their own public images (#44). */
 export const FALLBACK_PRODUCT_IMAGE = "/images/garage-hero.png";
@@ -27,56 +37,96 @@ type ProductRow = {
   parent_name: string | null;
 };
 
-// Storefront names are Bulgarian; the UI translates them (see the ADR).
-const PRODUCTS_SQL = `
-WITH live_sale AS (
+// $1: optional SKU filter (lookups, vehicle fitment). Names are Bulgarian;
+// English translations are exposed for locale-aware search and sorting.
+const VISIBLE_CTE = `
+live_sale AS (
   SELECT l.sku, min(l.sale_price_cents) AS sale_cents
   FROM promotion_lines l
   JOIN promotions p ON p.id = l.promotion_id
   WHERE p.status = 'active'
     AND (p.starts_at IS NULL OR p.starts_at <= now())
     AND (p.ends_at IS NULL OR p.ends_at > now())
+    AND ($1::text[] IS NULL OR l.sku = ANY($1))
   GROUP BY l.sku
-)
-SELECT w.sku,
-       coalesce(t.name, w.name) AS name,
-       coalesce(t.description, '') AS description,
-       w.image_path,
-       w.selling_price_cents AS price_cents,
-       s.sale_cents,
-       w.on_hand,
-       w.reserved,
-       c.slug AS category_slug,
-       coalesce(ct.name, cte.name, c.slug) AS category_name,
-       coalesce(pt.name, pte.name, parent.slug) AS parent_name
-FROM warehouse_products w
-JOIN product_categories c ON c.id = w.category_id AND c.active
-LEFT JOIN product_categories parent ON parent.id = c.parent_id
-LEFT JOIN category_translations ct ON ct.category_id = c.id AND ct.locale = 'bg'
-LEFT JOIN category_translations cte ON cte.category_id = c.id AND cte.locale = 'en'
-LEFT JOIN category_translations pt ON pt.category_id = parent.id AND pt.locale = 'bg'
-LEFT JOIN category_translations pte ON pte.category_id = parent.id AND pte.locale = 'en'
-LEFT JOIN product_translations t ON t.sku = w.sku AND t.locale = 'bg'
-LEFT JOIN live_sale s ON s.sku = w.sku
-WHERE w.status = 'published'
-  AND w.selling_price_cents IS NOT NULL
-  -- Two levels only (category > subcategory); deeper rows are excluded
-  -- rather than misfiled until the category tree supports more (#73).
-  AND (parent.id IS NULL OR (parent.active AND parent.parent_id IS NULL))
-  AND ($1::text[] IS NULL OR w.sku = ANY($1))
-ORDER BY coalesce(parent.sort_order, c.sort_order),
-         coalesce(parent.slug, c.slug),
-         CASE WHEN parent.id IS NULL THEN -1 ELSE c.sort_order END,
-         c.slug,
-         w.sku`;
+),
+visible AS (
+  SELECT w.sku,
+         coalesce(t.name, w.name) AS name,
+         coalesce(t.description, '') AS description,
+         coalesce(te.name, t.name, w.name) AS name_en,
+         coalesce(te.description, t.description, '') AS description_en,
+         w.image_path,
+         w.selling_price_cents AS price_cents,
+         s.sale_cents,
+         CASE WHEN s.sale_cents < w.selling_price_cents
+              THEN s.sale_cents ELSE w.selling_price_cents END AS pay_cents,
+         w.on_hand,
+         w.reserved,
+         c.slug AS category_slug,
+         coalesce(ct.name, cte.name, c.slug) AS category_name,
+         coalesce(pt.name, pte.name, parent.slug) AS parent_name,
+         coalesce(parent.sort_order, c.sort_order) AS top_sort,
+         coalesce(parent.slug, c.slug) AS top_slug,
+         CASE WHEN parent.id IS NULL THEN -1 ELSE c.sort_order END AS sub_sort
+  FROM warehouse_products w
+  JOIN product_categories c ON c.id = w.category_id AND c.active
+  LEFT JOIN product_categories parent ON parent.id = c.parent_id
+  LEFT JOIN category_translations ct ON ct.category_id = c.id AND ct.locale = 'bg'
+  LEFT JOIN category_translations cte ON cte.category_id = c.id AND cte.locale = 'en'
+  LEFT JOIN category_translations pt ON pt.category_id = parent.id AND pt.locale = 'bg'
+  LEFT JOIN category_translations pte ON pte.category_id = parent.id AND pte.locale = 'en'
+  LEFT JOIN product_translations t ON t.sku = w.sku AND t.locale = 'bg'
+  LEFT JOIN product_translations te ON te.sku = w.sku AND te.locale = 'en'
+  LEFT JOIN live_sale s ON s.sku = w.sku
+  WHERE w.status = 'published'
+    AND w.selling_price_cents IS NOT NULL
+    -- Two levels only (category > subcategory); deeper rows are excluded
+    -- rather than misfiled until the category tree supports more (#73).
+    AND (parent.id IS NULL OR (parent.active AND parent.parent_id IS NULL))
+    AND ($1::text[] IS NULL OR w.sku = ANY($1))
+)`;
 
-const CATEGORY_ORDER_SQL = `
-SELECT coalesce(t.name, e.name, c.slug) AS name
-FROM product_categories c
-LEFT JOIN category_translations t ON t.category_id = c.id AND t.locale = 'bg'
-LEFT JOIN category_translations e ON e.category_id = c.id AND e.locale = 'en'
-WHERE c.parent_id IS NULL AND c.active
-ORDER BY c.sort_order, c.slug`;
+const FEATURED_ORDER = "top_sort, top_slug, sub_sort, category_slug, sku";
+
+const PRODUCTS_SQL = `WITH ${VISIBLE_CTE}
+SELECT * FROM visible ORDER BY ${FEATURED_ORDER}`;
+
+// Fixed, whitelisted ORDER BY clauses; never built from user input.
+const BROWSE_ORDER: Record<BrowseSort, string> = {
+  featured: FEATURED_ORDER,
+  "price-asc": `pay_cents, ${FEATURED_ORDER}`,
+  "price-desc": `pay_cents DESC, ${FEATURED_ORDER}`,
+  name: `CASE WHEN $9 = 'en' THEN name_en ELSE name END, ${FEATURED_ORDER}`,
+};
+
+// $2 category name, $3 subcategory id, $4 text, $5/$6 price bounds,
+// $7 available only, $8 promotions only, $9 locale, $10 limit, $11 offset.
+const browseSql = (sort: BrowseSort) => `WITH ${VISIBLE_CTE}
+SELECT *, count(*) OVER () AS total FROM visible
+WHERE ($2::text IS NULL OR coalesce(parent_name, category_name) = $2)
+  AND ($3::text IS NULL OR (parent_name IS NOT NULL AND category_slug = $3))
+  AND ($4::text IS NULL
+       OR position(lower($4) IN lower(name || ' ' || sku || ' ' || description)) > 0
+       OR ($9::text = 'en'
+           AND position(lower($4) IN lower(name_en || ' ' || description_en)) > 0))
+  AND ($5::int IS NULL OR pay_cents >= $5)
+  AND ($6::int IS NULL OR pay_cents <= $6)
+  AND (NOT $7::boolean OR on_hand - reserved > 0)
+  AND (NOT $8::boolean OR sale_cents < price_cents)
+ORDER BY ${BROWSE_ORDER[sort]}
+LIMIT $10 OFFSET $11`;
+
+// Category counts computed in SQL, in display order.
+const TAXONOMY_SQL = `WITH ${VISIBLE_CTE}
+SELECT coalesce(parent_name, category_name) AS category,
+       CASE WHEN parent_name IS NULL THEN NULL ELSE category_slug END AS sub_id,
+       CASE WHEN parent_name IS NULL THEN NULL ELSE category_name END AS sub_name,
+       min(top_sort) AS top_sort, min(top_slug) AS top_slug, min(sub_sort) AS sub_sort,
+       count(*)::int AS products
+FROM visible
+GROUP BY 1, 2, 3
+ORDER BY 4, 5, 6, 2 NULLS FIRST`;
 
 function toProduct(row: ProductRow): Product {
   const sub = row.parent_name !== null;
@@ -98,22 +148,59 @@ function toProduct(row: ProductRow): Product {
   };
 }
 
-export type PostgresCatalog = CatalogRepository & {
-  /** Top-level category names in display order (for building the taxonomy). */
-  categoryOrder(): Promise<string[]>;
-};
+const SORTS = new Set<BrowseSort>([
+  "featured",
+  "price-asc",
+  "price-desc",
+  "name",
+]);
 
-export function createPostgresCatalog(db: () => Queryable): PostgresCatalog {
-  async function categoryOrder(): Promise<string[]> {
-    const result = await db().query<{ name: string }>(CATEGORY_ORDER_SQL);
-    return result.rows.map((row) => row.name);
-  }
+export function createPostgresCatalog(db: () => Queryable): CatalogRepository {
   async function products(skus: readonly string[] | null): Promise<Product[]> {
     const result = await db().query<ProductRow>(PRODUCTS_SQL, [skus]);
     return result.rows.map(toProduct);
   }
+
+  async function browse(query: BrowseQuery) {
+    const { page, pageSize } = pageWindow(query);
+    const sort = query.sort && SORTS.has(query.sort) ? query.sort : "featured";
+    const text = query.text?.trim();
+    const params = (limit: number, offset: number) => [
+      query.compatibleSkus ? [...query.compatibleSkus] : null,
+      query.category || null,
+      query.subcategory || null,
+      text || null,
+      query.minPriceCents ?? null,
+      query.maxPriceCents ?? null,
+      !!query.available,
+      !!query.promotions,
+      query.locale ?? "bg",
+      limit,
+      offset,
+    ];
+    const result = await db().query<ProductRow & { total: string }>(
+      browseSql(sort),
+      params(pageSize, (page - 1) * pageSize),
+    );
+    let total = Number(result.rows[0]?.total ?? 0);
+    // A page past the end has no rows to carry the total: count separately.
+    if (!result.rows.length && page > 1) {
+      const first = await db().query<{ total: string }>(
+        browseSql("featured"),
+        params(1, 0),
+      );
+      total = Number(first.rows[0]?.total ?? 0);
+    }
+    return {
+      items: result.rows.map(toProduct),
+      total,
+      page,
+      pageSize,
+      pageCount: Math.ceil(total / pageSize),
+    };
+  }
+
   return {
-    categoryOrder,
     listProducts: () => products(null),
     async getProduct(sku) {
       return (await products([sku]))[0] ?? null;
@@ -134,8 +221,29 @@ export function createPostgresCatalog(db: () => Queryable): PostgresCatalog {
       });
     },
     async taxonomy() {
-      const [all, order] = await Promise.all([products(null), categoryOrder()]);
-      return buildTaxonomy(all, order);
+      const result = await db().query<{
+        category: string;
+        sub_id: string | null;
+        sub_name: string | null;
+        products: number;
+      }>(TAXONOMY_SQL, [null]);
+      const taxonomy: CatalogTaxonomy = [];
+      for (const row of result.rows) {
+        let category = taxonomy.at(-1);
+        if (category?.name !== row.category) {
+          category = { name: row.category, productCount: 0, subcategories: [] };
+          taxonomy.push(category);
+        }
+        category.productCount += row.products;
+        if (row.sub_id)
+          category.subcategories.push({
+            id: row.sub_id,
+            name: row.sub_name!,
+            productCount: row.products,
+          });
+      }
+      return taxonomy;
     },
+    browse,
   };
 }

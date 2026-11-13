@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildTaxonomy, productLookup, type Product } from "./catalog";
+import {
+  buildTaxonomy,
+  DEFAULT_PAGE_SIZE,
+  MAX_PAGE_SIZE,
+  pageWindow,
+  productLookup,
+  type Product,
+} from "./catalog";
 import { createStaticCatalog } from "./catalog-static";
 
 function product(
@@ -75,4 +82,33 @@ test("product lookup resolves known SKUs only", () => {
   const lookup = productLookup(products);
   assert.equal(lookup("B")?.category, "Аксесоари");
   assert.equal(lookup("Z"), undefined);
+});
+
+test("page window clamps page and size", () => {
+  assert.deepEqual(pageWindow({}), { page: 1, pageSize: DEFAULT_PAGE_SIZE });
+  assert.deepEqual(pageWindow({ page: 0, pageSize: 0 }), {
+    page: 1,
+    pageSize: 1,
+  });
+  assert.deepEqual(pageWindow({ page: 2.7, pageSize: 1_000 }), {
+    page: 2,
+    pageSize: MAX_PAGE_SIZE,
+  });
+});
+
+test("static browse filters, sorts and paginates", async () => {
+  const store = createStaticCatalog(products, ["Части", "Аксесоари"]);
+  const page = await store.browse({ category: "Части", pageSize: 2, page: 2 });
+  assert.deepEqual(
+    page.items.map((p) => p.sku),
+    ["D"],
+  );
+  assert.equal(page.total, 3);
+  assert.equal(page.pageCount, 2);
+  const filters = await store.browse({ subcategory: "filters" });
+  assert.deepEqual(
+    filters.items.map((p) => p.sku),
+    ["A", "D"],
+  );
+  assert.equal((await store.browse({ text: "product b" })).total, 1);
 });

@@ -33,6 +33,70 @@ export type CatalogCategory = {
 /** Categories in display order; empty categories and subcategories omitted. */
 export type CatalogTaxonomy = CatalogCategory[];
 
+export type BrowseSort = "featured" | "price-asc" | "price-desc" | "name";
+
+/** Structured catalog query; every filter is optional. */
+export type BrowseQuery = {
+  /** Top-level category display name. */
+  category?: string;
+  /** Subcategory id. */
+  subcategory?: string;
+  /** Case-insensitive text matched against names, descriptions and SKU. */
+  text?: string;
+  /** Inclusive bounds on the price the customer pays (sale price if any). */
+  minPriceCents?: number;
+  maxPriceCents?: number;
+  available?: boolean;
+  promotions?: boolean;
+  /** Restrict to these SKUs (vehicle fitment). */
+  compatibleSkus?: readonly string[];
+  sort?: BrowseSort;
+  /** Locale for name sorting and text matching on translated names. */
+  locale?: "bg" | "en";
+  /** 1-based page number. */
+  page?: number;
+  pageSize?: number;
+};
+
+export type BrowsePage = {
+  items: Product[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+};
+
+export const DEFAULT_PAGE_SIZE = 24;
+export const MAX_PAGE_SIZE = 96;
+
+/** Clamps paging input to sane values. */
+export function pageWindow(query: BrowseQuery): {
+  page: number;
+  pageSize: number;
+} {
+  const pageSize = Math.min(
+    Math.max(Math.trunc(query.pageSize ?? DEFAULT_PAGE_SIZE), 1),
+    MAX_PAGE_SIZE,
+  );
+  const page = Math.max(Math.trunc(query.page ?? 1), 1);
+  return { page, pageSize };
+}
+
+/** Cuts one page out of an already filtered and sorted list. */
+export function paginate(
+  matches: readonly Product[],
+  query: BrowseQuery,
+): BrowsePage {
+  const { page, pageSize } = pageWindow(query);
+  return {
+    items: matches.slice((page - 1) * pageSize, page * pageSize),
+    total: matches.length,
+    page,
+    pageSize,
+    pageCount: Math.ceil(matches.length / pageSize),
+  };
+}
+
 export interface CatalogRepository {
   /** All products that are visible in the store. */
   listProducts(): Promise<Product[]>;
@@ -40,6 +104,8 @@ export interface CatalogRepository {
   /** Products for the given SKUs in request order; unknown SKUs are skipped. */
   getProducts(skus: readonly string[]): Promise<Product[]>;
   taxonomy(): Promise<CatalogTaxonomy>;
+  /** One page of products matching the query, with the total match count. */
+  browse(query: BrowseQuery): Promise<BrowsePage>;
 }
 
 /**
