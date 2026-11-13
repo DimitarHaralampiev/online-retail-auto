@@ -47,7 +47,12 @@ const text = (max: number) =>
     z
       .string()
       .catch("")
-      .transform((value) => value.trim().slice(0, max)),
+      .transform((value) =>
+        value
+          .replace(/[\u0000-\u001f]/g, " ")
+          .trim()
+          .slice(0, max),
+      ),
   );
 const flag = z
   .preprocess(first, z.string().catch(""))

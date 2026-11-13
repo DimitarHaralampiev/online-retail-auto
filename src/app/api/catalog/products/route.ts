@@ -12,7 +12,8 @@ export async function GET(request: Request) {
   try {
     const products = await catalog().getProducts(parsed.skus);
     return NextResponse.json({ products }, { headers });
-  } catch {
+  } catch (error) {
+    console.error("Catalog product lookup failed", error);
     return NextResponse.json(
       { error: "Каталогът временно не е достъпен." },
       { status: 503, headers },

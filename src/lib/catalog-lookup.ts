@@ -5,7 +5,13 @@ import { z } from "zod";
 /** SKUs per lookup request; the client splits larger sets. */
 export const MAX_LOOKUP_SKUS = 100;
 
-const skuSchema = z.string().trim().min(1).max(50);
+// No control characters (PostgreSQL rejects NUL in text).
+const skuSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(50)
+  .regex(/^[^\u0000-\u001f]+$/);
 
 /** Unique, well-formed SKUs from `?sku=A&sku=B`, or an error message. */
 export function parseLookupSkus(

@@ -60,22 +60,31 @@ export default function CustomerProvider({
     const id = customer.id;
     async function load() {
       try {
-        const r = guest.length
+        const plainLoad = () =>
+          fetch("/api/customer", {
+            signal: controller.signal,
+            cache: "no-store",
+          });
+        let r = guest.length
           ? await fetch("/api/customer", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ action: "import-favorites", skus: guest }),
               signal: controller.signal,
             })
-          : await fetch("/api/customer", {
-              signal: controller.signal,
-              cache: "no-store",
-            });
+          : await plainLoad();
+        // A failed import must not hide the account: load it anyway and keep
+        // the guest favourites for the next attempt.
+        let imported = guest.length > 0 && r.ok;
+        if (guest.length && !r.ok) {
+          imported = false;
+          r = await plainLoad();
+        }
         const result = await r.json();
         if (!r.ok) throw new Error(result.error);
         if (owner.current !== id || controller.signal.aborted) return;
         setData(result);
-        if (guest.length)
+        if (imported)
           try {
             localStorage.removeItem(FAVORITES_STORAGE_KEY);
           } catch {}

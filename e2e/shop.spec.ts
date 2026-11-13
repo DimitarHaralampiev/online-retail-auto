@@ -339,3 +339,63 @@ test("pages do not ship the product catalog to the browser", async ({
       expect(html, `${path} contains ${leaked}`).not.toContain(leaked);
   }
 });
+
+test.describe("cart when product lookups fail", () => {
+  test("a stored cart restored while lookups fail survives the next add", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem("seeded")) {
+        localStorage.setItem(
+          "auto-shop:cart:v1",
+          JSON.stringify({
+            version: 1,
+            items: [{ sku: "DEMO-001", quantity: 2 }],
+          }),
+        );
+        sessionStorage.setItem("seeded", "1");
+      }
+    });
+    await page.route("**/api/catalog/products**", (route) => route.abort());
+    await page.goto("/catalog/DEMO-003");
+    await expect(
+      page.getByRole("button", { name: addToCart }).first(),
+    ).toBeEnabled();
+    // The lookup service recovers before the visitor adds a product.
+    await page.unroute("**/api/catalog/products**");
+    await addCurrentProductToCart(page);
+    const stored = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("auto-shop:cart:v1") ?? "{}"),
+    );
+    expect(stored.items).toEqual(
+      expect.arrayContaining([
+        { sku: "DEMO-001", quantity: 2 },
+        { sku: "DEMO-003", quantity: 1 },
+      ]),
+    );
+  });
+
+  test("checkout waits for missing products and can retry", async ({
+    page,
+  }) => {
+    await page.addInitScript(() =>
+      localStorage.setItem(
+        "auto-shop:cart:v1",
+        JSON.stringify({
+          version: 1,
+          items: [{ sku: "DEMO-003", quantity: 1 }],
+        }),
+      ),
+    );
+    await page.route("**/api/catalog/products**", (route) => route.abort());
+    await page.goto("/checkout");
+    await expect(
+      page.getByRole("button", { name: "Преглед на демо поръчката" }),
+    ).toBeDisabled();
+    await page.unroute("**/api/catalog/products**");
+    await page.getByRole("button", { name: "Опитай отново" }).click();
+    await expect(
+      page.getByRole("button", { name: "Преглед на демо поръчката" }),
+    ).toBeEnabled();
+  });
+});

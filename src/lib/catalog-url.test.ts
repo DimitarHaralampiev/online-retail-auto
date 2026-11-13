@@ -138,6 +138,12 @@ test("page numbers must be plain digits and clamp to the cap", () => {
   assert.equal(parseCatalogUrl({ page: "0" }).page, 1);
 });
 
+test("control characters in text parameters become spaces", () => {
+  const state = parseCatalogUrl({ q: "фил\u0000тър", category: "\u0000" });
+  assert.equal(state.q, "фил тър");
+  assert.equal(state.category, "");
+});
+
 test("text parameters are capped per field", () => {
   const long = parseCatalogUrl({
     category: "к".repeat(500),

@@ -12,6 +12,15 @@ test("lookup SKUs are trimmed and de-duplicated in order", () => {
   assert.deepEqual(parseLookupSkus(new URLSearchParams()), { skus: [] });
 });
 
+test("the lookup limit is 100 SKUs", () => {
+  assert.equal(MAX_LOOKUP_SKUS, 100);
+});
+
+test("lookups reject control characters", () => {
+  for (const sku of ["A\u0000B", "\u0000", "A\nB"])
+    assert.ok("error" in parseLookupSkus(params(sku)), JSON.stringify(sku));
+});
+
 test("lookups reject empty, oversized or too many SKUs", () => {
   assert.ok("error" in parseLookupSkus(params("A", " ")));
   assert.ok("error" in parseLookupSkus(params("X".repeat(51))));

@@ -30,7 +30,6 @@ test("actions with SKUs outside the catalog are rejected without writes", async 
   const customer = await insertCustomer(db().pool);
   for (const action of [
     { action: "favorite", sku: "UNKNOWN", enabled: true },
-    { action: "import-favorites", skus: [KNOWN_SKU, "UNKNOWN"] },
     { action: "alert", sku: "UNKNOWN", kind: "stock", enabled: true },
   ])
     await assert.rejects(
@@ -44,4 +43,15 @@ test("actions with SKUs outside the catalog are rejected without writes", async 
     [customer],
   );
   assert.equal(alerts.rowCount, 0);
+});
+
+test("importing guest favourites skips SKUs no longer in the catalog", async () => {
+  // One stale guest favourite must not block the customer's other favourites
+  // (or their account view, which loads through this import).
+  const customer = await insertCustomer(db().pool);
+  await mutateCustomerFeatures(customer, {
+    action: "import-favorites",
+    skus: ["UNKNOWN", KNOWN_SKU, "GONE-1"],
+  });
+  assert.deepEqual(await favorites(customer), [KNOWN_SKU]);
 });

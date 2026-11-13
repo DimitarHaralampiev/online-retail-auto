@@ -29,8 +29,9 @@ not grow beyond what is safe to bundle into the browser.
    favourites and repeat orders receive a `ProductLookup` or product list
    instead of importing data, so they stay unit-testable and storage-agnostic.
    Server code loads only the SKUs it needs (`lookupProducts`).
-5. **The server owns catalog data.** Client components read it from
-   `CatalogProvider`, filled by the root layout. The provider keeps its value
+5. **The server owns catalog data.** Client components read the category
+   tree from `CatalogProvider` (filled by the root layout) and products per
+   SKU through it. The provider keeps its value
    stable unless the catalog content changes, because `router.refresh()`
    (language switch, login) re-sends layout props as new objects and consumer
    effects must not re-run. ESLint forbids importing `catalog-demo-data`
@@ -42,11 +43,8 @@ not grow beyond what is safe to bundle into the browser.
 - Swapping the data source is a change in `catalog-server.ts` plus an adapter.
 - SKU existence for customer actions is checked against the repository when the
   action runs, not inside the Zod schema (same 400 response and message).
-- Interim: full-list reads remain and #27 must replace them before the catalog
-  grows: the root layout's `CatalogProvider` products (cart, favourites,
-  repeat order in `my-orders.tsx`, catalog browsing in `catalog.tsx`,
-  `inventory-demo.tsx`), related products on `catalog/[sku]/page.tsx`, the
-  promotions page and `generateStaticParams`.
+- Remaining full-list reads: related products on `catalog/[sku]/page.tsx`
+  and the promotions page; they should move to `browse()` queries.
 - `generateStaticParams` on product pages enumerates the catalog at build time;
   with PostgreSQL (#26) pages must render on demand because CI builds have no
   database.
@@ -94,10 +92,18 @@ Recorded now so the PostgreSQL adapter does not freeze the interim shape.
   `catalog-url.ts`, drops unknown categories, computes vehicle fitment on the
   server from the signed-in customer's selected vehicle (falling back to no
   filter on errors or more than 1000 SKUs) and renders one page with
-  pagination; the client only changes the URL. Still to do in #27 (step 3):
-  the root layout still ships the full product list to `CatalogProvider` for
-  cart, favourites, repeat order and the inventory demo; replace it with
-  per-SKU lookups and coarsen stock exposure.
+  pagination; the client only changes the URL. Step 3 (done): the root layout provides only
+  the category tree; client components load products per SKU from the public
+  `GET /api/catalog/products` (published only, at most 100 SKUs, `no-store`)
+  through a visit-lifetime cache in `CatalogProvider` that de-duplicates
+  in-flight requests and retries failed lookups. The cart keeps stored items
+  when lookups fail, loads every item's product before changing the cart,
+  and checkout waits for missing products. Guest favourites are imported
+  best-effort (unknown SKUs skipped). The inventory demo reads
+  `listProducts()` on its server page. Open: exact stock is public through
+  this API as before — decide whether to expose only availability (the cart
+  needs the orderable quantity) — and public catalog routes have no rate
+  limit yet (#51).
 - **#26 — live promotions:** a promotion line applies when its promotion has
   `status='active' AND (starts_at IS NULL OR starts_at <= now()) AND
 (ends_at IS NULL OR ends_at > now())`; with several live lines for a SKU the

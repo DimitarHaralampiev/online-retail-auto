@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   CART_STORAGE_KEY,
   normalizeCart,
@@ -13,6 +13,9 @@ type CartContextValue = {
   items: CartItem[];
   ready: boolean;
   storageWarning: string;
+  /** SKUs in the cart whose products could not be loaded yet. */
+  unresolved: string[];
+  retryProducts: () => Promise<void>;
   /** Resolves once the cart is updated; rejects if products cannot load. */
   add: (sku: string) => Promise<void>;
   addItems: (items: CartItem[]) => Promise<void>;
@@ -27,7 +30,7 @@ export default function CartProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { ensureProducts } = useCatalog();
+  const { ensureProducts, productBySku } = useCatalog();
   const [items, setItems] = useState<CartItem[]>([]);
   const [ready, setReady] = useState(false);
   const [storageWarning, setStorageWarning] = useState("");
@@ -72,17 +75,34 @@ export default function CartProvider({
       );
     }
   }, [items, ready]);
-  // Changes load the affected products first, so stock limits apply.
+  // Changes load the products of the new items and of everything already in
+  // the cart (which may be unverified after a failed restore), so stock
+  // limits apply and no stored item is dropped for lack of data. If the
+  // lookup fails, the cart is left unchanged.
+  const current = useRef(items);
+  useEffect(() => {
+    current.current = items;
+  }, [items]);
   async function update(
     skus: string[],
     change: (previous: CartItem[]) => CartItem[],
   ) {
-    const lookup = await ensureProducts(skus);
+    const lookup = await ensureProducts([
+      ...skus,
+      ...current.current.map((item) => item.sku),
+    ]);
     setItems((previous) => normalizeCart(change(previous), lookup));
   }
+  // Items whose products have not loaded (only after a failed restore).
+  const unresolved = ready
+    ? items.filter((item) => !productBySku(item.sku)).map((item) => item.sku)
+    : [];
   return (
     <CartContext.Provider
       value={{
+        unresolved,
+        // Loads missing products again; on success the cart is normalised.
+        retryProducts: () => update([], (previous) => previous),
         clear: () => setItems([]),
         items,
         ready,

@@ -173,6 +173,22 @@ describe("stored cart items", () => {
   it("ignores malformed, unversioned or oversized storage", () => {
     assert.deepEqual(storedCartItems("{"), []);
     assert.deepEqual(storedCartItems('{"version":2,"items":[]}'), []);
+    // Only version 1 is read.
+    assert.deepEqual(
+      storedCartItems('{"items":[{"sku":"A","quantity":1}]}'),
+      [],
+    );
+    // Oversized storage is ignored without parsing.
+    assert.deepEqual(
+      storedCartItems(
+        JSON.stringify({
+          version: 1,
+          items: [{ sku: "A", quantity: 1 }],
+          pad: "x".repeat(17_000),
+        }),
+      ),
+      [],
+    );
     assert.deepEqual(
       storedCartItems(
         JSON.stringify({

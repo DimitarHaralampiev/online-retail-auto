@@ -759,6 +759,7 @@
   "Измиване и препарати": "Washing & cleaners",
   "Кърпи и микрофибър": "Cloths & microfiber",
   "Не успяхме да добавим продукта. Опитай отново.": "We could not add the product. Please try again.",
-  "Някои продукти не се заредиха. Опитай отново по-късно.": "Some products could not be loaded. Please try again later.",
-  "Не успяхме да заредим продуктите. Опитай отново.": "We could not load the products. Please try again."
+  "Не успяхме да заредим продуктите. Опитай отново.": "We could not load the products. Please try again.",
+  "Някои продукти не се заредиха.": "Some products could not be loaded.",
+  "Някои продукти от количката не се заредиха. Прегледът е спрян, докато не се заредят.": "Some products in the cart could not be loaded. The preview is paused until they load."
 }
