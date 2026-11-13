@@ -15,9 +15,9 @@ import {
   createPostgresCatalog,
   MAX_PRODUCTS_PER_LOOKUP,
 } from "./catalog-postgres";
+import { createStaticCatalog } from "./catalog-static";
 
 const LOOKUP_CHUNK = MAX_PRODUCTS_PER_LOOKUP;
-import { createStaticCatalog } from "./catalog-static";
 
 export type CatalogSource = "static" | "postgres";
 
