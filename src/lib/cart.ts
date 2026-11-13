@@ -33,10 +33,11 @@ export function normalizeCart(
   return Array.from(quantities, ([sku, quantity]) => ({ sku, quantity }));
 }
 
-export function readStoredCart(
-  raw: string | null,
-  lookup: ProductLookup,
-): CartItem[] {
+/**
+ * Well-formed items from the stored cart, before any catalog check (the
+ * caller loads those products first, then normalises).
+ */
+export function storedCartItems(raw: string | null): CartItem[] {
   if (!raw || raw.length > 16_384) return [];
   try {
     const stored: unknown = JSON.parse(raw);
@@ -45,13 +46,34 @@ export function readStoredCart(
       typeof stored !== "object" ||
       !("version" in stored) ||
       stored.version !== 1 ||
-      !("items" in stored)
+      !("items" in stored) ||
+      !Array.isArray(stored.items) ||
+      stored.items.length > 50
     )
       return [];
-    return normalizeCart(stored.items, lookup);
+    return stored.items.flatMap((item: unknown) =>
+      item &&
+      typeof item === "object" &&
+      "sku" in item &&
+      "quantity" in item &&
+      typeof item.sku === "string" &&
+      item.sku.length > 0 &&
+      item.sku.length <= 50 &&
+      Number.isSafeInteger(item.quantity) &&
+      (item.quantity as number) > 0
+        ? [{ sku: item.sku, quantity: item.quantity as number }]
+        : [],
+    );
   } catch {
     return [];
   }
+}
+
+export function readStoredCart(
+  raw: string | null,
+  lookup: ProductLookup,
+): CartItem[] {
+  return normalizeCart(storedCartItems(raw), lookup);
 }
 
 export function cartSubtotal(items: CartItem[], lookup: ProductLookup): number {

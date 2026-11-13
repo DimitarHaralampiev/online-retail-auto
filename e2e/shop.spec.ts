@@ -319,3 +319,23 @@ test.describe("catalog filters chosen in quick succession", () => {
     ).toHaveText(/^\s*6\s*продукта\s*$/);
   });
 });
+
+test("pages do not ship the product catalog to the browser", async ({
+  request,
+}) => {
+  // The empty cart and account pages show no products; their HTML and
+  // embedded server data must not contain the catalog either.
+  // Positive control: a page that lists products does contain them.
+  expect(await (await request.get("/catalog")).text()).toContain(
+    "Микрофибърна кърпа",
+  );
+  for (const path of ["/cart", "/account"]) {
+    const html = await (await request.get(path)).text();
+    for (const leaked of [
+      "Микрофибърна кърпа",
+      "DEMO-006",
+      "Шампоан за автомобил",
+    ])
+      expect(html, `${path} contains ${leaked}`).not.toContain(leaked);
+  }
+});

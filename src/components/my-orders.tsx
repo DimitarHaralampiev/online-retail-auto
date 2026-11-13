@@ -11,11 +11,23 @@ import { formatMoney } from "../lib/cart";
 import type { OrderView } from "./order-tracking";
 export default function MyOrders({ customerId }: { customerId: string }) {
   const { addItems, ready } = useCart();
-  const { products } = useCatalog();
+  const { ensureProducts } = useCatalog();
   const [repeatMessage, setRepeatMessage] = useState("");
-  function repeat(order: OrderView) {
-    const result = prepareRepeatOrder(order.lines, products);
-    addItems(result.items);
+  async function repeat(order: OrderView) {
+    let result: ReturnType<typeof prepareRepeatOrder>;
+    try {
+      const skus = order.lines.map((line) => line.sku);
+      const lookup = await ensureProducts(skus);
+      const products = skus.flatMap((sku) => {
+        const product = lookup(sku);
+        return product ? [product] : [];
+      });
+      result = prepareRepeatOrder(order.lines, products);
+      await addItems(result.items);
+    } catch {
+      setRepeatMessage("Не успяхме да заредим продуктите. Опитай отново.");
+      return;
+    }
     setRepeatMessage(
       [
         result.items.length

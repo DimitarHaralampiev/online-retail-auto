@@ -2,6 +2,7 @@
 import Localize from "./localize";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { useCustomerFeatures } from "./customer-provider";
 import { useAccount } from "./account-provider";
 import { useCatalog } from "./catalog-provider";
@@ -9,11 +10,17 @@ import ProductCard from "./product-card";
 export default function Favorites() {
   const { data, ready, busy, error, mutate } = useCustomerFeatures();
   const { customer } = useAccount();
-  const { products: catalogProducts, productBySku } = useCatalog();
-  const products = catalogProducts.filter((p) =>
-    data.favorites.includes(p.sku),
-  );
+  const { productBySku, ensureProducts } = useCatalog();
   const watched = data.alerts.filter((a) => a.active);
+  // Load only the products this page shows.
+  const wanted = [...data.favorites, ...watched.map((a) => a.sku)].join("\n");
+  useEffect(() => {
+    if (wanted) ensureProducts(wanted.split("\n")).catch(() => undefined);
+  }, [wanted, ensureProducts]);
+  const products = data.favorites.flatMap((sku) => {
+    const product = productBySku(sku);
+    return product ? [product] : [];
+  });
   return (
     <Localize>
       {

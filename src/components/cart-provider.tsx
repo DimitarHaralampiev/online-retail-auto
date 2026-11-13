@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import {
   CART_STORAGE_KEY,
   normalizeCart,
-  readStoredCart,
+  storedCartItems,
   type CartItem,
 } from "../lib/cart";
 import { useCatalog } from "./catalog-provider";
@@ -13,9 +13,10 @@ type CartContextValue = {
   items: CartItem[];
   ready: boolean;
   storageWarning: string;
-  add: (sku: string) => void;
-  addItems: (items: CartItem[]) => void;
-  setQuantity: (sku: string, quantity: number) => void;
+  /** Resolves once the cart is updated; rejects if products cannot load. */
+  add: (sku: string) => Promise<void>;
+  addItems: (items: CartItem[]) => Promise<void>;
+  setQuantity: (sku: string, quantity: number) => Promise<void>;
   remove: (sku: string) => void;
   clear: () => void;
 };
@@ -26,22 +27,38 @@ export default function CartProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { productBySku } = useCatalog();
+  const { ensureProducts } = useCatalog();
   const [items, setItems] = useState<CartItem[]>([]);
   const [ready, setReady] = useState(false);
   const [storageWarning, setStorageWarning] = useState("");
+  // Restore the stored cart once its products are loaded. If the lookup
+  // fails, keep the stored items as they are rather than dropping them.
   useEffect(() => {
+    let stored: CartItem[] = [];
     try {
-      setItems(
-        readStoredCart(localStorage.getItem(CART_STORAGE_KEY), productBySku),
-      );
+      stored = storedCartItems(localStorage.getItem(CART_STORAGE_KEY));
     } catch {
       setStorageWarning(
         "Браузърът не позволява запазване на количката. Тя работи само до презареждане.",
       );
     }
-    setReady(true);
-  }, [productBySku]);
+    let cancelled = false;
+    ensureProducts(stored.map((item) => item.sku)).then(
+      (lookup) => {
+        if (cancelled) return;
+        setItems(normalizeCart(stored, lookup));
+        setReady(true);
+      },
+      () => {
+        if (cancelled) return;
+        setItems(stored);
+        setReady(true);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [ensureProducts]);
   useEffect(() => {
     if (!ready) return;
     try {
@@ -55,6 +72,14 @@ export default function CartProvider({
       );
     }
   }, [items, ready]);
+  // Changes load the affected products first, so stock limits apply.
+  async function update(
+    skus: string[],
+    change: (previous: CartItem[]) => CartItem[],
+  ) {
+    const lookup = await ensureProducts(skus);
+    setItems((previous) => normalizeCart(change(previous), lookup));
+  }
   return (
     <CartContext.Provider
       value={{
@@ -63,20 +88,16 @@ export default function CartProvider({
         ready,
         storageWarning,
         addItems: (incoming) =>
-          setItems((previous) =>
-            normalizeCart([...previous, ...incoming], productBySku),
+          update(
+            incoming.map((item) => item.sku),
+            (previous) => [...previous, ...incoming],
           ),
         add: (sku) =>
-          setItems((previous) =>
-            normalizeCart([...previous, { sku, quantity: 1 }], productBySku),
-          ),
+          update([sku], (previous) => [...previous, { sku, quantity: 1 }]),
         setQuantity: (sku, quantity) =>
-          setItems((previous) =>
-            normalizeCart(
-              previous.map((item) =>
-                item.sku === sku ? { ...item, quantity } : item,
-              ),
-              productBySku,
+          update([sku], (previous) =>
+            previous.map((item) =>
+              item.sku === sku ? { ...item, quantity } : item,
             ),
           ),
         remove: (sku) =>

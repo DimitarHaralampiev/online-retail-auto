@@ -1,5 +1,4 @@
 "use client";
-import { useCatalog } from "./catalog-provider";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useAccount } from "./account-provider";
 import { emptyFeatures, type CustomerFeatures } from "../lib/customer-rules";
@@ -7,6 +6,9 @@ import {
   readGuestFavorites,
   FAVORITES_STORAGE_KEY,
 } from "../lib/guest-favorites";
+
+const isWellFormedSku = (sku: string) =>
+  sku.trim().length > 0 && sku.length <= 50;
 const Context = createContext<{
   data: CustomerFeatures;
   ready: boolean;
@@ -27,7 +29,6 @@ export default function CustomerProvider({
   children: React.ReactNode;
 }) {
   const { customer, ready: accountReady } = useAccount();
-  const { productBySku } = useCatalog();
   const [data, setData] = useState(emptyFeatures);
   const latestData = useRef(data);
   latestData.current = data;
@@ -46,7 +47,9 @@ export default function CustomerProvider({
     try {
       guest = readGuestFavorites(
         localStorage.getItem(FAVORITES_STORAGE_KEY),
-        (sku) => !!productBySku(sku),
+        // Format only: the server checks SKUs when importing favourites,
+        // and pages show only favourites that exist in the catalog.
+        isWellFormedSku,
       );
     } catch {}
     if (!customer) {
@@ -84,7 +87,7 @@ export default function CustomerProvider({
     }
     void load();
     return () => controller.abort();
-  }, [customer?.id, accountReady, productBySku]);
+  }, [customer?.id, accountReady]);
   async function mutate(value: unknown) {
     const id = owner.current;
     setError("");
