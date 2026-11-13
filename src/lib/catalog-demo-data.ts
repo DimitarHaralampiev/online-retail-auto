@@ -8,6 +8,16 @@ export const demoCategories = [
   "Автокозметика",
 ] as const;
 
+/** URL-safe identifiers for the demo categories (product_categories.slug). */
+export const demoCategorySlugs: Record<
+  (typeof demoCategories)[number],
+  string
+> = {
+  Автоаксесоари: "car-accessories",
+  "Части и консумативи": "parts-consumables",
+  Автокозметика: "car-care",
+};
+
 export const demoProducts: Product[] = [
   {
     sku: "DEMO-001",

@@ -20,6 +20,7 @@ export default defineConfig([
     // adapter wiring and tests may import the demo data directly.
     ignores: [
       "src/lib/catalog-server.ts",
+      "src/lib/catalog-seed.ts",
       "src/lib/**/*.test.ts",
       "tests/**",
       "scripts/**",
