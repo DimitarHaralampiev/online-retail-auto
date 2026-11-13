@@ -16,7 +16,8 @@
     "customers:worker": "node --env-file=.env.local --import tsx scripts/customer-worker.ts",
     "test:features": "node --env-file=.env.local --import tsx scripts/test-customer-invoices.ts",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings 16"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",
@@ -36,6 +37,8 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.4.6",
     "prettier": "^3.6.2",
     "tsx": "^4.23.15",
     "typescript": "^5.9.0"

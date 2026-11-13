@@ -1,17 +1,26 @@
 "use client";
 import Localize from "./localize";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+function subscribeToHash(onChange: () => void) {
+  window.addEventListener("hashchange", onChange);
+  return () => window.removeEventListener("hashchange", onChange);
+}
+// The token lives in the URL fragment, which browsers never send to the server.
+const readHashToken = () =>
+  new URLSearchParams(location.hash.slice(1)).get("token") ?? "";
+const noServerToken = () => "";
 export default function TestPayment({ id }: { id: string }) {
-  const [token, setToken] = useState("");
+  const router = useRouter();
+  const token = useSyncExternalStore(
+    subscribeToHash,
+    readHashToken,
+    noServerToken,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  useEffect(
-    () =>
-      setToken(new URLSearchParams(location.hash.slice(1)).get("token") ?? ""),
-    [],
-  );
   async function pay(outcome: "success" | "failure") {
     setBusy(true);
     setError("");
@@ -23,7 +32,7 @@ export default function TestPayment({ id }: { id: string }) {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error);
-      location.assign(`/orders/${id}#token=${token}`);
+      router.push(`/orders/${id}#token=${token}`);
     } catch (e) {
       setError((e as Error).message);
     } finally {

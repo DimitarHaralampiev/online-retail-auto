@@ -10,7 +10,6 @@ import { demoProducts } from "../src/lib/catalog";
 import {
   parseInvoice,
   compareInvoiceProduct,
-  postInvoice,
 } from "../src/lib/supplier-invoices";
 import type {
   ReviewedInvoice,
@@ -31,9 +30,11 @@ const password = `Test-${randomBytes(16).toString("hex")}`;
 const ids: string[] = [];
 const invoices: string[] = [];
 const orders: string[] = [];
-let originalDelivery: any;
+let originalDelivery: Record<string, unknown> | null = null;
 const skus = [`TEST-${tag}-2`, `TEST-${tag}-1`];
 const fitmentMake = `TEST-${tag}`;
+// Playwright is loaded from TEST_PLAYWRIGHT_MODULE at runtime, so no types exist yet (#23).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let browser: any;
 const originalFetch = globalThis.fetch;
 const previousKey = process.env.OPENAI_API_KEY;
@@ -332,7 +333,10 @@ async function main() {
       cookie,
     );
     const second = data.vehicles[1].id;
-    assert.equal(data.vehicles.filter((v: any) => v.selected).length, 1);
+    assert.equal(
+      data.vehicles.filter((v: { selected: boolean }) => v.selected).length,
+      1,
+    );
     assert.equal(
       (
         await post(
@@ -528,7 +532,10 @@ async function main() {
       warnings: ["Синтетичен отговор само за интеграционен тест."],
     };
     process.env.OPENAI_API_KEY = "integration-mock-only";
-    globalThis.fetch = (async (input: any, init?: RequestInit) => {
+    globalThis.fetch = (async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
       if (String(input) === "https://api.openai.com/v1/responses") {
         const body = JSON.parse(String(init?.body));
         assert.equal(body.store, false);
@@ -593,7 +600,7 @@ async function main() {
     ]);
     assert.ok(results.every((r) => r.status === 200));
     assert.equal(results.filter((r) => r.data.alreadyPosted).length, 1);
-    let product = (
+    const product = (
       await db.query("SELECT * FROM warehouse_products WHERE sku=$1", [skus[0]])
     ).rows[0];
     assert.equal(product.on_hand, 2);
@@ -667,7 +674,10 @@ async function main() {
       [ids[0]],
     );
     let calls = 0;
-    globalThis.fetch = (async (input: any, init?: RequestInit) => {
+    globalThis.fetch = (async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
       if (String(input) === "https://api.openai.com/v1/responses") {
         calls++;
         const body = JSON.parse(String(init?.body));
