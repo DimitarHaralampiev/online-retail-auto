@@ -276,12 +276,35 @@ async function main() {
       "Order integration passed: concurrent deduplication, protected tracking, admin-only stages, handover number, COD, failed/successful card simulator and exactly-once queued notifications.",
     );
   } finally {
-    if (ids.length)
+    if (ids.length) {
+      // Undo the test orders' effect on stock (reservations and handovers
+      // write the ledger), then remove their ledger rows and the orders.
+      await pool.query(UNDO_TEST_ORDER_STOCK, [ids]);
+      await pool.query(
+        "DELETE FROM stock_movements WHERE order_id=ANY($1::uuid[])",
+        [ids],
+      );
       await pool.query("DELETE FROM orders WHERE id=ANY($1::uuid[])", [ids]);
+    }
     await pool.query("DELETE FROM customers WHERE id=$1", [adminId]);
     await pool.end();
   }
 }
+// reserved moves by reserve - release - sale; on_hand drops by sale.
+const UNDO_TEST_ORDER_STOCK = `
+UPDATE warehouse_products w
+SET reserved = w.reserved - m.held, on_hand = w.on_hand + m.sold
+FROM (
+  SELECT sku,
+         sum(CASE kind WHEN 'reserve' THEN quantity
+                       WHEN 'release' THEN -quantity
+                       WHEN 'sale' THEN -quantity ELSE 0 END) AS held,
+         sum(CASE WHEN kind = 'sale' THEN quantity ELSE 0 END) AS sold
+  FROM stock_movements WHERE order_id = ANY($1::uuid[])
+  GROUP BY sku
+) m
+WHERE w.sku = m.sku`;
+
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;

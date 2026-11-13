@@ -117,6 +117,11 @@ Recorded now so the PostgreSQL adapter does not freeze the interim shape.
   (`is_demo` products and categories) outside migrations. Stock is seeded as
   the demo's available quantity with nothing reserved, so `reserved` only ever
   comes from `stock_reservations`.
-- **#28 — stock and price:** `Product.stock` is a display snapshot.
-  `createOrder` must re-read price and check/reserve stock inside the order
-  transaction (`SELECT … FOR UPDATE` or a conditional `UPDATE`).
+- **#28 — stock and price (done):** with the PostgreSQL catalog,
+  `createOrder` reserves each line with a conditional
+  `reserved = reserved + q WHERE on_hand - reserved >= q` (SKU order, inside
+  the order transaction) and re-reads prices on the same connection; a
+  shortage or price change rolls the order back. `stock_reservations` and
+  `reserve`/`release`/`sale` movements record the lifecycle: handover
+  consumes, cancellation releases, unpaid card orders expire after 30 minutes
+  (`npm run orders:release-expired`), paid orders keep their stock.

@@ -4,6 +4,7 @@ import { database } from "./accounts";
 import { orderUrl, simulatorEnabled } from "./order-config";
 import { validPayment } from "./order-state";
 import { queueOrderEmail } from "./order-notifications";
+import { keepReservations, settleReservations } from "./stock-reservations";
 export function stripeClient() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key?.startsWith("sk_test_"))
@@ -116,6 +117,9 @@ export async function recordPaymentEvent(event: Stripe.Event) {
         "UPDATE orders SET payment_status=$1,stripe_session_id=$2,updated_at=now() WHERE id=$3",
         [expired ? "failed" : "paid", session.id, id],
       );
+      // A paid order keeps its stock; an expired payment frees it.
+      if (expired) await settleReservations(client, id, "expired");
+      else await keepReservations(client, id);
       await queueOrderEmail(
         client,
         order,
