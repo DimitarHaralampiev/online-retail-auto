@@ -8,7 +8,7 @@ import {
 } from "../lib/guest-favorites";
 
 const isWellFormedSku = (sku: string) =>
-  sku.trim().length > 0 && sku.length <= 50;
+  sku.trim().length > 0 && sku.length <= 50 && !/[\u0000-\u001f]/.test(sku);
 const Context = createContext<{
   data: CustomerFeatures;
   ready: boolean;
