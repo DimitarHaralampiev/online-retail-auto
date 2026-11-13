@@ -14,10 +14,6 @@ import ProductCard from "../../../components/product-card";
 import { catalog } from "../../../lib/catalog-server";
 import { requestLocale } from "../../../lib/i18n/server";
 
-export async function generateStaticParams() {
-  return (await catalog().listProducts()).map(({ sku }) => ({ sku }));
-}
-
 export default async function ProductPage({
   params,
 }: {

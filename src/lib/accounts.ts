@@ -12,6 +12,8 @@ export function database() {
   return (globalDb.accountPool ??= new Pool({
     connectionString: process.env.DATABASE_URL,
     max: 5,
+    // Fail instead of waiting forever when the pool is exhausted.
+    connectionTimeoutMillis: 10_000,
   }));
 }
 /** Closes the shared pool; the next `database()` call opens a new one. */

@@ -37,6 +37,7 @@ export default defineConfig({
           TEST_SHIPPING_CENTS: "500",
           FREE_SHIPPING_ABOVE_CENTS: "3000",
           DATABASE_URL: "",
+          CATALOG_SOURCE: "static",
           // Blank anything .env.local could provide, so local runs match CI
           // and never use real credentials or external services.
           APP_URL: "",

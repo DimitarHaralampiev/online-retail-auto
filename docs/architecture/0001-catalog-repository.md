@@ -55,19 +55,22 @@ not grow beyond what is safe to bundle into the browser.
 
 Recorded now so the PostgreSQL adapter does not freeze the interim shape.
 
-- **#26 — category identity:** `category: { id /* slug */, name }`, like
+- **#73 — category identity:** `category: { id /* slug */, name }`, like
   `subcategory`; the display name stops being a key (it breaks once names are
   translated). Category URLs may move to the slug.
-- **#26 — locale:** scope the repository per request, `catalog({ locale })`,
+- **#73 — locale:** scope the repository per request, `catalog({ locale })`,
   wrapped in React `cache()`, so the adapter returns localised names and
   descriptions from `product_translations` / `category_translations` instead of
   translating demo strings in the browser.
-- **#26 — prices:** rename `demoPriceCents` / `demoSalePriceCents` to
+- **#73 — prices:** rename `demoPriceCents` / `demoSalePriceCents` to
   `priceCents` / `salePriceCents`; promotions stay derived in `pricing.ts`.
-- **#26 — queries:** `getProducts` uses `sku = ANY($1)` with a documented
-  maximum (current callers are bounded: 100 favourites, cart lines by schema).
-  Callers holding row locks (`scanCustomerNotifications`) must not wait on a
-  second pool connection: load products before locking or pass the client.
+- **#26 — done:** `catalog-postgres.ts` implements the current contract;
+  `CATALOG_SOURCE=postgres` selects it. Categories are two levels deep
+  (deeper rows are excluded, not misfiled). `getProducts` is bounded at 500
+  SKUs; `lookupProducts` chunks larger sets. Code holding a transaction never
+  awaits the catalog (it needs its own pool connection): catalog data is
+  loaded before `BEGIN`, and the pool times out instead of hanging. Within one
+  render the layout's product list and taxonomy share one cached query.
 - **#27 — browsing:** add `browse(query)` returning a page (`items` plus total
   or cursor) with category, subcategory, availability, promotion, fitment and
   text filters, sorting and a limit; taxonomy counts become `GROUP BY`.
@@ -77,9 +80,10 @@ Recorded now so the PostgreSQL adapter does not freeze the interim shape.
 (ends_at IS NULL OR ends_at > now())`; with several live lines for a SKU the
   lowest `sale_price_cents` wins. `warehouse_products.selling_price_cents` is
   the regular price (the line's `regular_price_cents` is informational).
-- **#26 — images:** the primary `product_media` image wins; otherwise
+- **#44 — images:** once product media has a public route, the primary
+  `product_media` image wins; until then the PostgreSQL adapter uses
   `warehouse_products.image_path` (a static `/images/...` file, enforced by the
-  `warehouse_products_image_path_local` constraint).
+  `warehouse_products_image_path_local` constraint) or a fallback image.
 - **#25 — demo data:** `npm run db:seed:demo` loads the demo catalog
   (`is_demo` products and categories) outside migrations. Stock is seeded as
   the demo's available quantity with nothing reserved, so `reserved` only ever
