@@ -7,7 +7,7 @@ export default function LanguageSwitcher() {
       <button
         type="button"
         lang="bg"
-        aria-label="Български"
+        aria-label="BG — Български"
         aria-pressed={locale === "bg"}
         onClick={() => setLocale("bg")}
       >
@@ -16,7 +16,7 @@ export default function LanguageSwitcher() {
       <button
         type="button"
         lang="en"
-        aria-label="English"
+        aria-label="EN — English"
         aria-pressed={locale === "en"}
         onClick={() => setLocale("en")}
       >

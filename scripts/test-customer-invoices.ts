@@ -1,3 +1,4 @@
+import type { Browser } from "@playwright/test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 import { database } from "../src/lib/accounts";
@@ -33,9 +34,7 @@ const orders: string[] = [];
 let originalDelivery: Record<string, unknown> | null = null;
 const skus = [`TEST-${tag}-2`, `TEST-${tag}-1`];
 const fitmentMake = `TEST-${tag}`;
-// Playwright is loaded from TEST_PLAYWRIGHT_MODULE at runtime, so no types exist yet (#23).
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let browser: any;
+let browser: Browser | null = null;
 const originalFetch = globalThis.fetch;
 const previousKey = process.env.OPENAI_API_KEY;
 async function post(path: string, body: unknown, cookie = "") {
@@ -754,11 +753,12 @@ async function main() {
     );
     if (process.env.TEST_PLAYWRIGHT_MODULE) {
       const { chromium } = await import(process.env.TEST_PLAYWRIGHT_MODULE);
-      browser = await chromium.launch({
+      const launched: Browser = await chromium.launch({
         executablePath: process.env.TEST_CHROME ?? "/usr/bin/google-chrome",
         args: ["--no-sandbox"],
       });
-      const context = await browser.newContext({
+      browser = launched;
+      const context = await launched.newContext({
         viewport: { width: 1440, height: 1000 },
       });
       const page = await context.newPage();
@@ -796,19 +796,19 @@ async function main() {
       await page.goto(root + "/catalog");
       await page
         .getByRole("button", {
-          name: "Добави в любими: Органайзер за багажник",
+          name: "Запази в любими: Органайзер за багажник",
         })
         .click();
       await page.goto(root + "/favorites");
       await page
         .getByRole("button", {
-          name: "Премахни от любими: Органайзер за багажник",
+          name: "В любими: Органайзер за багажник",
         })
         .waitFor();
       await page.reload();
       await page
         .getByRole("button", {
-          name: "Премахни от любими: Органайзер за багажник",
+          name: "В любими: Органайзер за багажник",
         })
         .waitFor();
       await context.addCookies([
@@ -951,7 +951,7 @@ async function main() {
         false,
       );
       assert.deepEqual(errors, []);
-      await browser.close();
+      await launched.close();
       browser = null;
       console.log(
         "PASS desktop/mobile browser services, registration choices, guest favorites, persisted preferences and invoice UI without console errors",

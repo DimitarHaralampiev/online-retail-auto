@@ -21,11 +21,12 @@ export default function ProductCard({ product }: { product: Product }) {
           <Link
             href={`/catalog/${product.sku}`}
             className="product-photo"
-            aria-label={`Разгледай ${product.name}`}
+            aria-hidden="true"
+            tabIndex={-1}
           >
             <Image
               src={product.image}
-              alt={`Илюстрация: ${product.name}`}
+              alt=""
               fill
               sizes="(max-width: 600px) 100vw, (max-width: 900px) 50vw, 33vw"
             />
