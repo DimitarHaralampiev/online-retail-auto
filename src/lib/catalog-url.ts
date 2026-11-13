@@ -66,9 +66,14 @@ const schema = z.object({
     first,
     z.enum(["featured", "price-asc", "price-desc", "name"]).catch("featured"),
   ),
+  // Plain digits only; pages beyond the cap clamp to it (past the end).
   page: z.preprocess(
     first,
-    z.coerce.number().int().min(1).max(MAX_PAGE).catch(1),
+    z
+      .string()
+      .regex(/^\d{1,9}$/)
+      .transform((value) => Math.min(Math.max(Number(value), 1), MAX_PAGE))
+      .catch(1),
   ),
 });
 

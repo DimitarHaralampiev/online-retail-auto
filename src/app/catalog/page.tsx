@@ -3,6 +3,7 @@ import SiteHeader from "../../components/site-header";
 import SiteFooter from "../../components/site-footer";
 import Catalog from "../../components/catalog";
 import { currentCustomer } from "../../lib/accounts";
+import { MAX_COMPATIBLE_SKUS } from "../../lib/catalog";
 import { catalog } from "../../lib/catalog-server";
 import { browseQueryFor, parseCatalogUrl } from "../../lib/catalog-url";
 import { getCustomerFeatures } from "../../lib/customer-features";
@@ -13,21 +14,29 @@ export default async function CatalogPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const state = parseCatalogUrl(await searchParams);
+  const parsed = parseCatalogUrl(await searchParams);
+  const store = catalog();
+  // Only categories that exist are applied (and shown back to the visitor).
+  const taxonomy = await store.taxonomy();
+  const category = taxonomy.find((c) => c.name === parsed.category);
+  const subcategory = taxonomy
+    .flatMap((c) => c.subcategories.map((s) => ({ ...s, parent: c.name })))
+    .find(
+      (s) =>
+        s.id === parsed.subcategory &&
+        (!category || s.parent === category.name),
+    );
+  const fitment = parsed.car ? await vehicleFitment() : undefined;
+  // The state the server actually applied; links are built from it.
+  const state = {
+    ...parsed,
+    category: category?.name ?? subcategory?.parent ?? "",
+    subcategory: subcategory?.id ?? "",
+    car: !!fitment,
+  };
   const query = browseQueryFor(state, await requestLocale());
-  // Vehicle fitment comes from the signed-in customer's selected vehicle,
-  // never from the URL.
-  let compatibleSkus: string[] | undefined;
-  if (query && state.car) {
-    const customer = await currentCustomer().catch(() => null);
-    if (customer) {
-      const features = await getCustomerFeatures(customer.id);
-      if (features.vehicles.some((vehicle) => vehicle.selected))
-        compatibleSkus = features.compatibleSkus;
-    }
-  }
   const result = query
-    ? await catalog().browse({ ...query, compatibleSkus })
+    ? await store.browse({ ...query, compatibleSkus: fitment })
     : null;
   return (
     <Localize>
@@ -58,11 +67,7 @@ export default async function CatalogPage({
               className="site-width catalog-section"
               aria-label="Продукти"
             >
-              <Catalog
-                state={state}
-                result={result}
-                carFilter={!!compatibleSkus}
-              />
+              <Catalog state={state} result={result} carFilter={state.car} />
             </section>
           </main>
           <SiteFooter />
@@ -70,4 +75,23 @@ export default async function CatalogPage({
       }
     </Localize>
   );
+}
+
+/**
+ * SKUs that fit the signed-in customer's selected vehicle, or undefined when
+ * the filter cannot apply (no session, no selected vehicle, too many matches
+ * or a database error): the page then shows the unfiltered catalog.
+ */
+async function vehicleFitment(): Promise<string[] | undefined> {
+  try {
+    const customer = await currentCustomer();
+    if (!customer) return undefined;
+    const features = await getCustomerFeatures(customer.id);
+    if (!features.vehicles.some((vehicle) => vehicle.selected))
+      return undefined;
+    if (features.compatibleSkus.length > MAX_COMPATIBLE_SKUS) return undefined;
+    return features.compatibleSkus;
+  } catch {
+    return undefined;
+  }
 }

@@ -278,3 +278,44 @@ test.describe("catalog state lives in the URL", () => {
     await expect(count(page)).toHaveText(/^\s*0\s*продукта\s*$/);
   });
 });
+
+test.describe("catalog filters chosen in quick succession", () => {
+  test("typing and then ticking a filter keeps both", async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto("/catalog");
+    if (isMobile) await page.getByRole("button", { name: /^Филтри/ }).click();
+    const search = page.getByRole("searchbox", {
+      name: "Търсене",
+      exact: true,
+    });
+    await search.pressSequentially("кърпа", { delay: 20 });
+    // Before the typing pause elapses.
+    await page.getByText("Само налични").click();
+    await expect(page).toHaveURL(/available=1/);
+    await expect(page).toHaveURL(/q=%D0%BA%D1%8A%D1%80%D0%BF%D0%B0/);
+    await expect(search).toHaveValue("кърпа");
+    // The microfiber cloth has no free stock, so nothing matches both.
+    await expect(
+      page.getByRole("status").filter({ hasText: "продукт" }),
+    ).toHaveText(/^\s*0\s*продукта\s*$/);
+  });
+
+  test("a vehicle filter without a signed-in vehicle is ignored and dropped from links", async ({
+    page,
+  }) => {
+    await page.goto("/catalog?car=1&sort=name");
+    await expect(
+      page.getByRole("status").filter({ hasText: "продукт" }),
+    ).toHaveText(/^\s*6\s*продукта\s*$/);
+    await expect(
+      page.getByRole("button", { name: /Моят автомобил/ }),
+    ).toHaveCount(0);
+    await page.goto("/catalog?car=1&page=1&category=%D0%9D%D1%8F%D0%BC%D0%B0");
+    // Unknown category is ignored too.
+    await expect(
+      page.getByRole("status").filter({ hasText: "продукт" }),
+    ).toHaveText(/^\s*6\s*продукта\s*$/);
+  });
+});

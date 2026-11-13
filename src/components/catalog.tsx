@@ -5,10 +5,11 @@
 // typed text and prices after a short pause).
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
-import type { BrowsePage } from "../lib/catalog";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { MAX_BROWSE_TEXT, type BrowsePage } from "../lib/catalog";
 import {
   catalogHref,
+  EMPTY_CATALOG_STATE,
   priceRange,
   type CatalogUrlState,
 } from "../lib/catalog-url";
@@ -44,48 +45,86 @@ export default function Catalog({
   const [view, setView] = useState("grid");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Typed inputs keep local values while the visitor types; they follow the
-  // URL when it changes from elsewhere (chips, back/forward, reset).
+  // Typed inputs keep local values while the visitor types.
   const [q, setQ] = useState(state.q);
   const [minPrice, setMinPrice] = useState(state.min);
   const [maxPrice, setMaxPrice] = useState(state.max);
-  const [synced, setSynced] = useState(state);
-  if (synced !== state) {
-    setSynced(state);
-    if (q.trim() !== state.q) setQ(state.q);
-    if (minPrice.trim() !== state.min) setMinPrice(state.min);
-    if (maxPrice.trim() !== state.max) setMaxPrice(state.max);
-  }
+
+  // `intended` is the state the visitor asked for, including typed text and
+  // valid prices not yet sent. Every navigation is built from it, so a filter
+  // chosen right after typing keeps the typed text, and a delayed navigation
+  // never resurrects an older state. The ref mirrors it for timers.
+  const [intended, setIntended] = useState(state);
+  const intendedRef = useRef(state);
+  const [typing, setTyping] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // Discrete choices become history entries (Back undoes them); typing
-  // replaces the current entry so each keystroke is not a step.
-  function navigate(changes: Partial<CatalogUrlState>, replace = false) {
+  // When the URL changes from elsewhere (back/forward, links, pagination),
+  // adopt it. Responses to this component's own navigations, including
+  // intermediate ones while the visitor is still typing, are ignored.
+  const stateHref = catalogHref(state, { page: state.page });
+  const [seenHref, setSeenHref] = useState(stateHref);
+  if (seenHref !== stateHref) {
+    setSeenHref(stateHref);
+    const external =
+      !typing &&
+      !pending &&
+      stateHref !== catalogHref(intended, { page: intended.page });
+    if (external) {
+      setIntended(state);
+      setQ(state.q);
+      setMinPrice(state.min);
+      setMaxPrice(state.max);
+    }
+  }
+  useEffect(() => {
+    intendedRef.current = intended;
+  }, [intended]);
+  // Leaving the page must not fire a pending typed navigation.
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  function go(next: CatalogUrlState, replace: boolean) {
     clearTimeout(timer.current);
-    const href = catalogHref(state, changes);
+    setTyping(false);
+    intendedRef.current = next;
+    setIntended(next);
+    const href = catalogHref(next, { page: next.page });
     startTransition(() =>
       replace
         ? router.replace(href, { scroll: false })
         : router.push(href, { scroll: false }),
     );
   }
+  // Discrete choices become history entries (Back undoes them). Any filter
+  // change returns to the first page.
+  function navigate(changes: Partial<CatalogUrlState>) {
+    go({ ...intendedRef.current, page: 1, ...changes }, false);
+  }
+  // Typing replaces the current entry after a pause, so each keystroke is
+  // not a history step.
   function navigateSoon(changes: Partial<CatalogUrlState>) {
+    const next = { ...intendedRef.current, page: 1, ...changes };
+    intendedRef.current = next;
+    setIntended(next);
+    setTyping(true);
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => navigate(changes, true), TYPING_DELAY_MS);
+    timer.current = setTimeout(
+      () => go(intendedRef.current, true),
+      TYPING_DELAY_MS,
+    );
   }
   function changePrice(min: string, max: string) {
     setMinPrice(min);
     setMaxPrice(max);
+    // An invalid range is shown but not sent; other pending changes stay.
     if (priceRange({ min: min.trim(), max: max.trim() }).valid)
       navigateSoon({ min: min.trim(), max: max.trim() });
-    else clearTimeout(timer.current);
   }
   function reset() {
-    clearTimeout(timer.current);
     setQ("");
     setMinPrice("");
     setMaxPrice("");
-    startTransition(() => router.push("/catalog", { scroll: false }));
+    go({ ...EMPTY_CATALOG_STATE }, false);
   }
 
   const invalidPrice =
@@ -159,7 +198,7 @@ export default function Catalog({
               <input
                 type="search"
                 value={q}
-                maxLength={100}
+                maxLength={MAX_BROWSE_TEXT}
                 onChange={(e) => {
                   setQ(e.target.value);
                   navigateSoon({ q: e.target.value.trim() });
@@ -400,13 +439,17 @@ export default function Catalog({
               <ProductCard key={product.sku} product={product} />
             ))}
           </div>
-          {result && result.pageCount > 1 && (
+          {result && result.pageCount > 1 && products.length > 0 && (
             <nav
               className="catalog-pagination"
               aria-label={text("Страници", "Pages")}
             >
               {result.page > 1 && (
-                <Link href={catalogHref(state, { page: result.page - 1 })}>
+                <Link
+                  href={catalogHref(state, {
+                    page: Math.min(result.page - 1, result.pageCount),
+                  })}
+                >
                   ← {text("Предишна", "Previous")}
                 </Link>
               )}

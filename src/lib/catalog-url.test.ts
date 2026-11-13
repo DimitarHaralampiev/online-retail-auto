@@ -48,10 +48,11 @@ test("malformed or hostile parameters fall back to defaults", () => {
   });
   assert.equal(state.q, "first");
   assert.equal(state.sort, "featured");
-  assert.equal(state.page, 1);
+  // Beyond the cap: clamped, then shown as past the end.
+  assert.equal(state.page, 1000);
   assert.equal(state.available, false);
   assert.equal(state.min.length, 12);
-  for (const page of ["0", "-2", "1.5", "abc", "NaN", "Infinity"])
+  for (const page of ["0", "-2", "1.5", "abc", "NaN", "Infinity", ""])
     assert.equal(parseCatalogUrl({ page }).page, 1, page);
   assert.equal(parseCatalogUrl({ q: "x".repeat(500) }).q.length, 100);
 });
@@ -127,4 +128,78 @@ test("links keep state canonical and reset paging on filter changes", () => {
     promotions: true,
     page: 1,
   });
+});
+
+test("page numbers must be plain digits and clamp to the cap", () => {
+  for (const page of ["1e2", " 3", "0x10", "3abc", "+2"])
+    assert.equal(parseCatalogUrl({ page }).page, 1, page);
+  assert.equal(parseCatalogUrl({ page: "1000" }).page, 1000);
+  assert.equal(parseCatalogUrl({ page: "1001" }).page, 1000);
+  assert.equal(parseCatalogUrl({ page: "0" }).page, 1);
+});
+
+test("text parameters are capped per field", () => {
+  const long = parseCatalogUrl({
+    category: "к".repeat(500),
+    subcategory: "s".repeat(500),
+    max: "9".repeat(50),
+  });
+  assert.equal(long.category.length, 120);
+  assert.equal(long.subcategory.length, 80);
+  assert.equal(long.max.length, 12);
+});
+
+test("equal price bounds are valid; a malformed maximum is not", () => {
+  assert.deepEqual(priceRange({ min: "10", max: "10" }), {
+    valid: true,
+    minPriceCents: 1000,
+    maxPriceCents: 1000,
+  });
+  assert.equal(priceRange({ min: "", max: "ten" }).valid, false);
+});
+
+test("the browse query carries every filter but never vehicle SKUs", () => {
+  const query = browseQueryFor(
+    parseCatalogUrl({
+      available: "1",
+      promotions: "1",
+      car: "1",
+      subcategory: "x",
+    }),
+    "bg",
+  );
+  assert.equal(query?.available, true);
+  assert.equal(query?.promotions, true);
+  assert.equal(query?.subcategory, "x");
+  assert.equal(query && "compatibleSkus" in query, false);
+});
+
+test("links carry every filter", () => {
+  const all = parseCatalogUrl({
+    category: "Части и консумативи",
+    subcategory: "filters",
+    q: "филтър",
+    min: "1",
+    max: "50",
+    available: "1",
+    promotions: "1",
+    car: "1",
+    sort: "name",
+    page: "2",
+  });
+  const href = catalogHref(all, { page: 2 });
+  const url = new URL(href, "http://x");
+  assert.deepEqual(Object.fromEntries(url.searchParams), {
+    category: "Части и консумативи",
+    subcategory: "filters",
+    q: "филтър",
+    min: "1",
+    max: "50",
+    available: "1",
+    promotions: "1",
+    car: "1",
+    sort: "name",
+    page: "2",
+  });
+  assert.deepEqual(parseCatalogUrl(Object.fromEntries(url.searchParams)), all);
 });
