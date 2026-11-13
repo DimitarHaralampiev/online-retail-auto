@@ -8,7 +8,9 @@ ALTER TABLE warehouse_products DROP CONSTRAINT IF EXISTS warehouse_products_imag
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'warehouse_products_image_path_local'
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'warehouse_products_image_path_local'
+      AND conrelid = 'warehouse_products'::regclass
   ) THEN
     ALTER TABLE warehouse_products ADD CONSTRAINT warehouse_products_image_path_local
       CHECK (image_path IS NULL OR image_path ~ '^/images/[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*\.(png|jpe?g|webp|avif)$');
