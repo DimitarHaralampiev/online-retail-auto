@@ -291,6 +291,8 @@ async function main() {
   }
 }
 // reserved moves by reserve - release - sale; on_hand drops by sale.
+// inventory_value_cents removed at handover is not restored (demo SKUs carry
+// no acquisition value); do not run this against SKUs received by invoice.
 const UNDO_TEST_ORDER_STOCK = `
 UPDATE warehouse_products w
 SET reserved = w.reserved - m.held, on_hand = w.on_hand + m.sold

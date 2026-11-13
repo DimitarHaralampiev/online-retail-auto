@@ -10,6 +10,8 @@ const INTERVAL_MS = 60_000;
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("Set DATABASE_URL first.");
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  // A dropped idle connection must not crash the watch loop.
+  pool.on("error", (error) => console.error("Database pool error", error));
   const run = async () => {
     const released = await releaseExpiredReservations(pool);
     console.log(`Released ${released} expired reservation(s).`);
