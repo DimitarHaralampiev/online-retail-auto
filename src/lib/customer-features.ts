@@ -11,7 +11,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { database } from "./accounts";
 import { productLookup } from "./catalog";
-import { catalog } from "./catalog-server";
+import { lookupProducts } from "./catalog-server";
 import { availableStock } from "./inventory";
 import { sellingPrice } from "./pricing";
 export async function getCustomerFeatures(
@@ -69,8 +69,21 @@ export async function mutateCustomerFeatures(
 ) {
   const action = customerActionSchema.parse(value);
   const skus = customerActionSkus(action);
-  const products = productLookup(await catalog().getProducts(skus));
+  const products = await lookupProducts(skus);
   if (skus.some((sku) => !products(sku))) throw new Error("Непознат продукт.");
+  // Load catalog data before the transaction: with the PostgreSQL catalog it
+  // needs its own pool connection, which must not be awaited under row locks.
+  const pricedAlerts =
+    action.action === "preferences" && action.preferences.price
+      ? await lookupProducts(
+          (
+            await database().query<{ sku: string }>(
+              "SELECT sku FROM customer_product_alerts WHERE customer_id=$1 AND kind='price'",
+              [customerId],
+            )
+          ).rows.map((row) => row.sku),
+        )
+      : productLookup([]);
   const client = await database().connect();
   try {
     await client.query("BEGIN");
@@ -105,13 +118,14 @@ export async function mutateCustomerFeatures(
           "SELECT sku FROM customer_product_alerts WHERE customer_id=$1 AND kind='price'",
           [customerId],
         );
-        for (const product of await catalog().getProducts(
-          alerted.rows.map((row) => row.sku),
-        ))
+        for (const row of alerted.rows) {
+          const product = pricedAlerts(row.sku);
+          if (!product) continue;
           await client.query(
             "UPDATE customer_product_alerts SET last_price_cents=$1 WHERE customer_id=$2 AND sku=$3 AND kind='price'",
             [sellingPrice(product), customerId, product.sku],
           );
+        }
       }
     } else if (action.action === "favorite") {
       if (action.enabled)

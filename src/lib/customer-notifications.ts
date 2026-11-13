@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { database } from "./accounts";
 import { productLookup, type Product } from "./catalog";
-import { catalog } from "./catalog-server";
+import { lookupProducts } from "./catalog-server";
 import { availableStock } from "./inventory";
 import { sellingPrice } from "./pricing";
 import { formatMoney } from "./cart";
@@ -35,6 +35,19 @@ export async function scanCustomerNotifications(
   today = todayInSofia(),
   customerId?: string,
 ) {
+  // Load alerted products before locking rows: the PostgreSQL catalog needs
+  // its own pool connection and must not be awaited while locks are held.
+  // Alerts created in between are picked up by the next scan.
+  const lookup = products
+    ? productLookup(products)
+    : await lookupProducts(
+        (
+          await database().query<{ sku: string }>(
+            "SELECT DISTINCT sku FROM customer_product_alerts WHERE ($1::uuid IS NULL OR customer_id=$1) AND active",
+            [customerId ?? null],
+          )
+        ).rows.map((row) => row.sku),
+      );
   const client = await database().connect();
   let queued = 0;
   try {
@@ -42,12 +55,6 @@ export async function scanCustomerNotifications(
     const alerts = await client.query(
       `SELECT a.*,c.email FROM customer_product_alerts a JOIN customers c ON c.id=a.customer_id WHERE ($1::uuid IS NULL OR a.customer_id=$1) AND a.active AND c.email_verified_at IS NOT NULL AND c.notification_preferences->>a.kind='true' ORDER BY a.created_at FOR UPDATE OF a SKIP LOCKED`,
       [customerId ?? null],
-    );
-    const lookup = productLookup(
-      products ??
-        (await catalog().getProducts([
-          ...new Set(alerts.rows.map((alert) => alert.sku as string)),
-        ])),
     );
     for (const alert of alerts.rows) {
       const product = lookup(alert.sku);

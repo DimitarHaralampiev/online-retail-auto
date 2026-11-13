@@ -47,28 +47,34 @@ SELECT w.sku,
        w.on_hand,
        w.reserved,
        c.slug AS category_slug,
-       coalesce(ct.name, c.slug) AS category_name,
-       coalesce(pt.name, parent.slug) AS parent_name
+       coalesce(ct.name, cte.name, c.slug) AS category_name,
+       coalesce(pt.name, pte.name, parent.slug) AS parent_name
 FROM warehouse_products w
 JOIN product_categories c ON c.id = w.category_id AND c.active
 LEFT JOIN product_categories parent ON parent.id = c.parent_id
 LEFT JOIN category_translations ct ON ct.category_id = c.id AND ct.locale = 'bg'
+LEFT JOIN category_translations cte ON cte.category_id = c.id AND cte.locale = 'en'
 LEFT JOIN category_translations pt ON pt.category_id = parent.id AND pt.locale = 'bg'
+LEFT JOIN category_translations pte ON pte.category_id = parent.id AND pte.locale = 'en'
 LEFT JOIN product_translations t ON t.sku = w.sku AND t.locale = 'bg'
 LEFT JOIN live_sale s ON s.sku = w.sku
 WHERE w.status = 'published'
   AND w.selling_price_cents IS NOT NULL
-  AND (parent.id IS NULL OR parent.active)
+  -- Two levels only (category > subcategory); deeper rows are excluded
+  -- rather than misfiled until the category tree supports more (#73).
+  AND (parent.id IS NULL OR (parent.active AND parent.parent_id IS NULL))
   AND ($1::text[] IS NULL OR w.sku = ANY($1))
 ORDER BY coalesce(parent.sort_order, c.sort_order),
          coalesce(parent.slug, c.slug),
          CASE WHEN parent.id IS NULL THEN -1 ELSE c.sort_order END,
+         c.slug,
          w.sku`;
 
 const CATEGORY_ORDER_SQL = `
-SELECT coalesce(t.name, c.slug) AS name
+SELECT coalesce(t.name, e.name, c.slug) AS name
 FROM product_categories c
 LEFT JOIN category_translations t ON t.category_id = c.id AND t.locale = 'bg'
+LEFT JOIN category_translations e ON e.category_id = c.id AND e.locale = 'en'
 WHERE c.parent_id IS NULL AND c.active
 ORDER BY c.sort_order, c.slug`;
 
@@ -92,12 +98,22 @@ function toProduct(row: ProductRow): Product {
   };
 }
 
-export function createPostgresCatalog(db: () => Queryable): CatalogRepository {
+export type PostgresCatalog = CatalogRepository & {
+  /** Top-level category names in display order (for building the taxonomy). */
+  categoryOrder(): Promise<string[]>;
+};
+
+export function createPostgresCatalog(db: () => Queryable): PostgresCatalog {
+  async function categoryOrder(): Promise<string[]> {
+    const result = await db().query<{ name: string }>(CATEGORY_ORDER_SQL);
+    return result.rows.map((row) => row.name);
+  }
   async function products(skus: readonly string[] | null): Promise<Product[]> {
     const result = await db().query<ProductRow>(PRODUCTS_SQL, [skus]);
     return result.rows.map(toProduct);
   }
   return {
+    categoryOrder,
     listProducts: () => products(null),
     async getProduct(sku) {
       return (await products([sku]))[0] ?? null;
@@ -118,14 +134,8 @@ export function createPostgresCatalog(db: () => Queryable): CatalogRepository {
       });
     },
     async taxonomy() {
-      const [all, order] = await Promise.all([
-        products(null),
-        db().query<{ name: string }>(CATEGORY_ORDER_SQL),
-      ]);
-      return buildTaxonomy(
-        all,
-        order.rows.map((row) => row.name),
-      );
+      const [all, order] = await Promise.all([products(null), categoryOrder()]);
+      return buildTaxonomy(all, order);
     },
   };
 }

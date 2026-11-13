@@ -134,3 +134,78 @@ test("reflects stock changes immediately", async () => {
     reserved: 2,
   });
 });
+
+test("hides products in an inactive subcategory and products without a price", async () => {
+  await db().pool.query(
+    "UPDATE product_categories SET active=false WHERE slug='filters'",
+  );
+  await db().pool.query(
+    "UPDATE warehouse_products SET selling_price_cents=NULL WHERE sku='DEMO-002'",
+  );
+  const skus = (await store().listProducts()).map((p) => p.sku);
+  assert.deepEqual(skus, ["DEMO-001", "DEMO-004", "DEMO-005", "DEMO-006"]);
+});
+
+test("promotions past their end date and sales equal to the price do not apply", async () => {
+  await db().pool.query(
+    "UPDATE promotions SET ends_at=now()-interval '1 minute' WHERE id=$1",
+    [DEMO_PROMOTION_ID],
+  );
+  assert.equal(
+    (await store().getProduct("DEMO-001"))?.demoSalePriceCents,
+    undefined,
+  );
+  await db().pool.query("UPDATE promotions SET ends_at=NULL WHERE id=$1", [
+    DEMO_PROMOTION_ID,
+  ]);
+  // DEMO-002 is on sale for 11.90 EUR; a regular price of 11.90 removes the sale.
+  await db().pool.query(
+    "UPDATE warehouse_products SET selling_price_cents=1190 WHERE sku='DEMO-002'",
+  );
+  assert.equal(
+    (await store().getProduct("DEMO-002"))?.demoSalePriceCents,
+    undefined,
+  );
+});
+
+test("accepts exactly the maximum number of SKUs per lookup", async () => {
+  const skus = Array.from({ length: MAX_PRODUCTS_PER_LOOKUP }, (_, i) =>
+    i === 0 ? "DEMO-001" : `SKU-${i}`,
+  );
+  assert.deepEqual(
+    (await store().getProducts(skus)).map((p) => p.sku),
+    ["DEMO-001"],
+  );
+});
+
+test("orders products within a subcategory by SKU and excludes deeper categories", async () => {
+  await db().pool.query(
+    `INSERT INTO warehouse_products(sku,name,brand,manufacturer_code,ean,category_id,status,selling_price_cents)
+     SELECT 'DEMO-0035','Втори филтър','B','M','',id,'published',990 FROM product_categories WHERE slug='filters'`,
+  );
+  await db().pool.query(
+    `INSERT INTO product_categories(id,slug,parent_id,active)
+     SELECT gen_random_uuid(),'too-deep',id,true FROM product_categories WHERE slug='filters'`,
+  );
+  await db().pool.query(
+    `INSERT INTO warehouse_products(sku,name,brand,manufacturer_code,ean,category_id,status,selling_price_cents)
+     SELECT 'DEEP-1','Дълбок','B','M','',id,'published',990 FROM product_categories WHERE slug='too-deep'`,
+  );
+  const skus = (await store().listProducts()).map((p) => p.sku);
+  assert.deepEqual(skus.slice(2, 5), ["DEMO-003", "DEMO-0035", "DEMO-004"]);
+  assert.equal(skus.includes("DEEP-1"), false);
+});
+
+test("falls back to the English category name before the slug", async () => {
+  await db().pool.query(
+    `DELETE FROM category_translations WHERE locale='bg'
+     AND category_id IN (SELECT id FROM product_categories WHERE slug IN ('car-care','washing'))`,
+  );
+  const shampoo = await store().getProduct("DEMO-005");
+  assert.equal(shampoo?.category, "Car care");
+  assert.deepEqual(shampoo?.subcategory, {
+    id: "washing",
+    name: "Washing & cleaners",
+  });
+  assert.equal((await store().taxonomy()).at(-1)?.name, "Car care");
+});

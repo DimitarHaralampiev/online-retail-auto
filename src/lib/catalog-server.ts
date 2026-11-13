@@ -4,12 +4,19 @@
 import { cache } from "react";
 import { database } from "./accounts";
 import {
+  buildTaxonomy,
   productLookup,
+  type Product,
   type CatalogRepository,
   type ProductLookup,
 } from "./catalog";
 import { demoCategories, demoProducts } from "./catalog-demo-data";
-import { createPostgresCatalog } from "./catalog-postgres";
+import {
+  createPostgresCatalog,
+  MAX_PRODUCTS_PER_LOOKUP,
+} from "./catalog-postgres";
+
+const LOOKUP_CHUNK = MAX_PRODUCTS_PER_LOOKUP;
 import { createStaticCatalog } from "./catalog-static";
 
 export type CatalogSource = "static" | "postgres";
@@ -31,11 +38,21 @@ function createCatalog(): CatalogRepository {
     throw new Error("CATALOG_SOURCE=postgres requires DATABASE_URL.");
   const store = createPostgresCatalog(database);
   // The layout and page both read the catalog; cache() shares the result
-  // within one server render (it is a pass-through elsewhere).
+  // within one server render (it is a pass-through elsewhere). The taxonomy
+  // is built from the same cached list instead of a second full query.
+  const listProducts = cache(store.listProducts);
+  const categoryOrder = cache(store.categoryOrder);
   return {
-    ...store,
-    listProducts: cache(store.listProducts),
-    taxonomy: cache(store.taxonomy),
+    getProduct: store.getProduct,
+    getProducts: store.getProducts,
+    listProducts,
+    taxonomy: cache(async () => {
+      const [products, order] = await Promise.all([
+        listProducts(),
+        categoryOrder(),
+      ]);
+      return buildTaxonomy(products, order);
+    }),
   };
 }
 
@@ -45,9 +62,17 @@ export function catalog(): CatalogRepository {
   return (repository ??= createCatalog());
 }
 
-/** Loads only the given SKUs and returns a lookup for pure checkout logic. */
+/**
+ * Loads only the given SKUs (in chunks the repository accepts) and returns a
+ * lookup for pure logic. Call it before opening a transaction: with the
+ * PostgreSQL catalog it needs its own pool connection.
+ */
 export async function lookupProducts(
   skus: Iterable<string>,
 ): Promise<ProductLookup> {
-  return productLookup(await catalog().getProducts([...new Set(skus)]));
+  const unique = [...new Set(skus)];
+  const chunks: Promise<Product[]>[] = [];
+  for (let i = 0; i < unique.length; i += LOOKUP_CHUNK)
+    chunks.push(catalog().getProducts(unique.slice(i, i + LOOKUP_CHUNK)));
+  return productLookup((await Promise.all(chunks)).flat());
 }
