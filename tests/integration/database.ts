@@ -125,8 +125,9 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     await applyMigrations(url);
     pool = new pg.Pool({ connectionString: url, max: 4 });
   } catch (error) {
-    // A broken migration must not leave a database behind.
-    await dropDatabase(server, name);
+    // A broken migration must not leave a database behind, and a cleanup
+    // failure must not hide the migration error.
+    await dropDatabase(server, name).catch(() => {});
     throw error;
   }
   return {
