@@ -195,7 +195,8 @@ test("switching language does not reload client state from storage", async ({
     ),
   );
   await page.getByRole("button", { name: /English/ }).click();
-  // The server re-renders the root layout (it sets <html lang>) on refresh.
+  // The switch sets <html lang> on the client, then router.refresh() fetches
+  // new layout props; wait until that request has finished.
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("link", { name: "Cart: 1 items" })).toBeVisible();
