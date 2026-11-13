@@ -70,7 +70,12 @@ export async function mutateCustomerFeatures(
   const action = customerActionSchema.parse(value);
   const skus = customerActionSkus(action);
   const products = await lookupProducts(skus);
-  if (skus.some((sku) => !products(sku))) throw new Error("Непознат продукт.");
+  // Importing guest favourites is best-effort: SKUs no longer in the catalog
+  // are skipped. Every other action requires a known SKU.
+  if (action.action === "import-favorites")
+    action.skus = action.skus.filter((sku) => !!products(sku));
+  else if (skus.some((sku) => !products(sku)))
+    throw new Error("Непознат продукт.");
   // Load catalog data before the transaction: with the PostgreSQL catalog it
   // needs its own pool connection, which must not be awaited under row locks.
   const pricedAlerts =

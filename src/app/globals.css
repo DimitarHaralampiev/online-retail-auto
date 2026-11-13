@@ -4030,3 +4030,14 @@ select {
   opacity: 0.6;
   transition: opacity 0.2s;
 }
+
+.text-button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}

@@ -18,6 +18,7 @@ export default function AddToCart({
   const { items, ready, add, addItems } = useCart();
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const [failed, setFailed] = useState(false);
   const quantity =
     items.find((item) => item.sku === product.sku)?.quantity ?? 0;
   const available = availableStock(product.stock);
@@ -49,11 +50,18 @@ export default function AddToCart({
             className="button"
             type="button"
             disabled={!ready || quantity >= available}
-            onClick={() => {
-              if (allowQuantity)
-                addItems([{ sku: product.sku, quantity: quantityToAdd }]);
-              else add(product.sku);
-              setAdded(true);
+            onClick={async () => {
+              setFailed(false);
+              try {
+                if (allowQuantity)
+                  await addItems([
+                    { sku: product.sku, quantity: quantityToAdd },
+                  ]);
+                else await add(product.sku);
+                setAdded(true);
+              } catch {
+                setFailed(true);
+              }
             }}
           >
             {available === 0
@@ -64,11 +72,12 @@ export default function AddToCart({
             <Icon name="cart" />
           </button>
           <p role="status">
-            {added && (
+            {added && !failed && (
               <>
                 Добавено. <Link href="/cart">Към количката →</Link>
               </>
             )}
+            {failed && "Не успяхме да добавим продукта. Опитай отново."}
           </p>
         </div>
       }

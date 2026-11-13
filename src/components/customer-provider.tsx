@@ -1,5 +1,4 @@
 "use client";
-import { useCatalog } from "./catalog-provider";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useAccount } from "./account-provider";
 import { emptyFeatures, type CustomerFeatures } from "../lib/customer-rules";
@@ -7,6 +6,9 @@ import {
   readGuestFavorites,
   FAVORITES_STORAGE_KEY,
 } from "../lib/guest-favorites";
+
+const isWellFormedSku = (sku: string) =>
+  sku.trim().length > 0 && sku.length <= 50 && !/[\u0000-\u001f]/.test(sku);
 const Context = createContext<{
   data: CustomerFeatures;
   ready: boolean;
@@ -27,7 +29,6 @@ export default function CustomerProvider({
   children: React.ReactNode;
 }) {
   const { customer, ready: accountReady } = useAccount();
-  const { productBySku } = useCatalog();
   const [data, setData] = useState(emptyFeatures);
   const latestData = useRef(data);
   latestData.current = data;
@@ -46,7 +47,9 @@ export default function CustomerProvider({
     try {
       guest = readGuestFavorites(
         localStorage.getItem(FAVORITES_STORAGE_KEY),
-        (sku) => !!productBySku(sku),
+        // Format only: the server checks SKUs when importing favourites,
+        // and pages show only favourites that exist in the catalog.
+        isWellFormedSku,
       );
     } catch {}
     if (!customer) {
@@ -57,22 +60,31 @@ export default function CustomerProvider({
     const id = customer.id;
     async function load() {
       try {
-        const r = guest.length
+        const plainLoad = () =>
+          fetch("/api/customer", {
+            signal: controller.signal,
+            cache: "no-store",
+          });
+        let r = guest.length
           ? await fetch("/api/customer", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ action: "import-favorites", skus: guest }),
               signal: controller.signal,
             })
-          : await fetch("/api/customer", {
-              signal: controller.signal,
-              cache: "no-store",
-            });
+          : await plainLoad();
+        // A failed import must not hide the account: load it anyway and keep
+        // the guest favourites for the next attempt.
+        let imported = guest.length > 0 && r.ok;
+        if (guest.length && !r.ok) {
+          imported = false;
+          r = await plainLoad();
+        }
         const result = await r.json();
         if (!r.ok) throw new Error(result.error);
         if (owner.current !== id || controller.signal.aborted) return;
         setData(result);
-        if (guest.length)
+        if (imported)
           try {
             localStorage.removeItem(FAVORITES_STORAGE_KEY);
           } catch {}
@@ -84,7 +96,7 @@ export default function CustomerProvider({
     }
     void load();
     return () => controller.abort();
-  }, [customer?.id, accountReady, productBySku]);
+  }, [customer?.id, accountReady]);
   async function mutate(value: unknown) {
     const id = owner.current;
     setError("");

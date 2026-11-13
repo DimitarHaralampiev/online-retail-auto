@@ -2,8 +2,10 @@ import Localize from "../../components/localize";
 import SiteHeader from "../../components/site-header";
 import SiteFooter from "../../components/site-footer";
 import InventoryDemo from "../../components/inventory-demo";
+import { catalog } from "../../lib/catalog-server";
 
-export default function InventoryDemoPage() {
+export default async function InventoryDemoPage() {
+  const products = await catalog().listProducts();
   return (
     <Localize>
       {
@@ -23,7 +25,7 @@ export default function InventoryDemoPage() {
                 административен панел.
               </p>
             </section>
-            <InventoryDemo />
+            <InventoryDemo products={products} />
           </main>
           <SiteFooter />
         </>

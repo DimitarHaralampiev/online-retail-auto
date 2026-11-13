@@ -3,15 +3,18 @@ import Localize from "./localize";
 
 
 import { useState } from "react";
-import { useCatalog } from "./catalog-provider";
+import type { Product } from "../lib/catalog";
 import { applyMovement, availableStock, type MovementType } from "../lib/inventory";
 
 const movementLabels: Record<MovementType, string> = {
   receipt: "Доставка", reserve: "Резервиране", release: "Освобождаване", sale: "Продажба", return: "Връщане",
 };
 
-export default function InventoryDemo() {
-  const { products: initialProducts } = useCatalog();
+export default function InventoryDemo({
+  products: initialProducts,
+}: {
+  products: Product[];
+}) {
   const [products, setProducts] = useState(initialProducts);
   const [sku, setSku] = useState(initialProducts[0]?.sku ?? "");
   const [type, setType] = useState<MovementType>("receipt");

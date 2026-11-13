@@ -12,7 +12,15 @@ import ProductPrice from "./product-price";
 import { sellingPrice } from "../lib/pricing";
 
 export default function Cart() {
-  const { items, ready, storageWarning, setQuantity, remove } = useCart();
+  const {
+    items,
+    ready,
+    storageWarning,
+    setQuantity,
+    remove,
+    unresolved,
+    retryProducts,
+  } = useCart();
   const { productBySku } = useCatalog();
   if (!ready)
     return <Localize>{<p role="status">Зареждаме количката…</p>}</Localize>;
@@ -36,10 +44,24 @@ export default function Cart() {
       {
         <>
           {storageWarning && <p className="demo-notice">{storageWarning}</p>}
+          {unresolved.length > 0 && (
+            <p className="demo-notice" role="status">
+              Някои продукти не се заредиха.{" "}
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => retryProducts().catch(() => undefined)}
+              >
+                Опитай отново
+              </button>
+            </p>
+          )}
           <div className="checkout-grid">
             <section className="cart-lines" aria-label="Продукти в количката">
               {items.map((item) => {
-                const product = productBySku(item.sku)!;
+                // Kept in the cart but not shown when its lookup failed.
+                const product = productBySku(item.sku);
+                if (!product) return null;
                 return (
                   <article className="cart-line" key={item.sku}>
                     <Link href={`/catalog/${item.sku}`} className="cart-photo">
@@ -76,7 +98,10 @@ export default function Cart() {
                           aria-label={`Бройки за ${product.name}`}
                           value={item.quantity}
                           onChange={(event) =>
-                            setQuantity(item.sku, Number(event.target.value))
+                            setQuantity(
+                              item.sku,
+                              Number(event.target.value),
+                            ).catch(() => undefined)
                           }
                         >
                           {Array.from(

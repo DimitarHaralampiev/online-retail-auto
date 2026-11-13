@@ -1,6 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeCart, readStoredCart, cartSubtotal } from "./cart";
+import {
+  normalizeCart,
+  readStoredCart,
+  cartSubtotal,
+  storedCartItems,
+} from "./cart";
 import { previewCheckout, type CheckoutInput } from "./checkout";
 import { productLookup } from "./catalog";
 import { demoProducts } from "./catalog-demo-data";
@@ -147,5 +152,51 @@ describe("cart and checkout", () => {
       { ...address, number: "" },
     ])
       assert.throws(() => previewCheckout({ ...valid, delivery }, lookup));
+  });
+});
+
+describe("stored cart items", () => {
+  it("keeps well-formed items without consulting the catalog", () => {
+    const raw = JSON.stringify({
+      version: 1,
+      items: [
+        { sku: "ANY-SKU", quantity: 2 },
+        { sku: "", quantity: 1 },
+        { sku: "X", quantity: 0 },
+        { sku: "Y", quantity: 1.5 },
+        { sku: "Z".repeat(51), quantity: 1 },
+        null,
+      ],
+    });
+    assert.deepEqual(storedCartItems(raw), [{ sku: "ANY-SKU", quantity: 2 }]);
+  });
+  it("ignores malformed, unversioned or oversized storage", () => {
+    assert.deepEqual(storedCartItems("{"), []);
+    assert.deepEqual(storedCartItems('{"version":2,"items":[]}'), []);
+    // Only version 1 is read.
+    assert.deepEqual(
+      storedCartItems('{"items":[{"sku":"A","quantity":1}]}'),
+      [],
+    );
+    // Oversized storage is ignored without parsing.
+    assert.deepEqual(
+      storedCartItems(
+        JSON.stringify({
+          version: 1,
+          items: [{ sku: "A", quantity: 1 }],
+          pad: "x".repeat(17_000),
+        }),
+      ),
+      [],
+    );
+    assert.deepEqual(
+      storedCartItems(
+        JSON.stringify({
+          version: 1,
+          items: Array.from({ length: 51 }, () => ({ sku: "A", quantity: 1 })),
+        }),
+      ),
+      [],
+    );
   });
 });

@@ -52,7 +52,12 @@ export const reminderSchema = z
   });
 // Format only: whether the SKU exists is checked against the catalog when
 // the action runs (see customerActionSkus and mutateCustomerFeatures).
-const sku = z.string().trim().min(1, "Непознат продукт.").max(50);
+const sku = z
+  .string()
+  .trim()
+  .min(1, "Непознат продукт.")
+  .max(50)
+  .regex(/^[^\u0000-\u001f]+$/, "Непознат продукт.");
 export const customerActionSchema = z.discriminatedUnion("action", [
   z
     .object({

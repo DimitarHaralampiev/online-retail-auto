@@ -22,16 +22,15 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const store = catalog();
-  const [locale, taxonomy, products] = await Promise.all([
+  const [locale, taxonomy] = await Promise.all([
     requestLocale(),
     store.taxonomy(),
-    store.listProducts(),
   ]);
   return (
     <html lang={locale}>
       <body>
         <LocaleProvider initialLocale={locale}>
-          <CatalogProvider taxonomy={taxonomy} products={products}>
+          <CatalogProvider taxonomy={taxonomy}>
             <AccountProvider>
               <CustomerProvider>
                 <CartProvider>{children}</CartProvider>

@@ -64,7 +64,7 @@ test("guest favorites reject corrupt storage, unknown SKUs and deduplicate", () 
   );
 });
 test("customer actions validate SKU format and reject injected ownership", () => {
-  for (const sku of ["", " ", "X".repeat(51)])
+  for (const sku of ["", " ", "X".repeat(51), "A\u0000B", "A\nB"])
     assert.equal(
       customerActionSchema.safeParse({ action: "favorite", sku, enabled: true })
         .success,

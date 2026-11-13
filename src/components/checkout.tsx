@@ -19,7 +19,8 @@ import Icon from "./icon";
 import { useAccount } from "./account-provider";
 
 export default function Checkout() {
-  const { items, ready, storageWarning, clear } = useCart();
+  const { items, ready, storageWarning, clear, unresolved, retryProducts } =
+    useCart();
   const { productBySku } = useCatalog();
   const { customer, ready: accountReady, setCustomer } = useAccount();
   const [orderConfig, setOrderConfig] = useState<{
@@ -248,6 +249,19 @@ export default function Checkout() {
       {
         <>
           {storageWarning && <p className="demo-notice">{storageWarning}</p>}
+          {unresolved.length > 0 && (
+            <p className="demo-notice" role="status">
+              Някои продукти от количката не се заредиха. Прегледът е спрян,
+              докато не се заредят.{" "}
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => retryProducts().catch(() => undefined)}
+              >
+                Опитай отново
+              </button>
+            </p>
+          )}
           <div className="checkout-grid">
             <form
               ref={formRef}
@@ -584,7 +598,11 @@ export default function Checkout() {
                     (имейлът на профила остава същият).
                   </label>
                 )}
-                <button className="button" type="submit">
+                <button
+                  className="button"
+                  type="submit"
+                  disabled={unresolved.length > 0}
+                >
                   {busy ? "Проверяваме…" : "Преглед на демо поръчката"}
                   <Icon name="arrow" />
                 </button>
