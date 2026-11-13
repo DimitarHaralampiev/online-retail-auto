@@ -27,10 +27,10 @@ Node.js 22 LTS (`.nvmrc`; minimum 20.18.1 per `engines`) and npm. Install with `
 - `npm run build` / `npm start` — production build and server.
 - Local services: copy `.env.example` to `.env.local`, then run `LOCAL_DB_PASSWORD=<password> docker compose up -d` (Postgres on 127.0.0.1:5433, Mailpit SMTP 1025 and UI http://localhost:8025). The password must match the one in `DATABASE_URL`; compose does not read `.env.local`.
 - `npm run db:migrate` — apply all migrations using `.env.local`.
-- `npm run admin:grant` — grant the admin role to an existing account.
+- `npm run admin:grant -- <email>` — grant the admin role to an existing account with a verified email.
 - `npm run orders:send-emails`, `npm run customers:worker -- --watch` — order email queue and customer notification workers.
 - `npm run mail:check` — verify SMTP settings.
-- `npm run test:orders`, `npm run test:features` — end-to-end smoke flows. They need a running local app (`npm run dev`, or set `TEST_APP_URL`), a migrated local database, Mailpit and `PAYMENT_PROVIDER=simulator`, and refuse non-local targets.
+- `npm run test:orders`, `npm run test:features` — end-to-end smoke flows. They need a running local app (`npm run dev`, or set `TEST_APP_URL`), a migrated local database, and Mailpit (`test:orders` also needs `PAYMENT_PROVIDER=simulator`), and refuse non-local targets.
 
 Run format check, typecheck, unit tests and build before opening a pull request. Linting (#20) and CI (#21) are being added.
 
