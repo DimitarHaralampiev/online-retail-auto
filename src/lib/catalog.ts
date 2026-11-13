@@ -117,7 +117,7 @@ export function normalizeBrowseQuery(
     value !== undefined && Number.isFinite(value)
       ? Math.min(Math.max(round(value), -1), MAX_CENTS)
       : undefined;
-  const text = query.text?.trim().slice(0, MAX_BROWSE_TEXT);
+  const text = query.text?.trim().slice(0, MAX_BROWSE_TEXT).trim();
   return {
     ...query,
     ...pageWindow(query),

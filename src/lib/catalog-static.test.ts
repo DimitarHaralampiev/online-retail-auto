@@ -144,6 +144,11 @@ test("browse input is normalised to safe values", () => {
     undefined,
   );
   assert.equal(normalizeBrowseQuery({ text: "   " }).text, undefined);
+  // A cut that ends on a space is trimmed again.
+  assert.equal(
+    normalizeBrowseQuery({ text: `${"x".repeat(99)} tail` }).text,
+    "x".repeat(99),
+  );
   assert.throws(
     () =>
       normalizeBrowseQuery({
