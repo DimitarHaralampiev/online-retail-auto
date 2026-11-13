@@ -27,6 +27,8 @@ export function catalogSource(
 function createCatalog(): CatalogRepository {
   if (catalogSource() === "static")
     return createStaticCatalog(demoProducts, demoCategories);
+  if (!process.env.DATABASE_URL)
+    throw new Error("CATALOG_SOURCE=postgres requires DATABASE_URL.");
   const store = createPostgresCatalog(database);
   // The layout and page both read the catalog; cache() shares the result
   // within one server render (it is a pass-through elsewhere).
