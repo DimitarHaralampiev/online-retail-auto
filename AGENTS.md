@@ -31,6 +31,7 @@ Node.js 22 LTS (`.nvmrc`; minimum 20.18.1 per `engines`) and npm. Install with `
 - `npm run build` / `npm start` — production build and server.
 - Local services: copy `.env.example` to `.env.local`, then run `LOCAL_DB_PASSWORD=<password> docker compose up -d` (Postgres on 127.0.0.1:5433, Mailpit SMTP 1025 and UI http://localhost:8025). The password must match the one in `DATABASE_URL`; compose does not read `.env.local`.
 - `npm run db:migrate` — apply all migrations using `.env.local`.
+- `npm run db:seed:demo` — load the demo catalog (categories, translations, published products, stock, demo promotion) into the database. Idempotent; never resets stock or touches non-demo products; refuses a non-local `APP_URL` unless `ALLOW_DEMO_SEED=1`. Migrations never contain catalog data.
 - `npm run admin:grant -- <email>` — grant the admin role to an existing account with a verified email.
 - `npm run orders:send-emails`, `npm run customers:worker -- --watch` — order email queue and customer notification workers.
 - `npm run mail:check` — verify SMTP settings.
