@@ -22,7 +22,7 @@ Node.js 22 LTS (`.nvmrc`; minimum 20.18.1 per `engines`) and npm. Install with `
 
 - `npm run dev` — development server on http://localhost:3000.
 - `npm run format:check` / `npm run format` — Prettier.
-- `npm run lint` — ESLint (Next.js core-web-vitals + TypeScript rules, `eslint.config.mjs`). Errors fail; the remaining warnings are tracked legacy findings.
+- `npm run lint` — ESLint (Next.js core-web-vitals + TypeScript rules, `eslint.config.mjs`). Errors fail, and `--max-warnings 16` caps the existing warnings (legacy React findings tracked in #59), so new warnings fail too; lower the cap as they are fixed.
 - `npm run typecheck` — TypeScript without emit.
 - `npm test` — unit tests with the Node.js test runner via `tsx`. The glob is not recursive: only top-level `src/lib/*.test.ts` files run.
 - `npm run build` / `npm start` — production build and server.

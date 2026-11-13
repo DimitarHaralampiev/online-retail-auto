@@ -8,7 +8,7 @@ function subscribeToHash(onChange: () => void) {
   window.addEventListener("hashchange", onChange);
   return () => window.removeEventListener("hashchange", onChange);
 }
-// The payment token travels in the URL fragment so it is never sent to the server in logs.
+// The token lives in the URL fragment, which browsers never send to the server.
 const readHashToken = () =>
   new URLSearchParams(location.hash.slice(1)).get("token") ?? "";
 const noServerToken = () => "";
