@@ -39,4 +39,9 @@ test("actions with SKUs outside the catalog are rejected without writes", async 
       JSON.stringify(action),
     );
   assert.deepEqual(await favorites(customer), []);
+  const alerts = await db().pool.query(
+    "SELECT 1 FROM customer_product_alerts WHERE customer_id=$1",
+    [customer],
+  );
+  assert.equal(alerts.rowCount, 0);
 });

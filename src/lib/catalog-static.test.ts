@@ -43,6 +43,16 @@ test("taxonomy keeps category order, counts products and omits empty categories"
   ]);
 });
 
+test("categories missing from the configured order are appended, not dropped", () => {
+  assert.deepEqual(
+    buildTaxonomy(products, ["Части"]).map((c) => [c.name, c.productCount]),
+    [
+      ["Части", 3],
+      ["Аксесоари", 1],
+    ],
+  );
+});
+
 test("static catalog finds products by SKU in request order", async () => {
   const store = createStaticCatalog(products, ["Части", "Аксесоари"]);
   assert.equal((await store.listProducts()).length, 4);
@@ -55,7 +65,7 @@ test("static catalog finds products by SKU in request order", async () => {
   assert.equal((await store.taxonomy())[0].name, "Части");
 });
 
-test("listProducts returns a copy callers cannot use to change the catalog", async () => {
+test("listProducts returns a new array, so callers cannot add or remove products", async () => {
   const store = createStaticCatalog(products, ["Части"]);
   (await store.listProducts()).pop();
   assert.equal((await store.listProducts()).length, 4);

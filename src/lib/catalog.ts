@@ -42,12 +42,18 @@ export interface CatalogRepository {
   taxonomy(): Promise<CatalogTaxonomy>;
 }
 
-/** Builds the category tree with product counts, keeping the given order. */
+/**
+ * Builds the category tree with product counts in the given order. Categories
+ * not listed in the order are appended, so counts always match the products.
+ */
 export function buildTaxonomy(
   products: readonly Product[],
   categoryOrder: readonly string[],
 ): CatalogTaxonomy {
-  return categoryOrder
+  const names = [
+    ...new Set([...categoryOrder, ...products.map((p) => p.category)]),
+  ];
+  return names
     .map((name) => {
       const inCategory = products.filter((p) => p.category === name);
       const subcategories = new Map<string, CatalogSubcategory>();

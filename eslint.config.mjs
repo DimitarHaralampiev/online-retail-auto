@@ -30,9 +30,33 @@ export default defineConfig([
         {
           patterns: [
             {
-              group: ["**/catalog-demo-data"],
+              group: ["**/catalog-demo-data", "**/catalog-demo-data.*"],
               message:
                 "Read products through catalog() from catalog-server or useCatalog().",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Components may run in the browser: server data access (and anything
+    // that imports it) must stay out of client bundles.
+    files: ["src/components/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "**/catalog-demo-data",
+                "**/catalog-demo-data.*",
+                "**/catalog-server",
+                "**/catalog-server.*",
+              ],
+              message:
+                "Components read catalog data with useCatalog(); load it on the server in a page or layout.",
             },
           ],
         },
