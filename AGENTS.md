@@ -25,6 +25,7 @@ Node.js 22 LTS (`.nvmrc`; minimum 20.18.1 per `engines`) and npm. Install with `
 - `npm run lint` — ESLint (Next.js core-web-vitals + TypeScript rules, `eslint.config.mjs`). Errors fail, and `--max-warnings 16` caps the existing warnings (legacy React findings tracked in #59), so new warnings fail too; lower the cap as they are fixed.
 - `npm run typecheck` — TypeScript without emit.
 - `npm test` — unit tests with the Node.js test runner via `tsx`. The glob is not recursive: only top-level `src/lib/*.test.ts` files run.
+- `npm run test:integration` — PostgreSQL integration tests in `tests/integration/`. Each test file gets its own freshly migrated database (migrations applied twice to prove idempotency) that is dropped afterwards. Uses `TEST_DATABASE_URL`, or locally the server from `DATABASE_URL` in `.env.local`; non-local hosts are refused. Use `setupTestDatabase()` from `tests/integration/database.ts` for new database tests.
 - `npm run build` / `npm start` — production build and server.
 - Local services: copy `.env.example` to `.env.local`, then run `LOCAL_DB_PASSWORD=<password> docker compose up -d` (Postgres on 127.0.0.1:5433, Mailpit SMTP 1025 and UI http://localhost:8025). The password must match the one in `DATABASE_URL`; compose does not read `.env.local`.
 - `npm run db:migrate` — apply all migrations using `.env.local`.
