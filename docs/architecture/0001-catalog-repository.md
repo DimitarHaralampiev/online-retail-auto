@@ -72,6 +72,18 @@ Recorded now so the PostgreSQL adapter does not freeze the interim shape.
   or cursor) with category, subcategory, availability, promotion, fitment and
   text filters, sorting and a limit; taxonomy counts become `GROUP BY`.
   `listProducts()` is retired or narrowed to a SKU iterator for sitemaps.
+- **#26 — live promotions:** a promotion line applies when its promotion has
+  `status='active' AND (starts_at IS NULL OR starts_at <= now()) AND
+(ends_at IS NULL OR ends_at > now())`; with several live lines for a SKU the
+  lowest `sale_price_cents` wins. `warehouse_products.selling_price_cents` is
+  the regular price (the line's `regular_price_cents` is informational).
+- **#26 — images:** the primary `product_media` image wins; otherwise
+  `warehouse_products.image_path` (a static `/images/...` file, enforced by the
+  `warehouse_products_image_path_local` constraint).
+- **#25 — demo data:** `npm run db:seed:demo` loads the demo catalog
+  (`is_demo` products and categories) outside migrations. Stock is seeded as
+  the demo's available quantity with nothing reserved, so `reserved` only ever
+  comes from `stock_reservations`.
 - **#28 — stock and price:** `Product.stock` is a display snapshot.
   `createOrder` must re-read price and check/reserve stock inside the order
   transaction (`SELECT … FOR UPDATE` or a conditional `UPDATE`).

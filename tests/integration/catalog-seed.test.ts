@@ -1,15 +1,23 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { beforeEach, test } from "node:test";
+import type { Product } from "../../src/lib/catalog";
 import { demoProducts } from "../../src/lib/catalog-demo-data";
 import { DEMO_PROMOTION_ID, seedDemoCatalog } from "../../src/lib/catalog-seed";
 import { setupTestDatabase } from "./database";
 
 const db = setupTestDatabase();
 
-async function seed() {
+// Every test starts from an empty catalog.
+beforeEach(async () => {
+  await db().pool.query(
+    "TRUNCATE warehouse_products, product_categories, promotions CASCADE",
+  );
+});
+
+async function seed(products?: readonly Product[]) {
   const client = await db().pool.connect();
   try {
-    return await seedDemoCatalog(client);
+    return await seedDemoCatalog(client, products);
   } finally {
     client.release();
   }
@@ -34,8 +42,9 @@ test("loads every demo product as a published demo row with price, stock and ima
       status: "published",
       is_demo: true,
       selling_price_cents: p.demoPriceCents,
-      on_hand: p.stock.onHand,
-      reserved: p.stock.reserved,
+      // Seeded as the demo's available stock with nothing reserved.
+      on_hand: p.stock.onHand - p.stock.reserved,
+      reserved: 0,
       image_path: p.image,
     })),
   );
@@ -145,8 +154,12 @@ test("initial stock is recorded once in the movement ledger", async () => {
   assert.deepEqual(
     movements.rows,
     demoProducts
-      .filter((p) => p.stock.onHand > 0)
-      .map((p) => ({ sku: p.sku, kind: "receipt", quantity: p.stock.onHand })),
+      .filter((p) => p.stock.onHand - p.stock.reserved > 0)
+      .map((p) => ({
+        sku: p.sku,
+        kind: "receipt",
+        quantity: p.stock.onHand - p.stock.reserved,
+      })),
   );
 });
 
@@ -170,5 +183,112 @@ test("refuses to overwrite a real product with a demo SKU and rolls back", async
   assert.equal(
     await count("SELECT count(*)::int AS n FROM product_translations"),
     0,
+  );
+});
+
+test("refuses to take over a real category with a demo slug and rolls back", async () => {
+  await db().pool.query(
+    "INSERT INTO product_categories(id,slug,active,is_demo) VALUES(gen_random_uuid(),'filters',false,false)",
+  );
+  await assert.rejects(seed(), /slug filters belongs to a real category/);
+  const real = await db().pool.query(
+    "SELECT parent_id,active,is_demo FROM product_categories WHERE slug='filters'",
+  );
+  assert.deepEqual(real.rows, [
+    { parent_id: null, active: false, is_demo: false },
+  ]);
+  assert.equal(
+    await count("SELECT count(*)::int AS n FROM warehouse_products"),
+    0,
+  );
+});
+
+test("re-seeding refreshes changed demo content and drops removed sale prices", async () => {
+  await seed();
+  const changed = demoProducts.map((p) =>
+    p.sku === "DEMO-001"
+      ? { ...p, demoPriceCents: 3190, demoSalePriceCents: undefined }
+      : p.sku === "DEMO-003"
+        ? { ...p, description: "Филтър за въздух.", demoSalePriceCents: 1590 }
+        : p,
+  );
+  // Use dictionary strings so the English check passes.
+  changed[2] = { ...changed[2], description: "Филтри" };
+  await seed(changed);
+  const prices = await db().pool.query(
+    "SELECT sku,selling_price_cents FROM warehouse_products WHERE sku IN ('DEMO-001','DEMO-003') ORDER BY sku",
+  );
+  assert.deepEqual(prices.rows, [
+    { sku: "DEMO-001", selling_price_cents: 3190 },
+    { sku: "DEMO-003", selling_price_cents: 1890 },
+  ]);
+  const lines = await db().pool.query(
+    "SELECT sku,sale_price_cents FROM promotion_lines ORDER BY sku",
+  );
+  assert.deepEqual(
+    lines.rows.map((r) => r.sku),
+    ["DEMO-002", "DEMO-003", "DEMO-005"],
+  );
+  assert.equal(lines.rows[1].sale_price_cents, 1590);
+  const text = await db().pool.query(
+    "SELECT locale,description FROM product_translations WHERE sku='DEMO-003' ORDER BY locale",
+  );
+  assert.deepEqual(text.rows, [
+    { locale: "bg", description: "Филтри" },
+    { locale: "en", description: "Filters" },
+  ]);
+});
+
+test("re-seeding keeps an archived product archived and an ended promotion ended", async () => {
+  await seed();
+  await db().pool.query(
+    "UPDATE warehouse_products SET status='archived' WHERE sku='DEMO-002'",
+  );
+  await db().pool.query("UPDATE promotions SET status='ended' WHERE id=$1", [
+    DEMO_PROMOTION_ID,
+  ]);
+  await seed();
+  const product = await db().pool.query(
+    "SELECT status FROM warehouse_products WHERE sku='DEMO-002'",
+  );
+  const promotion = await db().pool.query(
+    "SELECT status FROM promotions WHERE id=$1",
+    [DEMO_PROMOTION_ID],
+  );
+  assert.equal(product.rows[0].status, "archived");
+  assert.equal(promotion.rows[0].status, "ended");
+});
+
+test("fails without writing when a demo string has no English translation", async () => {
+  const untranslated = demoProducts.map((p, i) =>
+    i === 0 ? { ...p, description: "Непреведено описание" } : p,
+  );
+  await assert.rejects(seed(untranslated), /Missing English translation/);
+  assert.equal(
+    await count("SELECT count(*)::int AS n FROM warehouse_products"),
+    0,
+  );
+});
+
+test("image paths must be local /images files", async () => {
+  await seed();
+  for (const path of [
+    "//evil.example/x.png",
+    "/images/../api/admin.png",
+    "/images/./x.png",
+    "/other/x.png",
+    "/images/x.svg",
+    "http://example.com/images/x.png",
+  ])
+    await assert.rejects(
+      db().pool.query(
+        "UPDATE warehouse_products SET image_path=$1 WHERE sku='DEMO-001'",
+        [path],
+      ),
+      /warehouse_products_image_path_local/,
+      path,
+    );
+  await db().pool.query(
+    "UPDATE warehouse_products SET image_path='/images/parts/air_filter-2.webp' WHERE sku='DEMO-001'",
   );
 });
