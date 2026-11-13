@@ -4,7 +4,6 @@
 import { cache } from "react";
 import { database } from "./accounts";
 import {
-  buildTaxonomy,
   productLookup,
   type Product,
   type CatalogRepository,
@@ -37,22 +36,12 @@ function createCatalog(): CatalogRepository {
   if (!process.env.DATABASE_URL)
     throw new Error("CATALOG_SOURCE=postgres requires DATABASE_URL.");
   const store = createPostgresCatalog(database);
-  // The layout and page both read the catalog; cache() shares the result
-  // within one server render (it is a pass-through elsewhere). The taxonomy
-  // is built from the same cached list instead of a second full query.
-  const listProducts = cache(store.listProducts);
-  const categoryOrder = cache(store.categoryOrder);
+  // The layout and page both read the catalog; cache() shares results within
+  // one server render (it is a pass-through elsewhere).
   return {
-    getProduct: store.getProduct,
-    getProducts: store.getProducts,
-    listProducts,
-    taxonomy: cache(async () => {
-      const [products, order] = await Promise.all([
-        listProducts(),
-        categoryOrder(),
-      ]);
-      return buildTaxonomy(products, order);
-    }),
+    ...store,
+    listProducts: cache(store.listProducts),
+    taxonomy: cache(store.taxonomy),
   };
 }
 

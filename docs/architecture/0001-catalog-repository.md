@@ -70,11 +70,28 @@ Recorded now so the PostgreSQL adapter does not freeze the interim shape.
   SKUs; `lookupProducts` chunks larger sets. Code holding a transaction never
   awaits the catalog (it needs its own pool connection): catalog data is
   loaded before `BEGIN`, and the pool times out instead of hanging. Within one
-  render the layout's product list and taxonomy share one cached query.
-- **#27 — browsing:** add `browse(query)` returning a page (`items` plus total
-  or cursor) with category, subcategory, availability, promotion, fitment and
-  text filters, sorting and a limit; taxonomy counts become `GROUP BY`.
-  `listProducts()` is retired or narrowed to a SKU iterator for sitemaps.
+  render each of the layout's reads (product list, taxonomy) runs once; until
+  #27 removes the list from the layout, a render costs two catalog queries.
+- **#27 — browsing (backend done):** `browse(query)` returns a page with the
+  total; the static adapter and PostgreSQL share filter semantics
+  (`filterProducts`) and are kept identical by a parity test matrix. In SQL,
+  every read shares one `visible` CTE; the optional SKU filter is applied inside
+  it (including the live-promotion aggregate), ORDER BY clauses are fixed and
+  whitelisted, and text matching uses `position()` so input needs no escaping
+  (fuzzy and transliterated search is #36). Taxonomy counts come from
+  `GROUP BY`. At 10k products common queries take well under 100 ms. `normalizeBrowseQuery` (used by both adapters) makes any
+  query SQL-safe: non-finite numbers are ignored, price bounds are rounded
+  inward and clamped to the integer range, pages are capped at 1000, text is
+  trimmed and capped at 100 characters and `compatibleSkus` at 1000. Still,
+  `BrowseQuery` is trusted input: the catalog page must parse URL parameters
+  with a Zod schema (page 1–1000, fixed page sizes, enums for sort and
+  locale) and never accept `compatibleSkus` from the URL (fitment comes from
+  the server; #13 should join on a vehicle key instead). Name sorting uses the
+  ICU root collation in both adapters (`und-x-icu` / `Intl.Collator("und")`)
+  so order does not depend on server locale; case-insensitive Cyrillic text
+  matching relies on a UTF-8 database (`lower()`), which #36 replaces with
+  proper search. Still to do in #27: catalog pages call `browse()` with URL-driven filters, and
+  client components stop receiving the full product list.
 - **#26 — live promotions:** a promotion line applies when its promotion has
   `status='active' AND (starts_at IS NULL OR starts_at <= now()) AND
 (ends_at IS NULL OR ends_at > now())`; with several live lines for a SKU the

@@ -149,11 +149,19 @@ export async function createTestDatabase(): Promise<TestDatabase> {
  * Registers before/after hooks for the current test file and returns a getter
  * for the database. DATABASE_URL is set before any application query runs.
  */
-export function setupTestDatabase(): () => TestDatabase {
+export function setupTestDatabase(
+  options: {
+    /** Runs once after the database is ready (e.g. seeding). */
+    prepare?: (database: TestDatabase) => Promise<void>;
+  } = {},
+): () => TestDatabase {
   let database: TestDatabase | undefined;
+  // One hook creates and prepares the database: separate root-level `before`
+  // hooks are not guaranteed to wait for each other.
   before(async () => {
     database = await createTestDatabase();
     process.env.DATABASE_URL = database.url;
+    await options.prepare?.(database);
   });
   after(async () => {
     await database?.drop();
