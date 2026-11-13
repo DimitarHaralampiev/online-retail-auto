@@ -177,3 +177,27 @@ test("each product card exposes one link and the logo names the home page", asyn
     card.getByRole("link").and(card.locator('[href="/catalog/DEMO-001"]')),
   ).toHaveCount(1);
 });
+
+test("switching language does not reload client state from storage", async ({
+  page,
+}) => {
+  await page.goto("/catalog/DEMO-003");
+  await addCurrentProductToCart(page);
+  await expect(
+    page.getByRole("link", { name: "Количка: 1 броя" }),
+  ).toBeVisible();
+  // Change storage behind the app's back: only a re-run of the cart's
+  // hydration effect would pick this up.
+  await page.evaluate(() =>
+    localStorage.setItem(
+      "auto-shop:cart:v1",
+      JSON.stringify({ version: 1, items: [{ sku: "DEMO-003", quantity: 3 }] }),
+    ),
+  );
+  await page.getByRole("button", { name: /English/ }).click();
+  // The switch sets <html lang> on the client, then router.refresh() fetches
+  // new layout props; wait until that request has finished.
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("link", { name: "Cart: 1 items" })).toBeVisible();
+});

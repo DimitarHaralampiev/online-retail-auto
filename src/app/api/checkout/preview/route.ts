@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { courierOffices } from "../../../../lib/courier-offices";
 import { checkoutSchema, previewCheckout } from "../../../../lib/checkout";
+import { lookupProducts } from "../../../../lib/catalog-server";
 
 const headers = { "Cache-Control": "no-store" };
 
@@ -48,7 +49,10 @@ export async function POST(request: Request) {
         parsed.delivery.type === "office"
           ? await courierOffices(parsed.delivery.courier)
           : [];
-      return NextResponse.json(previewCheckout(parsed, offices), { headers });
+      const products = await lookupProducts(parsed.items.map((i) => i.sku));
+      return NextResponse.json(previewCheckout(parsed, products, offices), {
+        headers,
+      });
     } catch (error) {
       if (error instanceof ZodError)
         return NextResponse.json(

@@ -5,7 +5,10 @@ import SiteHeader from "../components/site-header";
 import SiteFooter from "../components/site-footer";
 import Icon from "../components/icon";
 import ProductCard from "../components/product-card";
-import { demoProducts } from "../lib/catalog";
+import { catalog } from "../lib/catalog-server";
+
+// Products highlighted on the home page, in display order.
+const featuredSkus = ["DEMO-001", "DEMO-003", "DEMO-005"];
 
 const categories = [
   {
@@ -31,7 +34,8 @@ const categories = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const featured = await catalog().getProducts(featuredSkus);
   return (
     <Localize>
       {
@@ -180,11 +184,9 @@ export default function Home() {
                   </Link>
                 </div>
                 <div className="product-grid">
-                  {[demoProducts[0], demoProducts[2], demoProducts[4]].map(
-                    (product) => (
-                      <ProductCard key={product.sku} product={product} />
-                    ),
-                  )}
+                  {featured.map((product) => (
+                    <ProductCard key={product.sku} product={product} />
+                  ))}
                 </div>
                 <p className="illustration-note">
                   Илюстративни изображения · Примерни продукти и наличности

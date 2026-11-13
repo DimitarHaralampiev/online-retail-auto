@@ -7,7 +7,7 @@ import {
   sendCustomerEmails,
 } from "../src/lib/customer-notifications";
 import { todayInSofia } from "../src/lib/customer-rules";
-import { demoProducts } from "../src/lib/catalog";
+import { demoProducts } from "../src/lib/catalog-demo-data";
 import {
   parseInvoice,
   compareInvoiceProduct,

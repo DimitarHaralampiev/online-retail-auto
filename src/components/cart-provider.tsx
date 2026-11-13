@@ -7,6 +7,7 @@ import {
   readStoredCart,
   type CartItem,
 } from "../lib/cart";
+import { useCatalog } from "./catalog-provider";
 
 type CartContextValue = {
   items: CartItem[];
@@ -25,19 +26,22 @@ export default function CartProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const { productBySku } = useCatalog();
   const [items, setItems] = useState<CartItem[]>([]);
   const [ready, setReady] = useState(false);
   const [storageWarning, setStorageWarning] = useState("");
   useEffect(() => {
     try {
-      setItems(readStoredCart(localStorage.getItem(CART_STORAGE_KEY)));
+      setItems(
+        readStoredCart(localStorage.getItem(CART_STORAGE_KEY), productBySku),
+      );
     } catch {
       setStorageWarning(
         "Браузърът не позволява запазване на количката. Тя работи само до презареждане.",
       );
     }
     setReady(true);
-  }, []);
+  }, [productBySku]);
   useEffect(() => {
     if (!ready) return;
     try {
@@ -59,10 +63,12 @@ export default function CartProvider({
         ready,
         storageWarning,
         addItems: (incoming) =>
-          setItems((previous) => normalizeCart([...previous, ...incoming])),
+          setItems((previous) =>
+            normalizeCart([...previous, ...incoming], productBySku),
+          ),
         add: (sku) =>
           setItems((previous) =>
-            normalizeCart([...previous, { sku, quantity: 1 }]),
+            normalizeCart([...previous, { sku, quantity: 1 }], productBySku),
           ),
         setQuantity: (sku, quantity) =>
           setItems((previous) =>
@@ -70,6 +76,7 @@ export default function CartProvider({
               previous.map((item) =>
                 item.sku === sku ? { ...item, quantity } : item,
               ),
+              productBySku,
             ),
           ),
         remove: (sku) =>

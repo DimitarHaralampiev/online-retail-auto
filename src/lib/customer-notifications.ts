@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { database } from "./accounts";
-import { demoProducts, type Product } from "./catalog";
+import { productLookup, type Product } from "./catalog";
+import { catalog } from "./catalog-server";
 import { availableStock } from "./inventory";
 import { sellingPrice } from "./pricing";
 import { formatMoney } from "./cart";
@@ -29,7 +30,8 @@ async function queue(
   );
 }
 export async function scanCustomerNotifications(
-  products: Product[] = demoProducts,
+  /** Overrides the catalog (tests); by default only alerted products load. */
+  products?: readonly Product[],
   today = todayInSofia(),
   customerId?: string,
 ) {
@@ -41,8 +43,14 @@ export async function scanCustomerNotifications(
       `SELECT a.*,c.email FROM customer_product_alerts a JOIN customers c ON c.id=a.customer_id WHERE ($1::uuid IS NULL OR a.customer_id=$1) AND a.active AND c.email_verified_at IS NOT NULL AND c.notification_preferences->>a.kind='true' ORDER BY a.created_at FOR UPDATE OF a SKIP LOCKED`,
       [customerId ?? null],
     );
+    const lookup = productLookup(
+      products ??
+        (await catalog().getProducts([
+          ...new Set(alerts.rows.map((alert) => alert.sku as string)),
+        ])),
+    );
     for (const alert of alerts.rows) {
-      const product = products.find((p) => p.sku === alert.sku);
+      const product = lookup(alert.sku);
       if (!product) continue;
       const price = sellingPrice(product);
       const available = availableStock(product.stock) > 0;

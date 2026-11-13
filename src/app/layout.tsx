@@ -5,6 +5,8 @@ import "@fontsource-variable/manrope";
 import "@fontsource-variable/roboto-condensed";
 import "./globals.css";
 import CartProvider from "../components/cart-provider";
+import CatalogProvider from "../components/catalog-provider";
+import { catalog } from "../lib/catalog-server";
 
 import CustomerProvider from "../components/customer-provider";
 import AccountProvider from "../components/account-provider";
@@ -19,16 +21,23 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const locale = await requestLocale();
+  const store = catalog();
+  const [locale, taxonomy, products] = await Promise.all([
+    requestLocale(),
+    store.taxonomy(),
+    store.listProducts(),
+  ]);
   return (
     <html lang={locale}>
       <body>
         <LocaleProvider initialLocale={locale}>
-          <AccountProvider>
-            <CustomerProvider>
-              <CartProvider>{children}</CartProvider>
-            </CustomerProvider>
-          </AccountProvider>
+          <CatalogProvider taxonomy={taxonomy} products={products}>
+            <AccountProvider>
+              <CustomerProvider>
+                <CartProvider>{children}</CartProvider>
+              </CustomerProvider>
+            </AccountProvider>
+          </CatalogProvider>
         </LocaleProvider>
       </body>
     </html>

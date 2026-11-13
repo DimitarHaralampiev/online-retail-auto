@@ -2,7 +2,6 @@ import Localize from "../../../components/localize";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { demoProducts } from "../../../lib/catalog";
 import { availableStock } from "../../../lib/inventory";
 import SiteHeader from "../../../components/site-header";
 import SiteFooter from "../../../components/site-footer";
@@ -12,11 +11,11 @@ import ProductPrice from "../../../components/product-price";
 
 import ProductActions from "../../../components/product-actions";
 import ProductCard from "../../../components/product-card";
-import { productSubcategory } from "../../../lib/catalog-browse";
+import { catalog } from "../../../lib/catalog-server";
 import { requestLocale } from "../../../lib/i18n/server";
 
-export function generateStaticParams() {
-  return demoProducts.map(({ sku }) => ({ sku }));
+export async function generateStaticParams() {
+  return (await catalog().listProducts()).map(({ sku }) => ({ sku }));
 }
 
 export default async function ProductPage({
@@ -25,12 +24,13 @@ export default async function ProductPage({
   params: Promise<{ sku: string }>;
 }) {
   const { sku } = await params;
-  const product = demoProducts.find((item) => item.sku === sku);
+  const store = catalog();
+  const product = await store.getProduct(sku);
   if (!product) notFound();
-  const subcategory = productSubcategory(product.sku);
+  const subcategory = product.subcategory;
   const en = (await requestLocale()) === "en";
   const text = (bg: string, english: string) => (en ? english : bg);
-  const related = demoProducts.filter(
+  const related = (await store.listProducts()).filter(
     (p) => p.sku !== sku && p.category === product.category,
   );
   return (

@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { categories, demoProducts } from "../lib/catalog";
-import { subcategories } from "../lib/catalog-browse";
+import { useCatalog } from "./catalog-provider";
 import { useLocale } from "./locale-provider";
 export default function CategoryMenu() {
   const { t, locale } = useLocale();
+  const { taxonomy } = useCatalog();
   const details = useRef<HTMLDetailsElement>(null);
   const en = locale === "en";
   useEffect(() => {
@@ -45,36 +45,27 @@ export default function CategoryMenu() {
           </Link>
         </div>
         <div className="category-menu-columns">
-          {categories.map((category) => (
+          {taxonomy.map(({ name: category, productCount, subcategories }) => (
             <section key={category}>
               <Link
                 href={{ pathname: "/catalog", query: { category } }}
                 onClick={close}
                 className="category-menu-title"
               >
-                {t(category)}{" "}
-                <span>
-                  {demoProducts.filter((p) => p.category === category).length}
-                </span>
+                {t(category)} <span>{productCount}</span>
               </Link>
-              {subcategories
-                .filter(
-                  (s) =>
-                    s.category === category &&
-                    demoProducts.some((p) => s.skus.includes(p.sku)),
-                )
-                .map((sub) => (
-                  <Link
-                    key={sub.id}
-                    href={{
-                      pathname: "/catalog",
-                      query: { category, subcategory: sub.id },
-                    }}
-                    onClick={close}
-                  >
-                    {t(sub.name)} <span>↗</span>
-                  </Link>
-                ))}
+              {subcategories.map((sub) => (
+                <Link
+                  key={sub.id}
+                  href={{
+                    pathname: "/catalog",
+                    query: { category, subcategory: sub.id },
+                  }}
+                  onClick={close}
+                >
+                  {t(sub.name)} <span>↗</span>
+                </Link>
+              ))}
             </section>
           ))}
         </div>

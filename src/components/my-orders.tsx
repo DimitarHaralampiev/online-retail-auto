@@ -5,14 +5,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useCart } from "./cart-provider";
 import { prepareRepeatOrder } from "../lib/customer-rules";
+import { useCatalog } from "./catalog-provider";
 import { orderStatuses, paymentStatuses } from "../lib/order-state";
 import { formatMoney } from "../lib/cart";
 import type { OrderView } from "./order-tracking";
 export default function MyOrders({ customerId }: { customerId: string }) {
   const { addItems, ready } = useCart();
+  const { products } = useCatalog();
   const [repeatMessage, setRepeatMessage] = useState("");
   function repeat(order: OrderView) {
-    const result = prepareRepeatOrder(order.lines);
+    const result = prepareRepeatOrder(order.lines, products);
     addItems(result.items);
     setRepeatMessage(
       [

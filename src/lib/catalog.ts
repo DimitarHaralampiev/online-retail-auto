@@ -1,14 +1,20 @@
+// Catalog domain types and the repository contract.
+//
+// Every server-side read of products and categories goes through a
+// `CatalogRepository` (see catalog-server.ts), so the storage behind it can
+// change from the static demo data to PostgreSQL without touching callers.
+// Client components never import catalog data; they receive it from the
+// server through props or the CatalogProvider context.
 import type { Stock } from "./inventory";
 
-export const categories = [
-  "Автоаксесоари",
-  "Части и консумативи",
-  "Автокозметика",
-] as const;
+export type ProductSubcategory = { id: string; name: string };
+
 export type Product = {
   sku: string;
   name: string;
-  category: (typeof categories)[number];
+  /** Display name of the top-level category, also used in catalog URLs. */
+  category: string;
+  subcategory: ProductSubcategory | null;
   description: string;
   image: string;
   demoPriceCents: number;
@@ -16,63 +22,63 @@ export type Product = {
   stock: Stock;
 };
 
-// Synthetic demo data and illustrative EUR prices, not commercial offers.
-export const demoProducts: Product[] = [
-  {
-    sku: "DEMO-001",
-    name: "Органайзер за багажник",
-    category: "Автоаксесоари",
-    description: "Място за всичко необходимо по пътя.",
-    image: "/images/organizer.png",
-    demoPriceCents: 2990,
-    demoSalePriceCents: 2390,
-    stock: { onHand: 12, reserved: 2 },
-  },
-  {
-    sku: "DEMO-002",
-    name: "Стойка за телефон",
-    category: "Автоаксесоари",
-    description: "Малък детайл за по-подреден интериор.",
-    image: "/images/phone-holder.png",
-    demoPriceCents: 1490,
-    demoSalePriceCents: 1190,
-    stock: { onHand: 5, reserved: 4 },
-  },
-  {
-    sku: "DEMO-003",
-    name: "Въздушен филтър",
-    category: "Части и консумативи",
-    description: "Съвместимостта с автомобил предстои да се добави.",
-    image: "/images/air-filter.png",
-    demoPriceCents: 1890,
-    stock: { onHand: 8, reserved: 0 },
-  },
-  {
-    sku: "DEMO-004",
-    name: "Комплект чистачки",
-    category: "Части и консумативи",
-    description: "Размерите и монтажът предстои да се уточнят.",
-    image: "/images/wipers.png",
-    demoPriceCents: 2490,
-    stock: { onHand: 0, reserved: 0 },
-  },
-  {
-    sku: "DEMO-005",
-    name: "Шампоан за автомобил",
-    category: "Автокозметика",
-    description: "Грижа за автомобила до последния детайл.",
-    image: "/images/car-shampoo.png",
-    demoPriceCents: 990,
-    demoSalePriceCents: 690,
-    stock: { onHand: 20, reserved: 3 },
-  },
-  {
-    sku: "DEMO-006",
-    name: "Микрофибърна кърпа",
-    category: "Автокозметика",
-    description: "Финалният щрих след всяко почистване.",
-    image: "/images/microfiber.png",
-    demoPriceCents: 590,
-    stock: { onHand: 3, reserved: 3 },
-  },
-];
+export type CatalogSubcategory = ProductSubcategory & { productCount: number };
+
+export type CatalogCategory = {
+  name: string;
+  productCount: number;
+  subcategories: CatalogSubcategory[];
+};
+
+/** Categories in display order; empty categories and subcategories omitted. */
+export type CatalogTaxonomy = CatalogCategory[];
+
+export interface CatalogRepository {
+  /** All products that are visible in the store. */
+  listProducts(): Promise<Product[]>;
+  getProduct(sku: string): Promise<Product | null>;
+  /** Products for the given SKUs in request order; unknown SKUs are skipped. */
+  getProducts(skus: readonly string[]): Promise<Product[]>;
+  taxonomy(): Promise<CatalogTaxonomy>;
+}
+
+/**
+ * Builds the category tree with product counts in the given order. Categories
+ * not listed in the order are appended, so counts always match the products.
+ */
+export function buildTaxonomy(
+  products: readonly Product[],
+  categoryOrder: readonly string[],
+): CatalogTaxonomy {
+  const names = [
+    ...new Set([...categoryOrder, ...products.map((p) => p.category)]),
+  ];
+  return names
+    .map((name) => {
+      const inCategory = products.filter((p) => p.category === name);
+      const subcategories = new Map<string, CatalogSubcategory>();
+      for (const product of inCategory) {
+        if (!product.subcategory) continue;
+        const entry = subcategories.get(product.subcategory.id) ?? {
+          ...product.subcategory,
+          productCount: 0,
+        };
+        entry.productCount += 1;
+        subcategories.set(entry.id, entry);
+      }
+      return {
+        name,
+        productCount: inCategory.length,
+        subcategories: [...subcategories.values()],
+      };
+    })
+    .filter((category) => category.productCount > 0);
+}
+
+/** Finds a product by SKU; lets pure logic work with any catalog source. */
+export type ProductLookup = (sku: string) => Product | undefined;
+
+export function productLookup(products: readonly Product[]): ProductLookup {
+  const bySku = new Map(products.map((product) => [product.sku, product]));
+  return (sku) => bySku.get(sku);
+}

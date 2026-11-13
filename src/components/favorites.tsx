@@ -4,12 +4,15 @@ import Localize from "./localize";
 import Link from "next/link";
 import { useCustomerFeatures } from "./customer-provider";
 import { useAccount } from "./account-provider";
-import { demoProducts } from "../lib/catalog";
+import { useCatalog } from "./catalog-provider";
 import ProductCard from "./product-card";
 export default function Favorites() {
   const { data, ready, busy, error, mutate } = useCustomerFeatures();
   const { customer } = useAccount();
-  const products = demoProducts.filter((p) => data.favorites.includes(p.sku));
+  const { products: catalogProducts, productBySku } = useCatalog();
+  const products = catalogProducts.filter((p) =>
+    data.favorites.includes(p.sku),
+  );
   const watched = data.alerts.filter((a) => a.active);
   return (
     <Localize>
@@ -55,9 +58,7 @@ export default function Favorites() {
                   {watched.map((a) => (
                     <div key={a.sku + a.kind} className="watchlist-row">
                       <span>
-                        {demoProducts.find((p) => p.sku === a.sku)?.name ??
-                          a.sku}{" "}
-                        ·{" "}
+                        {productBySku(a.sku)?.name ?? a.sku} ·{" "}
                         {a.kind === "stock" ? "При наличност" : "При намаление"}
                       </span>
                       <button

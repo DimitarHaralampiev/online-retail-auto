@@ -4,11 +4,13 @@ import SiteHeader from "../../components/site-header";
 import SiteFooter from "../../components/site-footer";
 import ProductCard from "../../components/product-card";
 import Icon from "../../components/icon";
-import { demoProducts } from "../../lib/catalog";
+import { catalog } from "../../lib/catalog-server";
 import { getPromotion } from "../../lib/pricing";
 
-export default function PromotionsPage() {
-  const products = demoProducts.filter((product) => getPromotion(product));
+export default async function PromotionsPage() {
+  const products = (await catalog().listProducts()).filter((product) =>
+    getPromotion(product),
+  );
   return (
     <Localize>
       {

@@ -4,12 +4,14 @@ import {
 } from "./customer-preferences";
 import {
   customerActionSchema,
+  customerActionSkus,
   fitmentMatches,
   type CustomerFeatures,
 } from "./customer-rules";
 import { randomUUID } from "node:crypto";
 import { database } from "./accounts";
-import { demoProducts } from "./catalog";
+import { productLookup } from "./catalog";
+import { catalog } from "./catalog-server";
 import { availableStock } from "./inventory";
 import { sellingPrice } from "./pricing";
 export async function getCustomerFeatures(
@@ -66,6 +68,9 @@ export async function mutateCustomerFeatures(
   value: unknown,
 ) {
   const action = customerActionSchema.parse(value);
+  const skus = customerActionSkus(action);
+  const products = productLookup(await catalog().getProducts(skus));
+  if (skus.some((sku) => !products(sku))) throw new Error("Непознат продукт.");
   const client = await database().connect();
   try {
     await client.query("BEGIN");
@@ -94,12 +99,20 @@ export async function mutateCustomerFeatures(
             [row.reminder_id, customerId],
           );
       }
-      if (prefs.price && !customer.rows[0].notification_preferences?.price)
-        for (const product of demoProducts)
+      if (prefs.price && !customer.rows[0].notification_preferences?.price) {
+        // Re-baseline price alerts so enabling them does not report old drops.
+        const alerted = await client.query<{ sku: string }>(
+          "SELECT sku FROM customer_product_alerts WHERE customer_id=$1 AND kind='price'",
+          [customerId],
+        );
+        for (const product of await catalog().getProducts(
+          alerted.rows.map((row) => row.sku),
+        ))
           await client.query(
             "UPDATE customer_product_alerts SET last_price_cents=$1 WHERE customer_id=$2 AND sku=$3 AND kind='price'",
             [sellingPrice(product), customerId, product.sku],
           );
+      }
     } else if (action.action === "favorite") {
       if (action.enabled)
         await client.query(
@@ -123,7 +136,7 @@ export async function mutateCustomerFeatures(
           [customerId, id],
         );
     } else if (action.action === "alert") {
-      const product = demoProducts.find((p) => p.sku === action.sku)!;
+      const product = products(action.sku)!;
       if (
         action.enabled &&
         !customer.rows[0].notification_preferences?.[action.kind]

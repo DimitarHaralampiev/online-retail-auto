@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { demoProducts } from "./catalog";
+import type { ProductLookup } from "./catalog";
 import { availableStock } from "./inventory";
 import {
   demoOffices,
@@ -90,6 +90,7 @@ export type CheckoutPreview = {
 // This is a read-only preview: it does not reserve stock or create an order.
 export function previewCheckout(
   value: unknown,
+  lookup: ProductLookup,
   offices: Office[] = demoOffices,
 ): CheckoutPreview {
   const input = checkoutSchema.parse(value);
@@ -98,7 +99,7 @@ export function previewCheckout(
     quantities.set(item.sku, (quantities.get(item.sku) ?? 0) + item.quantity);
   let subtotalCents = 0;
   for (const [sku, quantity] of quantities) {
-    const product = demoProducts.find((item) => item.sku === sku);
+    const product = lookup(sku);
     if (!product) throw new Error("Количката съдържа непознат продукт.");
     if (quantity > availableStock(product.stock) || quantity > 50)
       throw new Error(`Недостатъчна наличност: ${product.name}.`);

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`online-retail-auto` is a bilingual (Bulgarian/English) online shop for car accessories and parts in Bulgaria with its own warehouse. Stack: Next.js 16 App Router, React 19, TypeScript (strict), PostgreSQL 17 (`pg`), Zod validation, Stripe (test mode) and Nodemailer. Optional integrations: OpenAI (invoice reading and business insights; paid usage, server-only keys) and the Speedy courier API. The storefront catalog is still demo data in `src/lib/catalog.ts`; moving it to PostgreSQL is tracked in epic #12. The roadmap lives in GitHub epics #11–#17.
+`online-retail-auto` is a bilingual (Bulgarian/English) online shop for car accessories and parts in Bulgaria with its own warehouse. Stack: Next.js 16 App Router, React 19, TypeScript (strict), PostgreSQL 17 (`pg`), Zod validation, Stripe (test mode) and Nodemailer. Optional integrations: OpenAI (invoice reading and business insights; paid usage, server-only keys) and the Speedy courier API. The storefront catalog is served through a `CatalogRepository` backed by demo data (`src/lib/catalog-demo-data.ts`); the PostgreSQL adapter is tracked in epic #12. The roadmap lives in GitHub epics #11–#17.
 
 The `.agents/`, `.aws/`, `.codex/` and `.idea/` directories are local environment configuration; do not treat them as application modules or commit their contents.
 
@@ -11,6 +11,7 @@ The `.agents/`, `.aws/`, `.codex/` and `.idea/` directories are local environmen
 - `src/app/` — App Router pages (including `catalog`, `cart`, `checkout`, `account`, `orders`, `garage`, `favorites`, `for-you`, `promotions`, `inventory-demo`, `admin/*`) and route handlers under `src/app/api/`.
 - `src/components/` — React components; client components carry `"use client"`.
 - `src/lib/` — domain logic, data access and validation (catalog, pricing, inventory, checkout, orders, accounts, invoices, delivery). Unit tests sit next to the code as `*.test.ts`.
+- Catalog access: server code calls `catalog()` from `src/lib/catalog-server.ts` (a `CatalogRepository`); client components use `useCatalog()` from `src/components/catalog-provider.tsx`. Never import `catalog-demo-data` outside the static adapter wiring, tests and scripts (ESLint enforces this). See `docs/architecture/`.
 - `src/lib/i18n/` — locale handling and English translations (`en.json`); Bulgarian is the source language: write UI strings in Bulgarian and add the English entry to `en.json`, keyed by the whitespace-normalised Bulgarian text.
 - `db/` — numbered SQL migrations (`NNN-name.sql`). `scripts/migrate.mjs` has no tracking table and re-applies every file in order, each in its own transaction, on every run, so each migration must be idempotent (`IF NOT EXISTS`, `ON CONFLICT`, guarded `ALTER`s) and must stay safe to re-run. Schema reference: `docs/database-schema.md`.
 - `scripts/` — operational scripts (migrations, admin grant, workers, DB-backed flow tests).

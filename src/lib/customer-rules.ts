@@ -4,7 +4,7 @@ import {
   type NotificationPreferences,
 } from "./customer-preferences";
 import { z } from "zod";
-import { demoProducts, type Product } from "./catalog";
+import type { Product } from "./catalog";
 import { availableStock } from "./inventory";
 export const todayInSofia = (date = new Date()) =>
   new Intl.DateTimeFormat("en-CA", {
@@ -50,13 +50,9 @@ export const reminderSchema = z
         message: "Провери датата на последната смяна.",
       });
   });
-const sku = z
-  .string()
-  .max(50)
-  .refine(
-    (value) => demoProducts.some((p) => p.sku === value),
-    "Непознат продукт.",
-  );
+// Format only: whether the SKU exists is checked against the catalog when
+// the action runs (see customerActionSkus and mutateCustomerFeatures).
+const sku = z.string().trim().min(1, "Непознат продукт.").max(50);
 export const customerActionSchema = z.discriminatedUnion("action", [
   z
     .object({
@@ -150,7 +146,7 @@ export function fitmentMatches(
 }
 export function prepareRepeatOrder(
   lines: { sku: string; quantity: number }[],
-  products: Product[] = demoProducts,
+  products: readonly Product[],
 ) {
   const items: { sku: string; quantity: number }[] = [];
   const skipped: string[] = [];
@@ -173,4 +169,14 @@ export function prepareRepeatOrder(
     items.push({ sku: id, quantity });
   }
   return { items, skipped, reduced };
+}
+
+export type CustomerAction = z.infer<typeof customerActionSchema>;
+
+/** SKUs an action refers to; each must exist in the catalog. */
+export function customerActionSkus(action: CustomerAction): string[] {
+  if (action.action === "favorite" || action.action === "alert")
+    return [action.sku];
+  if (action.action === "import-favorites") return [...new Set(action.skus)];
+  return [];
 }
