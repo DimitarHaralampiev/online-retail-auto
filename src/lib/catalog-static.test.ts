@@ -3,7 +3,12 @@ import { test } from "node:test";
 import {
   buildTaxonomy,
   DEFAULT_PAGE_SIZE,
+  MAX_BROWSE_TEXT,
+  MAX_COMPATIBLE_SKUS,
+  MAX_PAGE,
   MAX_PAGE_SIZE,
+  normalizeBrowseQuery,
+  type BrowseSort,
   pageWindow,
   productLookup,
   type Product,
@@ -111,4 +116,39 @@ test("static browse filters, sorts and paginates", async () => {
     ["A", "D"],
   );
   assert.equal((await store.browse({ text: "product b" })).total, 1);
+});
+
+test("browse input is normalised to safe values", () => {
+  const q = normalizeBrowseQuery({
+    page: Number.NaN,
+    pageSize: Number.POSITIVE_INFINITY,
+    minPriceCents: 1500.2,
+    maxPriceCents: 3e9,
+    text: `  ${"x".repeat(150)}  `,
+    sort: "bogus" as BrowseSort,
+    locale: "de" as "bg",
+    category: "",
+  });
+  assert.equal(q.page, 1);
+  assert.equal(q.pageSize, DEFAULT_PAGE_SIZE);
+  assert.equal(q.minPriceCents, 1501);
+  assert.equal(q.maxPriceCents, 2_147_483_647);
+  assert.equal(q.text?.length, MAX_BROWSE_TEXT);
+  assert.equal(q.sort, "featured");
+  assert.equal(q.locale, "bg");
+  assert.equal(q.category, undefined);
+  assert.equal(normalizeBrowseQuery({ page: 1e20 }).page, MAX_PAGE);
+  assert.equal(normalizeBrowseQuery({ maxPriceCents: -50 }).maxPriceCents, -1);
+  assert.equal(
+    normalizeBrowseQuery({ minPriceCents: Number.NaN }).minPriceCents,
+    undefined,
+  );
+  assert.equal(normalizeBrowseQuery({ text: "   " }).text, undefined);
+  assert.throws(
+    () =>
+      normalizeBrowseQuery({
+        compatibleSkus: Array.from({ length: MAX_COMPATIBLE_SKUS + 1 }, String),
+      }),
+    /at most/,
+  );
 });

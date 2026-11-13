@@ -7,7 +7,7 @@
 // category counts apply exactly the same visibility and pricing rules.
 import type pg from "pg";
 import {
-  pageWindow,
+  normalizeBrowseQuery,
   type BrowseQuery,
   type BrowseSort,
   type CatalogRepository,
@@ -97,7 +97,9 @@ const BROWSE_ORDER: Record<BrowseSort, string> = {
   featured: FEATURED_ORDER,
   "price-asc": `pay_cents, ${FEATURED_ORDER}`,
   "price-desc": `pay_cents DESC, ${FEATURED_ORDER}`,
-  name: `CASE WHEN $9 = 'en' THEN name_en ELSE name END, ${FEATURED_ORDER}`,
+  // ICU root collation: identical to Intl.Collator("und") in the static
+  // adapter and independent of the database's locale settings.
+  name: `(CASE WHEN $9 = 'en' THEN name_en ELSE name END) COLLATE "und-x-icu", ${FEATURED_ORDER}`,
 };
 
 // $2 category name, $3 subcategory id, $4 text, $5/$6 price bounds,
@@ -148,28 +150,21 @@ function toProduct(row: ProductRow): Product {
   };
 }
 
-const SORTS = new Set<BrowseSort>([
-  "featured",
-  "price-asc",
-  "price-desc",
-  "name",
-]);
-
 export function createPostgresCatalog(db: () => Queryable): CatalogRepository {
   async function products(skus: readonly string[] | null): Promise<Product[]> {
     const result = await db().query<ProductRow>(PRODUCTS_SQL, [skus]);
     return result.rows.map(toProduct);
   }
 
-  async function browse(query: BrowseQuery) {
-    const { page, pageSize } = pageWindow(query);
-    const sort = query.sort && SORTS.has(query.sort) ? query.sort : "featured";
-    const text = query.text?.trim();
+  async function browse(input: BrowseQuery) {
+    const query = normalizeBrowseQuery(input);
+    const { page, pageSize } = query;
+    const sort = query.sort ?? "featured";
     const params = (limit: number, offset: number) => [
       query.compatibleSkus ? [...query.compatibleSkus] : null,
-      query.category || null,
-      query.subcategory || null,
-      text || null,
+      query.category ?? null,
+      query.subcategory ?? null,
+      query.text ?? null,
       query.minPriceCents ?? null,
       query.maxPriceCents ?? null,
       !!query.available,

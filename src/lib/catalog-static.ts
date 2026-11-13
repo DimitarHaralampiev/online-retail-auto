@@ -2,6 +2,7 @@
 // today, fixtures in tests). PostgreSQL replaces it behind the same interface.
 import {
   buildTaxonomy,
+  normalizeBrowseQuery,
   paginate,
   type CatalogRepository,
   type Product,
@@ -31,10 +32,10 @@ export function createStaticCatalog(
     async taxonomy() {
       return taxonomy;
     },
-    async browse(query) {
-      const locale = query.locale ?? "bg";
+    async browse(input) {
+      const query = normalizeBrowseQuery(input);
       const matches = filterProducts(products, query, (text) =>
-        translate(text, locale),
+        translate(text, query.locale ?? "bg"),
       );
       return paginate(matches, query);
     },

@@ -51,6 +51,19 @@ const queries: BrowseQuery[] = [
   { pageSize: 4, page: 2 },
   { pageSize: 4, page: 3 },
   { pageSize: 2, page: 2, sort: "price-asc", available: true },
+  // Hostile or malformed input must not reach SQL in a form it cannot type.
+  { minPriceCents: Number.NaN },
+  { maxPriceCents: Number.POSITIVE_INFINITY },
+  { minPriceCents: 1890.5 },
+  { minPriceCents: 3e9 },
+  { maxPriceCents: -10 },
+  { page: Number.NaN },
+  { pageSize: Number.POSITIVE_INFINITY },
+  { page: 1e20 },
+  { text: "  филтър  " },
+  { text: "ФИЛТЪР" },
+  { sort: "bogus" as BrowseQuery["sort"] },
+  { locale: "de" as BrowseQuery["locale"], text: "filter" },
 ];
 
 for (const query of queries)

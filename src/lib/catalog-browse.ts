@@ -12,6 +12,10 @@ export type BrowseFilters = {
   compatibleSkus?: string[];
   sort: string;
 };
+// ICU root collation, identical to PostgreSQL's "und-x-icu" used by the
+// SQL adapter, so name order does not depend on server locale settings.
+const nameCollator = new Intl.Collator("und");
+
 export function priceFilterCents(value: string) {
   if (!value.trim()) return null;
   if (!/^\d+(?:[.,]\d{1,2})?$/.test(value.trim())) return undefined;
@@ -52,7 +56,9 @@ export function filterProducts(
   if (query.sort === "price-desc")
     filtered.sort((a, b) => sellingPrice(b) - sellingPrice(a));
   if (query.sort === "name")
-    filtered.sort((a, b) => translate(a.name).localeCompare(translate(b.name)));
+    filtered.sort((a, b) =>
+      nameCollator.compare(translate(a.name), translate(b.name)),
+    );
   return filtered;
 }
 

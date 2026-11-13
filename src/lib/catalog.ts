@@ -74,12 +74,61 @@ export function pageWindow(query: BrowseQuery): {
   page: number;
   pageSize: number;
 } {
+  const whole = (value: number | undefined, fallback: number) =>
+    value !== undefined && Number.isFinite(value)
+      ? Math.trunc(value)
+      : fallback;
   const pageSize = Math.min(
-    Math.max(Math.trunc(query.pageSize ?? DEFAULT_PAGE_SIZE), 1),
+    Math.max(whole(query.pageSize, DEFAULT_PAGE_SIZE), 1),
     MAX_PAGE_SIZE,
   );
-  const page = Math.max(Math.trunc(query.page ?? 1), 1);
+  const page = Math.min(Math.max(whole(query.page, 1), 1), MAX_PAGE);
   return { page, pageSize };
+}
+
+export const MAX_PAGE = 1000;
+export const MAX_BROWSE_TEXT = 100;
+export const MAX_COMPATIBLE_SKUS = 1000;
+const MAX_CENTS = 2_147_483_647; // PostgreSQL integer
+
+const SORTS: ReadonlySet<string> = new Set<BrowseSort>([
+  "featured",
+  "price-asc",
+  "price-desc",
+  "name",
+]);
+
+/**
+ * Makes any BrowseQuery safe and canonical before an adapter runs it, so
+ * both adapters treat odd input identically and SQL never sees values it
+ * cannot type: non-finite numbers are ignored, price bounds are rounded
+ * inward and clamped to the integer range, paging is clamped, text is
+ * trimmed and capped, and unknown sorts or locales fall back to defaults.
+ * Callers should still validate URL input (Zod) before building a query.
+ */
+export function normalizeBrowseQuery(
+  query: BrowseQuery,
+): BrowseQuery & { page: number; pageSize: number } {
+  if (query.compatibleSkus && query.compatibleSkus.length > MAX_COMPATIBLE_SKUS)
+    throw new Error(
+      `compatibleSkus accepts at most ${MAX_COMPATIBLE_SKUS} SKUs.`,
+    );
+  const bound = (value: number | undefined, round: (n: number) => number) =>
+    value !== undefined && Number.isFinite(value)
+      ? Math.min(Math.max(round(value), -1), MAX_CENTS)
+      : undefined;
+  const text = query.text?.trim().slice(0, MAX_BROWSE_TEXT);
+  return {
+    ...query,
+    ...pageWindow(query),
+    category: query.category || undefined,
+    subcategory: query.subcategory || undefined,
+    text: text || undefined,
+    minPriceCents: bound(query.minPriceCents, Math.ceil),
+    maxPriceCents: bound(query.maxPriceCents, Math.floor),
+    sort: query.sort && SORTS.has(query.sort) ? query.sort : "featured",
+    locale: query.locale === "en" ? "en" : "bg",
+  };
 }
 
 /** Cuts one page out of an already filtered and sorted list. */
