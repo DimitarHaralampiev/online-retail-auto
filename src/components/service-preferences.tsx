@@ -1,18 +1,23 @@
 "use client";
 import Localize from "./localize";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useCustomerFeatures } from "./customer-provider";
 import { type NotificationPreferences } from "../lib/customer-preferences";
 import NotificationChoices from "./notification-choices";
 export default function ServicePreferences() {
   const { data, ready, busy, error: loadError, mutate } = useCustomerFeatures();
-  const [edited, setValue] = useState<NotificationPreferences | null>(null);
-  const value = edited ?? data.preferences;
+  // Unsaved edits are tied to the preferences they started from, so a reload
+  // or a successful save (new data.preferences) discards them automatically.
+  const [edit, setEdit] = useState<{
+    base: NotificationPreferences;
+    value: NotificationPreferences;
+  } | null>(null);
+  const value =
+    edit && edit.base === data.preferences ? edit.value : data.preferences;
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  useEffect(() => setValue(null), [data.preferences]);
   async function save() {
     setError("");
     setMessage("");
@@ -56,7 +61,9 @@ export default function ServicePreferences() {
           </p>
           <NotificationChoices
             value={value}
-            onChange={setValue}
+            onChange={(next) =>
+              setEdit({ base: data.preferences, value: next })
+            }
             disabled={!ready || busy}
           />
           <p className="note">

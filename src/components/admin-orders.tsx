@@ -7,7 +7,6 @@ import {
   orderStatuses,
   paymentStatuses,
   nextOrderStatuses,
-  type OrderStatus,
 } from "../lib/order-state";
 import type { OrderView } from "./order-tracking";
 import { formatMoney } from "../lib/cart";

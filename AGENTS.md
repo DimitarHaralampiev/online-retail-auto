@@ -22,6 +22,7 @@ Node.js 22 LTS (`.nvmrc`; minimum 20.18.1 per `engines`) and npm. Install with `
 
 - `npm run dev` — development server on http://localhost:3000.
 - `npm run format:check` / `npm run format` — Prettier.
+- `npm run lint` — ESLint (Next.js core-web-vitals + TypeScript rules, `eslint.config.mjs`). Errors fail; the remaining warnings are tracked legacy findings.
 - `npm run typecheck` — TypeScript without emit.
 - `npm test` — unit tests with the Node.js test runner via `tsx`. The glob is not recursive: only top-level `src/lib/*.test.ts` files run.
 - `npm run build` / `npm start` — production build and server.
@@ -32,7 +33,7 @@ Node.js 22 LTS (`.nvmrc`; minimum 20.18.1 per `engines`) and npm. Install with `
 - `npm run mail:check` — verify SMTP settings.
 - `npm run test:orders`, `npm run test:features` — end-to-end smoke flows. They need a running local app (`npm run dev`, or set `TEST_APP_URL`), a migrated local database, and Mailpit (`test:orders` also needs `PAYMENT_PROVIDER=simulator`), and refuse non-local targets.
 
-Run format check, typecheck, unit tests and build before opening a pull request. Linting (#20) and CI (#21) are being added.
+Run format check, lint, typecheck, unit tests and build before opening a pull request. CI (#21) is being added.
 
 ## Coding Style & Naming Conventions
 

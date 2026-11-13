@@ -9,7 +9,7 @@ import {
 } from "./customer-rules";
 import { randomUUID } from "node:crypto";
 import { database } from "./accounts";
-import { demoProducts, type Product } from "./catalog";
+import { demoProducts } from "./catalog";
 import { availableStock } from "./inventory";
 import { sellingPrice } from "./pricing";
 export async function getCustomerFeatures(
