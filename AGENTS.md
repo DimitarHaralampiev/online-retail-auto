@@ -33,7 +33,7 @@ Node.js 22 LTS (`.nvmrc`; minimum 20.18.1 per `engines`) and npm. Install with `
 - `npm run mail:check` — verify SMTP settings.
 - `npm run test:orders`, `npm run test:features` — end-to-end smoke flows. They need a running local app (`npm run dev`, or set `TEST_APP_URL`), a migrated local database, and Mailpit (`test:orders` also needs `PAYMENT_PROVIDER=simulator`), and refuse non-local targets.
 
-Run format check, lint, typecheck, unit tests and build before opening a pull request. CI (#21) is being added.
+Run format check, lint, typecheck, unit tests and build before opening a pull request. GitHub Actions (`.github/workflows/ci.yml`) runs the production dependency audit and these checks on every pull request and on `main`; Dependabot proposes weekly grouped dependency updates.
 
 ## Coding Style & Naming Conventions
 
