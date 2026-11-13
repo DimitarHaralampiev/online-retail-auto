@@ -4014,3 +4014,19 @@ select {
     gap: 14px;
   }
 }
+
+.catalog-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.catalog-pagination a {
+  font-weight: 700;
+}
+.catalog-browse-results[aria-busy="true"] .product-grid {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}

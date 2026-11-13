@@ -201,3 +201,121 @@ test("switching language does not reload client state from storage", async ({
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("link", { name: "Cart: 1 items" })).toBeVisible();
 });
+
+test.describe("catalog state lives in the URL", () => {
+  const heading = (page: Page, name: string) =>
+    page.getByRole("heading", { level: 2, name });
+  const count = (page: Page) =>
+    page.getByRole("status").filter({ hasText: "продукт" });
+
+  test("filters are shareable, survive reload and follow back navigation", async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto("/catalog");
+    if (isMobile)
+      await page.getByRole("button", { name: "Филтри", exact: true }).click();
+    await page.getByText("Само промоции").click();
+    await expect(page).toHaveURL(/[?&]promotions=1/);
+    await page
+      .getByRole("combobox", { name: "Подреди" })
+      .selectOption("price-desc");
+    await expect(page).toHaveURL(/sort=price-desc/);
+    await page.reload();
+    await expect(count(page)).toHaveText(/^\s*3\s*продукта\s*$/);
+    await page.goBack();
+    await expect(page).not.toHaveURL(/sort=/);
+    await expect(page).toHaveURL(/promotions=1/);
+  });
+
+  test("a deep link applies filters and sorting on the server", async ({
+    page,
+  }) => {
+    await page.goto("/catalog?promotions=1&sort=price-desc");
+    await expect(count(page)).toHaveText(/^\s*3\s*продукта\s*$/);
+    const names = page.locator(".product-grid .product-title");
+    await expect(names).toHaveText([
+      "Органайзер за багажник",
+      "Стойка за телефон",
+      "Шампоан за автомобил",
+    ]);
+  });
+
+  test("a page past the end offers a way back", async ({ page }) => {
+    await page.goto("/catalog?page=5");
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Няма такава страница." }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "Към първата страница" }).click();
+    await expect(page).toHaveURL(/\/catalog$/);
+    await expect(heading(page, "Въздушен филтър")).toBeVisible();
+  });
+
+  test("an invalid price range in the URL shows the price error", async ({
+    page,
+  }) => {
+    await page.goto("/catalog?min=20&max=5");
+    // Explained next to the results, also when the filter drawer is closed.
+    await expect(
+      page.getByRole("heading", { name: "Ценовият диапазон е невалиден." }),
+    ).toBeVisible();
+    await expect(count(page)).toHaveText(/^\s*0\s*продукта\s*$/);
+    await page.getByRole("button", { name: "Изчисти цената" }).click();
+    await expect(page).toHaveURL(/\/catalog$/);
+    await expect(count(page)).toHaveText(/^\s*6\s*продукта\s*$/);
+  });
+
+  test("hostile parameters are ignored", async ({ page, isMobile }) => {
+    const response = await page.goto(
+      "/catalog?sort=DROP%20TABLE&page=abc&q=%25%27--&available=yes",
+    );
+    expect(response?.status()).toBe(200);
+    // The toggle shows the active filter count, e.g. "Филтри (1)".
+    if (isMobile) await page.getByRole("button", { name: /^Филтри/ }).click();
+    await expect(
+      page.getByRole("searchbox", { name: "Търсене", exact: true }),
+    ).toHaveValue("%'--");
+    await expect(count(page)).toHaveText(/^\s*0\s*продукта\s*$/);
+  });
+});
+
+test.describe("catalog filters chosen in quick succession", () => {
+  test("typing and then ticking a filter keeps both", async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto("/catalog");
+    if (isMobile) await page.getByRole("button", { name: /^Филтри/ }).click();
+    const search = page.getByRole("searchbox", {
+      name: "Търсене",
+      exact: true,
+    });
+    await search.pressSequentially("кърпа", { delay: 20 });
+    // Before the typing pause elapses.
+    await page.getByText("Само налични").click();
+    await expect(page).toHaveURL(/available=1/);
+    await expect(page).toHaveURL(/q=%D0%BA%D1%8A%D1%80%D0%BF%D0%B0/);
+    await expect(search).toHaveValue("кърпа");
+    // The microfiber cloth has no free stock, so nothing matches both.
+    await expect(
+      page.getByRole("status").filter({ hasText: "продукт" }),
+    ).toHaveText(/^\s*0\s*продукта\s*$/);
+  });
+
+  test("a vehicle filter without a signed-in vehicle is ignored and dropped from links", async ({
+    page,
+  }) => {
+    await page.goto("/catalog?car=1&sort=name");
+    await expect(
+      page.getByRole("status").filter({ hasText: "продукт" }),
+    ).toHaveText(/^\s*6\s*продукта\s*$/);
+    await expect(
+      page.getByRole("button", { name: /Моят автомобил/ }),
+    ).toHaveCount(0);
+    await page.goto("/catalog?car=1&page=1&category=%D0%9D%D1%8F%D0%BC%D0%B0");
+    // Unknown category is ignored too.
+    await expect(
+      page.getByRole("status").filter({ hasText: "продукт" }),
+    ).toHaveText(/^\s*6\s*продукта\s*$/);
+  });
+});

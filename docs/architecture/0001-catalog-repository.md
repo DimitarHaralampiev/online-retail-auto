@@ -90,8 +90,14 @@ Recorded now so the PostgreSQL adapter does not freeze the interim shape.
   ICU root collation in both adapters (`und-x-icu` / `Intl.Collator("und")`)
   so order does not depend on server locale; case-insensitive Cyrillic text
   matching relies on a UTF-8 database (`lower()`), which #36 replaces with
-  proper search. Still to do in #27: catalog pages call `browse()` with URL-driven filters, and
-  client components stop receiving the full product list.
+  proper search. The catalog page (step 2) parses its URL with Zod in
+  `catalog-url.ts`, drops unknown categories, computes vehicle fitment on the
+  server from the signed-in customer's selected vehicle (falling back to no
+  filter on errors or more than 1000 SKUs) and renders one page with
+  pagination; the client only changes the URL. Still to do in #27 (step 3):
+  the root layout still ships the full product list to `CatalogProvider` for
+  cart, favourites, repeat order and the inventory demo; replace it with
+  per-SKU lookups and coarsen stock exposure.
 - **#26 — live promotions:** a promotion line applies when its promotion has
   `status='active' AND (starts_at IS NULL OR starts_at <= now()) AND
 (ends_at IS NULL OR ends_at > now())`; with several live lines for a SKU the
