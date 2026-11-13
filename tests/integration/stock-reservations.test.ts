@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { beforeEach, test } from "node:test";
 import { seedDemoCatalog } from "../../src/lib/catalog-seed";
 import { changeOrderStatus, createOrder } from "../../src/lib/orders";
+import { recordPaymentEvent } from "../../src/lib/order-payments";
 import {
   keepReservations,
   releaseExpiredReservations,
@@ -215,17 +216,29 @@ test("unpaid card orders release their stock after the payment window", async ()
 
 test("a price change committed during checkout rejects the order", async () => {
   // An admin's price update holds the product row; the order computes its
-  // total from the old price, waits for the row, then sees the new price.
+  // total from the old price, blocks on the row inside its transaction, then
+  // sees the new price. We wait until the order is actually blocked behind
+  // the admin's lock, so the in-transaction check is what fires.
   const admin = await db().pool.connect();
   try {
     await admin.query("BEGIN");
+    const pid = (await admin.query("SELECT pg_backend_pid() AS pid")).rows[0]
+      .pid;
     await admin.query(
       "UPDATE warehouse_products SET selling_price_cents=2490 WHERE sku=$1",
       [SKU],
     );
     const pending = createOrder(order(1), null);
-    // Let the order reach the locked row, then commit the price change.
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    const deadline = Date.now() + 10_000;
+    for (;;) {
+      const blocked = await db().pool.query(
+        "SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))",
+        [pid],
+      );
+      if (blocked.rowCount) break;
+      if (Date.now() > deadline) throw new Error("order never blocked");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
     await admin.query("COMMIT");
     await assert.rejects(pending, /Сумата е променена/);
   } finally {
@@ -253,4 +266,199 @@ test("a payment that arrives as the window ends keeps the order", async () => {
   ]);
   assert.equal(row.rows[0].status, "received");
   assert.deepEqual(await stock(), { on_hand: 8, reserved: 1 });
+});
+
+async function orderRow(id: string) {
+  const row = await db().pool.query(
+    "SELECT status, payment_status FROM orders WHERE id=$1",
+    [id],
+  );
+  return row.rows[0];
+}
+
+async function emails(id: string) {
+  const rows = await db().pool.query<{ body: string }>(
+    "SELECT body FROM order_email_outbox WHERE order_id=$1 ORDER BY created_at",
+    [id],
+  );
+  return rows.rows.map((r) => r.body);
+}
+
+// A checkout session event as Stripe would send it for the order.
+function stripeEvent(
+  type: "checkout.session.completed" | "checkout.session.expired",
+  created: { id: string; total_cents: number },
+) {
+  return {
+    id: `evt_${randomUUID()}`,
+    type,
+    livemode: false,
+    data: {
+      object: {
+        id: `cs_test_${created.id}`,
+        livemode: false,
+        currency: "eur",
+        amount_total: created.total_cents,
+        payment_status:
+          type === "checkout.session.completed" ? "paid" : "unpaid",
+        metadata: { orderId: created.id },
+        client_reference_id: created.id,
+      },
+    },
+  } as unknown as Parameters<typeof recordPaymentEvent>[0];
+}
+
+async function withSession(id: string) {
+  await db().pool.query("UPDATE orders SET stripe_session_id=$1 WHERE id=$2", [
+    `cs_test_${id}`,
+    id,
+  ]);
+}
+
+test("the expiry job cancels the order, records history and emails the customer", async () => {
+  const unpaid = await createOrder(order(1, "card"), null);
+  await db().pool.query(
+    "UPDATE stock_reservations SET expires_at = now() - interval '1 minute' WHERE order_id=$1",
+    [unpaid.id],
+  );
+  assert.equal(await releaseExpiredReservations(db().pool), 1);
+  const history = await db().pool.query(
+    "SELECT status FROM order_history WHERE order_id=$1 ORDER BY created_at",
+    [unpaid.id],
+  );
+  assert.deepEqual(
+    history.rows.map((r) => r.status),
+    ["received", "cancelled"],
+  );
+  assert.match(
+    (await emails(unpaid.id)).at(-1) ?? "",
+    /изтече и поръчката е отказана/,
+  );
+});
+
+test("a Stripe payment keeps the stock; an expired session cancels the order", async () => {
+  const paid = await createOrder(order(1, "card"), null);
+  await withSession(paid.id);
+  await recordPaymentEvent(stripeEvent("checkout.session.completed", paid));
+  assert.deepEqual(await orderRow(paid.id), {
+    status: "received",
+    payment_status: "paid",
+  });
+  assert.equal((await reservations(paid.id))[0].open, true);
+
+  const expired = await createOrder(order(2, "card"), null);
+  await withSession(expired.id);
+  await recordPaymentEvent(stripeEvent("checkout.session.expired", expired));
+  assert.deepEqual(await orderRow(expired.id), {
+    status: "cancelled",
+    payment_status: "failed",
+  });
+  assert.equal((await reservations(expired.id))[0].status, "expired");
+  assert.deepEqual(await stock(), { on_hand: 8, reserved: 1 });
+});
+
+test("a payment for an already cancelled order keeps it cancelled and asks for a refund", async () => {
+  const late = await createOrder(order(2, "card"), null);
+  await withSession(late.id);
+  await db().pool.query(
+    "UPDATE stock_reservations SET expires_at = now() - interval '1 minute' WHERE order_id=$1",
+    [late.id],
+  );
+  assert.equal(await releaseExpiredReservations(db().pool), 1);
+  await recordPaymentEvent(stripeEvent("checkout.session.completed", late));
+  assert.deepEqual(await orderRow(late.id), {
+    status: "cancelled",
+    payment_status: "paid",
+  });
+  assert.equal((await reservations(late.id))[0].status, "expired");
+  assert.deepEqual(await stock(), { on_hand: 8, reserved: 0 });
+  assert.match((await emails(late.id)).at(-1) ?? "", /Ще възстановим сумата/);
+});
+
+test("a multi-line order with one short line reserves nothing", async () => {
+  await db().pool.query(
+    "UPDATE warehouse_products SET on_hand=1 WHERE sku='DEMO-005'",
+  );
+  const multi = order(1);
+  multi.checkout.items = [
+    { sku: SKU, quantity: 2 },
+    { sku: "DEMO-005", quantity: 2 },
+  ];
+  // 2 × 18.90 + 2 × 6.90 (sale) = 51.60 EUR, free shipping.
+  multi.expectedTotalCents = 2 * PRICE + 2 * 690;
+  await assert.rejects(createOrder(multi, null), /Недостатъчна наличност/);
+  assert.deepEqual(await stock(), { on_hand: 8, reserved: 0 });
+});
+
+test("handover without a reservation takes the stock directly, or refuses", async () => {
+  const admin = await insertCustomer(db().pool, { isAdmin: true });
+  const legacy = await createOrder(order(2), null);
+  // Simulate an order created before reservations existed.
+  await db().pool.query("DELETE FROM stock_movements WHERE order_id=$1", [
+    legacy.id,
+  ]);
+  await db().pool.query("DELETE FROM stock_reservations WHERE order_id=$1", [
+    legacy.id,
+  ]);
+  await db().pool.query(
+    "UPDATE warehouse_products SET reserved=0 WHERE sku=$1",
+    [SKU],
+  );
+  const steps = [
+    ["received", "confirmed"],
+    ["confirmed", "preparing"],
+    ["preparing", "ready"],
+  ] as const;
+  for (const [from, to] of steps)
+    await changeOrderStatus(legacy.id, to, from, admin);
+  await db().pool.query(
+    "UPDATE warehouse_products SET on_hand=1 WHERE sku=$1",
+    [SKU],
+  );
+  await assert.rejects(
+    changeOrderStatus(legacy.id, "handed_to_courier", "ready", admin, "TRK-2"),
+    /Недостатъчна наличност за предаване/,
+  );
+  await db().pool.query(
+    "UPDATE warehouse_products SET on_hand=8 WHERE sku=$1",
+    [SKU],
+  );
+  await changeOrderStatus(
+    legacy.id,
+    "handed_to_courier",
+    "ready",
+    admin,
+    "TRK-2",
+  );
+  assert.deepEqual(await stock(), { on_hand: 6, reserved: 0 });
+  assert.deepEqual(await movements(legacy.id), ["sale:2"]);
+});
+
+test("shipping reduces the inventory value at average cost", async () => {
+  const admin = await insertCustomer(db().pool, { isAdmin: true });
+  await db().pool.query(
+    "UPDATE warehouse_products SET inventory_value_cents=8000 WHERE sku=$1",
+    [SKU],
+  );
+  const shipped = await createOrder(order(2), null);
+  const steps = [
+    ["received", "confirmed"],
+    ["confirmed", "preparing"],
+    ["preparing", "ready"],
+  ] as const;
+  for (const [from, to] of steps)
+    await changeOrderStatus(shipped.id, to, from, admin);
+  await changeOrderStatus(
+    shipped.id,
+    "handed_to_courier",
+    "ready",
+    admin,
+    "TRK-3",
+  );
+  const value = await db().pool.query(
+    "SELECT inventory_value_cents::int AS v FROM warehouse_products WHERE sku=$1",
+    [SKU],
+  );
+  // 8 units worth 80.00 EUR; 2 shipped at 10.00 EUR each.
+  assert.equal(value.rows[0].v, 6000);
 });

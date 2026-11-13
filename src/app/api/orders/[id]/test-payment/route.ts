@@ -40,6 +40,14 @@ export async function POST(
         await client.query("ROLLBACK");
         return json({ error: "Поръчката не е намерена." }, 404);
       }
+      // A cancelled order (e.g. its payment window passed) cannot be paid.
+      if (order.status === "cancelled" && order.payment_status !== "paid") {
+        await client.query("ROLLBACK");
+        return json(
+          { error: "Поръчката е отказана и не може да бъде платена." },
+          409,
+        );
+      }
       if (order.payment_status !== "paid") {
         await client.query(
           "UPDATE orders SET payment_status=$1,updated_at=now() WHERE id=$2",

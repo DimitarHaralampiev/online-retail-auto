@@ -1,17 +1,30 @@
 // Releases stock held by unpaid card orders whose payment window passed and
-// cancels those orders. Run periodically (e.g. every few minutes):
-// npm run orders:release-expired
+// cancels those orders (the customer is emailed).
+//   npm run orders:release-expired            # once (e.g. from cron)
+//   npm run orders:release-expired -- --watch # every minute, like the workers
 import pg from "pg";
 import { releaseExpiredReservations } from "../src/lib/stock-reservations";
+
+const INTERVAL_MS = 60_000;
 
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("Set DATABASE_URL first.");
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-  try {
+  const run = async () => {
     const released = await releaseExpiredReservations(pool);
     console.log(`Released ${released} expired reservation(s).`);
-  } finally {
-    await pool.end();
+  };
+  if (!process.argv.includes("--watch")) {
+    try {
+      await run();
+    } finally {
+      await pool.end();
+    }
+    return;
+  }
+  for (;;) {
+    await run().catch((error) => console.error(error));
+    await new Promise((resolve) => setTimeout(resolve, INTERVAL_MS));
   }
 }
 

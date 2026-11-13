@@ -9,7 +9,11 @@ import { courierOffices } from "./courier-offices";
 import { productLookup } from "./catalog";
 import { createPostgresCatalog } from "./catalog-postgres";
 import { catalogSource, lookupProducts } from "./catalog-server";
-import { reserveStock, settleReservations } from "./stock-reservations";
+import {
+  consumeOrderStock,
+  reserveStock,
+  settleReservations,
+} from "./stock-reservations";
 import { sellingPrice } from "./pricing";
 import { trackingToken, orderUrl, simulatorEnabled } from "./order-config";
 import { tokenHash } from "./password";
@@ -97,8 +101,9 @@ export async function createOrder(value: unknown, customerId: string | null) {
     const order = inserted.rows[0];
     if (catalogSource() === "postgres") {
       // Reserve stock and re-read prices on this transaction: the conditional
-      // reservation cannot oversell, and locked rows cannot change price
-      // before the order commits. Any failure rolls the order back.
+      // reservation cannot oversell, and the reserved rows' prices cannot
+      // change until commit. Promotions are read as of this moment (they are
+      // not locked). Any failure rolls the order back.
       await reserveStock(client, id, lines, checkout.payment);
       const current = productLookup(
         await createPostgresCatalog(() => client).getProducts(
@@ -107,7 +112,9 @@ export async function createOrder(value: unknown, customerId: string | null) {
       );
       for (const line of lines) {
         const product = current(line.sku);
-        if (!product || sellingPrice(product) !== line.unitPriceCents)
+        if (!product)
+          throw new Error(`Продуктът вече не е наличен: ${line.name}.`);
+        if (sellingPrice(product) !== line.unitPriceCents)
           throw new Error(
             "Сумата е променена. Направи нов преглед на поръчката.",
           );
@@ -147,8 +154,8 @@ export async function changeOrderStatus(
       throw new Error("Етапът вече е променен. Обнови списъка.");
     validateTransition(order, next, trackingNumber);
     // Goods leave the warehouse on handover; a cancellation frees the stock.
-    if (next === "handed_to_courier")
-      await settleReservations(client, id, "consumed");
+    if (next === "handed_to_courier" && catalogSource() === "postgres")
+      await consumeOrderStock(client, id, order.lines);
     if (next === "cancelled") await settleReservations(client, id, "released");
     const changed = await client.query<OrderRecord>(
       "UPDATE orders SET status=$1,tracking_number=$2,updated_at=now() WHERE id=$3 RETURNING *",

@@ -124,4 +124,15 @@ Recorded now so the PostgreSQL adapter does not freeze the interim shape.
   shortage or price change rolls the order back. `stock_reservations` and
   `reserve`/`release`/`sale` movements record the lifecycle: handover
   consumes, cancellation releases, unpaid card orders expire after 30 minutes
-  (`npm run orders:release-expired`), paid orders keep their stock.
+  (`npm run orders:release-expired`), paid orders keep their stock. Stripe Checkout sessions
+  expire after 31 minutes and reservations are extended past them, so a
+  session never outlives its stock; an expired session or the job runs one
+  routine (release, cancel, history, email). A payment that still arrives for
+  a cancelled order is recorded, the order stays cancelled and a refund is
+  flagged. Handover consumes the reservation or, for orders without one,
+  deducts the lines directly, and lowers the inventory value at average cost.
+  All multi-product locks use one SKU order (`compareSku`). Known limits:
+  paid card orders cannot be cancelled until a refund flow exists (they hold
+  stock until handover); movement reference keys assume each kind happens
+  once per order and SKU (revisit for partial returns); the 30-minute window
+  is a constant.
