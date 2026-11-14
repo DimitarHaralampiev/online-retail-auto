@@ -80,7 +80,7 @@ test("hides unpublished products and products in inactive categories", async () 
 
 test("sale prices come only from live promotions, lowest price wins", async () => {
   const sale = async (sku: string) =>
-    (await store().getProduct(sku))?.demoSalePriceCents;
+    (await store().getProduct(sku))?.salePriceCents;
   assert.equal(await sale("DEMO-001"), 2390);
 
   // A second live promotion with a lower price wins.
@@ -152,7 +152,7 @@ test("promotions past their end date and sales equal to the price do not apply",
     [DEMO_PROMOTION_ID],
   );
   assert.equal(
-    (await store().getProduct("DEMO-001"))?.demoSalePriceCents,
+    (await store().getProduct("DEMO-001"))?.salePriceCents,
     undefined,
   );
   await db().pool.query("UPDATE promotions SET ends_at=NULL WHERE id=$1", [
@@ -163,7 +163,7 @@ test("promotions past their end date and sales equal to the price do not apply",
     "UPDATE warehouse_products SET selling_price_cents=1190 WHERE sku='DEMO-002'",
   );
   assert.equal(
-    (await store().getProduct("DEMO-002"))?.demoSalePriceCents,
+    (await store().getProduct("DEMO-002"))?.salePriceCents,
     undefined,
   );
 });

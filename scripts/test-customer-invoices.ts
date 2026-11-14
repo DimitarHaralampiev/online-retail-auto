@@ -380,7 +380,7 @@ async function main() {
     );
     const changed = demoProducts.map((p) =>
       p.sku === "DEMO-001"
-        ? { ...p, demoSalePriceCents: 2290 }
+        ? { ...p, salePriceCents: 2290 }
         : p.sku === "DEMO-004"
           ? { ...p, stock: { onHand: 3, reserved: 0 } }
           : p,
@@ -424,7 +424,7 @@ async function main() {
     );
     assert.equal(await sendCustomerEmails(3, ids[0]), 3);
     const cheaper = changed.map((p) =>
-      p.sku === "DEMO-001" ? { ...p, demoSalePriceCents: 2190 } : p,
+      p.sku === "DEMO-001" ? { ...p, salePriceCents: 2190 } : p,
     );
     assert.equal(
       await scanCustomerNotifications(cheaper, todayInSofia(), ids[0]),
@@ -449,7 +449,7 @@ async function main() {
     assert.equal(
       await scanCustomerNotifications(
         demoProducts.map((p) =>
-          p.sku === "DEMO-001" ? { ...p, demoSalePriceCents: 2090 } : p,
+          p.sku === "DEMO-001" ? { ...p, salePriceCents: 2090 } : p,
         ),
         todayInSofia(),
         ids[0],

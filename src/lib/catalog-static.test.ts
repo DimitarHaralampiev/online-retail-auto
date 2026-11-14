@@ -27,7 +27,7 @@ function product(
     subcategory,
     description: "",
     image: "/images/organizer.png",
-    demoPriceCents: 1000,
+    priceCents: 1000,
     stock: { onHand: 1, reserved: 0 },
   };
 }

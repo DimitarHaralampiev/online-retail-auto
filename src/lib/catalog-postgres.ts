@@ -141,10 +141,10 @@ function toProduct(row: ProductRow): Product {
       : null,
     description: row.description,
     image: row.image_path ?? FALLBACK_PRODUCT_IMAGE,
-    demoPriceCents: row.price_cents,
+    priceCents: row.price_cents,
     // A sale only counts when it is actually below the regular price.
     ...(row.sale_cents !== null && row.sale_cents < row.price_cents
-      ? { demoSalePriceCents: row.sale_cents }
+      ? { salePriceCents: row.sale_cents }
       : {}),
     stock: { onHand: row.on_hand, reserved: row.reserved },
   };

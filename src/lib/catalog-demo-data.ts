@@ -29,8 +29,8 @@ export const demoProducts: Product[] = [
     },
     description: "Място за всичко необходимо по пътя.",
     image: "/images/organizer.png",
-    demoPriceCents: 2990,
-    demoSalePriceCents: 2390,
+    priceCents: 2990,
+    salePriceCents: 2390,
     stock: {
       onHand: 12,
       reserved: 2,
@@ -46,8 +46,8 @@ export const demoProducts: Product[] = [
     },
     description: "Малък детайл за по-подреден интериор.",
     image: "/images/phone-holder.png",
-    demoPriceCents: 1490,
-    demoSalePriceCents: 1190,
+    priceCents: 1490,
+    salePriceCents: 1190,
     stock: {
       onHand: 5,
       reserved: 4,
@@ -63,7 +63,7 @@ export const demoProducts: Product[] = [
     },
     description: "Съвместимостта с автомобил предстои да се добави.",
     image: "/images/air-filter.png",
-    demoPriceCents: 1890,
+    priceCents: 1890,
     stock: {
       onHand: 8,
       reserved: 0,
@@ -79,7 +79,7 @@ export const demoProducts: Product[] = [
     },
     description: "Размерите и монтажът предстои да се уточнят.",
     image: "/images/wipers.png",
-    demoPriceCents: 2490,
+    priceCents: 2490,
     stock: {
       onHand: 0,
       reserved: 0,
@@ -95,8 +95,8 @@ export const demoProducts: Product[] = [
     },
     description: "Грижа за автомобила до последния детайл.",
     image: "/images/car-shampoo.png",
-    demoPriceCents: 990,
-    demoSalePriceCents: 690,
+    priceCents: 990,
+    salePriceCents: 690,
     stock: {
       onHand: 20,
       reserved: 3,
@@ -112,7 +112,7 @@ export const demoProducts: Product[] = [
     },
     description: "Финалният щрих след всяко почистване.",
     image: "/images/microfiber.png",
-    demoPriceCents: 590,
+    priceCents: 590,
     stock: {
       onHand: 3,
       reserved: 3,

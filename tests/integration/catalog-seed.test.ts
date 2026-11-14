@@ -41,7 +41,7 @@ test("loads every demo product as a published demo row with price, stock and ima
       sku: p.sku,
       status: "published",
       is_demo: true,
-      selling_price_cents: p.demoPriceCents,
+      selling_price_cents: p.priceCents,
       // Seeded as the demo's available stock with nothing reserved.
       on_hand: p.stock.onHand - p.stock.reserved,
       reserved: 0,
@@ -109,11 +109,11 @@ test("stores product translations and the demo promotion's sale prices", async (
   assert.deepEqual(
     lines.rows,
     demoProducts
-      .filter((p) => p.demoSalePriceCents !== undefined)
+      .filter((p) => p.salePriceCents !== undefined)
       .map((p) => ({
         sku: p.sku,
-        regular_price_cents: p.demoPriceCents,
-        sale_price_cents: p.demoSalePriceCents,
+        regular_price_cents: p.priceCents,
+        sale_price_cents: p.salePriceCents,
         status: "active",
       })),
   );
@@ -207,9 +207,9 @@ test("re-seeding refreshes changed demo content and drops removed sale prices", 
   await seed();
   const changed = demoProducts.map((p) =>
     p.sku === "DEMO-001"
-      ? { ...p, demoPriceCents: 3190, demoSalePriceCents: undefined }
+      ? { ...p, priceCents: 3190, salePriceCents: undefined }
       : p.sku === "DEMO-003"
-        ? { ...p, description: "Филтър за въздух.", demoSalePriceCents: 1590 }
+        ? { ...p, description: "Филтър за въздух.", salePriceCents: 1590 }
         : p,
   );
   // Use dictionary strings so the English check passes.
