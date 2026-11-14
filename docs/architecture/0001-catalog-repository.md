@@ -56,7 +56,7 @@ Recorded now so the PostgreSQL adapter does not freeze the interim shape.
 - **#73 — category identity (done):** `Product.category` is `{ id, name }`
   (id = `product_categories.slug`), the taxonomy carries ids, browsing and
   catalog URLs filter by `?category=<slug>`; the catalog page still accepts
-  the old display-name links and canonicalises them to the slug.
+  the old display-name links and redirects them permanently to the slug URL.
 - **#73 — locale:** scope the repository per request, `catalog({ locale })`,
   wrapped in React `cache()`, so the adapter returns localised names and
   descriptions from `product_translations` / `category_translations` instead of

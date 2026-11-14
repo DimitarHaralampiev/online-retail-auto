@@ -414,7 +414,11 @@ test.describe("categories are addressed by id", () => {
     page,
     isMobile,
   }) => {
-    await page.goto(`/catalog?category=${encodeURIComponent("Автокозметика")}`);
+    await page.goto(
+      `/catalog?category=${encodeURIComponent("Автокозметика")}&sort=name`,
+    );
+    // Redirected to the one canonical URL, keeping the other filters.
+    await expect(page).toHaveURL(/\/catalog\?category=car-care&sort=name$/);
     await expect(
       page.getByRole("status").filter({ hasText: "продукт" }),
     ).toHaveText(/^\s*2\s*продукта\s*$/);

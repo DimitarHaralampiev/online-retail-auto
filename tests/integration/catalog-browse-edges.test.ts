@@ -92,7 +92,7 @@ async function both(query: BrowseQuery) {
   const postgres = createPostgresCatalog(() => db().pool);
   reference ??= createStaticCatalog(
     await postgres.listProducts(),
-    (await postgres.taxonomy()).map((c) => c.name),
+    (await postgres.taxonomy()).map((c) => c.id),
   );
   return Promise.all([postgres.browse(query), reference.browse(query)]);
 }

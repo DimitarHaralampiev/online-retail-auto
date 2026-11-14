@@ -1,11 +1,16 @@
 import Localize from "../../components/localize";
 import SiteHeader from "../../components/site-header";
 import SiteFooter from "../../components/site-footer";
+import { permanentRedirect } from "next/navigation";
 import Catalog from "../../components/catalog";
 import { currentCustomer } from "../../lib/accounts";
 import { MAX_COMPATIBLE_SKUS } from "../../lib/catalog";
 import { catalog } from "../../lib/catalog-server";
-import { browseQueryFor, parseCatalogUrl } from "../../lib/catalog-url";
+import {
+  browseQueryFor,
+  catalogHref,
+  parseCatalogUrl,
+} from "../../lib/catalog-url";
 import { getCustomerFeatures } from "../../lib/customer-features";
 import { requestLocale } from "../../lib/i18n/server";
 
@@ -36,6 +41,9 @@ export default async function CatalogPage({
     subcategory: subcategory?.id ?? "",
     car: !!fitment,
   };
+  // An old link that named the category: send it to the one canonical URL.
+  if (category && parsed.category !== category.id)
+    permanentRedirect(catalogHref(state, { page: state.page }));
   const query = browseQueryFor(state, await requestLocale());
   const result = query
     ? await store.browse({ ...query, compatibleSkus: fitment })
