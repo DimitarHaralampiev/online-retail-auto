@@ -57,7 +57,7 @@ test("combined filters respect free stock and do not invent compatibility", () =
   assert.deepEqual(
     browseProducts(demoProducts, {
       ...defaults,
-      category: "Автоаксесоари",
+      category: "car-accessories",
       subcategory: "phone-holders",
     }).products.map((p) => p.sku),
     ["DEMO-002"],

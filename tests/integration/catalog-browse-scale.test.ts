@@ -54,7 +54,7 @@ async function timed<T>(label: string, work: () => Promise<T>): Promise<T> {
 test("common catalog queries stay within budget at 10k products", async () => {
   const queries: [string, BrowseQuery][] = [
     ["first page", {}],
-    ["category", { category: "Части и консумативи" }],
+    ["category", { category: "parts-consumables" }],
     ["subcategory, price sort", { subcategory: "filters", sort: "price-asc" }],
     ["text search", { text: "продукт 42" }],
     ["promotions, available", { promotions: true, available: true }],

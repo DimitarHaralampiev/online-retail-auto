@@ -38,7 +38,7 @@ export default function Catalog({
   const [pending, startTransition] = useTransition();
   const { taxonomy } = useCatalog();
   const subcategories = taxonomy.flatMap((c) =>
-    c.subcategories.map((s) => ({ ...s, category: c.name })),
+    c.subcategories.map((s) => ({ ...s, category: c.id })),
   );
   const { data, ready } = useCustomerFeatures();
   const selectedVehicle = data.vehicles.find((v) => v.selected);
@@ -131,6 +131,7 @@ export default function Catalog({
     !result ||
     !priceRange({ min: minPrice.trim(), max: maxPrice.trim() }).valid;
   const selectedSub = subcategories.find((s) => s.id === state.subcategory);
+  const selectedCategory = taxonomy.find((c) => c.id === state.category);
   const activeCount = [
     state.category,
     state.subcategory,
@@ -155,7 +156,7 @@ export default function Catalog({
         {state.category && (
           <>
             <span>/</span>
-            <span>{t(state.category)}</span>
+            <span>{t(selectedCategory?.name ?? state.category)}</span>
           </>
         )}
         {selectedSub && (
@@ -219,7 +220,7 @@ export default function Catalog({
               >
                 <option value="">{t("Всички категории")}</option>
                 {taxonomy.map((c) => (
-                  <option key={c.name} value={c.name}>
+                  <option key={c.id} value={c.id}>
                     {t(c.name)} ({c.productCount})
                   </option>
                 ))}
@@ -396,7 +397,7 @@ export default function Catalog({
                 <button
                   onClick={() => navigate({ category: "", subcategory: "" })}
                 >
-                  {t(state.category)} ×
+                  {t(selectedCategory?.name ?? state.category)} ×
                 </button>
               )}
               {selectedSub && (

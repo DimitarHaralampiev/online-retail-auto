@@ -18,19 +18,21 @@ export default async function CatalogPage({
   const store = catalog();
   // Only categories that exist are applied (and shown back to the visitor).
   const taxonomy = await store.taxonomy();
-  const category = taxonomy.find((c) => c.name === parsed.category);
+  // Categories are addressed by id; older links used the display name.
+  const category =
+    taxonomy.find((c) => c.id === parsed.category) ??
+    taxonomy.find((c) => c.name === parsed.category);
   const subcategory = taxonomy
-    .flatMap((c) => c.subcategories.map((s) => ({ ...s, parent: c.name })))
+    .flatMap((c) => c.subcategories.map((s) => ({ ...s, parent: c.id })))
     .find(
       (s) =>
-        s.id === parsed.subcategory &&
-        (!category || s.parent === category.name),
+        s.id === parsed.subcategory && (!category || s.parent === category.id),
     );
   const fitment = parsed.car ? await vehicleFitment() : undefined;
   // The state the server actually applied; links are built from it.
   const state = {
     ...parsed,
-    category: category?.name ?? subcategory?.parent ?? "",
+    category: category?.id ?? subcategory?.parent ?? "",
     subcategory: subcategory?.id ?? "",
     car: !!fitment,
   };

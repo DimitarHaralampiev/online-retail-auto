@@ -60,7 +60,7 @@ export default function ProductQuickView({ product }: { product: Product }) {
             <span className="product-demo-tag">{t("ДЕМО")}</span>
           </div>
           <div className="quick-view-info">
-            <p className="eyebrow">{t(product.category)}</p>
+            <p className="eyebrow">{t(product.category.name)}</p>
             <h2>{t(product.name)}</h2>
             <p>{t(product.description)}</p>
             <p className="quick-view-stock">

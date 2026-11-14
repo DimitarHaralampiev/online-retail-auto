@@ -1,28 +1,21 @@
 // Synthetic demo catalog: illustrative products and EUR prices, not
 // commercial offers. Only the static catalog adapter and tests import this.
-import type { Product } from "./catalog";
+import type { Product, ProductCategory } from "./catalog";
 
-export const demoCategories = [
-  "Автоаксесоари",
-  "Части и консумативи",
-  "Автокозметика",
-] as const;
+/** Demo categories in display order; `id` is the product_categories slug. */
+export const demoCategories: ProductCategory[] = [
+  { id: "car-accessories", name: "Автоаксесоари" },
+  { id: "parts-consumables", name: "Части и консумативи" },
+  { id: "car-care", name: "Автокозметика" },
+];
 
-/** URL-safe identifiers for the demo categories (product_categories.slug). */
-export const demoCategorySlugs: Record<
-  (typeof demoCategories)[number],
-  string
-> = {
-  Автоаксесоари: "car-accessories",
-  "Части и консумативи": "parts-consumables",
-  Автокозметика: "car-care",
-};
+const [accessories, parts, care] = demoCategories;
 
 export const demoProducts: Product[] = [
   {
     sku: "DEMO-001",
     name: "Органайзер за багажник",
-    category: "Автоаксесоари",
+    category: accessories,
     subcategory: {
       id: "organization",
       name: "Организация и багажник",
@@ -39,7 +32,7 @@ export const demoProducts: Product[] = [
   {
     sku: "DEMO-002",
     name: "Стойка за телефон",
-    category: "Автоаксесоари",
+    category: accessories,
     subcategory: {
       id: "phone-holders",
       name: "Стойки за телефон",
@@ -56,7 +49,7 @@ export const demoProducts: Product[] = [
   {
     sku: "DEMO-003",
     name: "Въздушен филтър",
-    category: "Части и консумативи",
+    category: parts,
     subcategory: {
       id: "filters",
       name: "Филтри",
@@ -72,7 +65,7 @@ export const demoProducts: Product[] = [
   {
     sku: "DEMO-004",
     name: "Комплект чистачки",
-    category: "Части и консумативи",
+    category: parts,
     subcategory: {
       id: "wipers",
       name: "Чистачки",
@@ -88,7 +81,7 @@ export const demoProducts: Product[] = [
   {
     sku: "DEMO-005",
     name: "Шампоан за автомобил",
-    category: "Автокозметика",
+    category: care,
     subcategory: {
       id: "washing",
       name: "Измиване и препарати",
@@ -105,7 +98,7 @@ export const demoProducts: Product[] = [
   {
     sku: "DEMO-006",
     name: "Микрофибърна кърпа",
-    category: "Автокозметика",
+    category: care,
     subcategory: {
       id: "microfiber",
       name: "Кърпи и микрофибър",

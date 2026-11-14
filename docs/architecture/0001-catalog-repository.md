@@ -53,9 +53,10 @@ not grow beyond what is safe to bundle into the browser.
 
 Recorded now so the PostgreSQL adapter does not freeze the interim shape.
 
-- **#73 — category identity:** `category: { id /* slug */, name }`, like
-  `subcategory`; the display name stops being a key (it breaks once names are
-  translated). Category URLs may move to the slug.
+- **#73 — category identity (done):** `Product.category` is `{ id, name }`
+  (id = `product_categories.slug`), the taxonomy carries ids, browsing and
+  catalog URLs filter by `?category=<slug>`; the catalog page still accepts
+  the old display-name links and canonicalises them to the slug.
 - **#73 — locale:** scope the repository per request, `catalog({ locale })`,
   wrapped in React `cache()`, so the adapter returns localised names and
   descriptions from `product_translations` / `category_translations` instead of

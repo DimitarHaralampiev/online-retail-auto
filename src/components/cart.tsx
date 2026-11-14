@@ -74,7 +74,7 @@ export default function Cart() {
                     </Link>
                     <div>
                       <span className="product-category">
-                        {product.category}
+                        {product.category.name}
                       </span>
                       <h2>
                         <Link href={`/catalog/${item.sku}`}>

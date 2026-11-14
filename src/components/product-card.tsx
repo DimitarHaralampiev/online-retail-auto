@@ -45,7 +45,7 @@ export default function ProductCard({ product }: { product: Product }) {
           </Link>
           <div className="product-info">
             <ProductPrice product={product} />
-            <p className="product-category">{product.category}</p>
+            <p className="product-category">{product.category.name}</p>
             <h2 className="product-title">
               <Link href={`/catalog/${product.sku}`}>{product.name}</Link>
             </h2>

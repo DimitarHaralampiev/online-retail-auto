@@ -19,7 +19,10 @@ const seededDemo: Product[] = demoProducts.map((p) => ({
   ...p,
   stock: { onHand: p.stock.onHand - p.stock.reserved, reserved: 0 },
 }));
-const reference = createStaticCatalog(seededDemo, demoCategories);
+const reference = createStaticCatalog(
+  seededDemo,
+  demoCategories.map((c) => c.id),
+);
 
 beforeEach(async () => {
   await db().pool.query(
@@ -202,7 +205,7 @@ test("falls back to the English category name before the slug", async () => {
      AND category_id IN (SELECT id FROM product_categories WHERE slug IN ('car-care','washing'))`,
   );
   const shampoo = await store().getProduct("DEMO-005");
-  assert.equal(shampoo?.category, "Car care");
+  assert.deepEqual(shampoo?.category, { id: "car-care", name: "Car care" });
   assert.deepEqual(shampoo?.subcategory, {
     id: "washing",
     name: "Washing & cleaners",

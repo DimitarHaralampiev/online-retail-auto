@@ -45,29 +45,31 @@ export default function CategoryMenu() {
           </Link>
         </div>
         <div className="category-menu-columns">
-          {taxonomy.map(({ name: category, productCount, subcategories }) => (
-            <section key={category}>
-              <Link
-                href={{ pathname: "/catalog", query: { category } }}
-                onClick={close}
-                className="category-menu-title"
-              >
-                {t(category)} <span>{productCount}</span>
-              </Link>
-              {subcategories.map((sub) => (
+          {taxonomy.map(
+            ({ id, name: category, productCount, subcategories }) => (
+              <section key={id}>
                 <Link
-                  key={sub.id}
-                  href={{
-                    pathname: "/catalog",
-                    query: { category, subcategory: sub.id },
-                  }}
+                  href={{ pathname: "/catalog", query: { category: id } }}
                   onClick={close}
+                  className="category-menu-title"
                 >
-                  {t(sub.name)} <span>↗</span>
+                  {t(category)} <span>{productCount}</span>
                 </Link>
-              ))}
-            </section>
-          ))}
+                {subcategories.map((sub) => (
+                  <Link
+                    key={sub.id}
+                    href={{
+                      pathname: "/catalog",
+                      query: { category: id, subcategory: sub.id },
+                    }}
+                    onClick={close}
+                  >
+                    {t(sub.name)} <span>↗</span>
+                  </Link>
+                ))}
+              </section>
+            ),
+          )}
         </div>
         <div className="category-menu-footer">
           <Link href="/promotions" onClick={close}>

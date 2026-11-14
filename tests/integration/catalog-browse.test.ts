@@ -24,13 +24,13 @@ const reference = createStaticCatalog(
     ...p,
     stock: { onHand: p.stock.onHand - p.stock.reserved, reserved: 0 },
   })),
-  demoCategories,
+  demoCategories.map((c) => c.id),
 );
 
 const queries: BrowseQuery[] = [
   {},
-  { category: "Автоаксесоари" },
-  { category: "Части и консумативи", subcategory: "filters" },
+  { category: "car-accessories" },
+  { category: "parts-consumables", subcategory: "filters" },
   { subcategory: "washing" },
   { text: "филтър" },
   { text: "FILTER", locale: "en" },
