@@ -70,6 +70,8 @@ test("orders use prices from the database", async () => {
     ]),
     [["DEMO-003", 2000]],
   );
+  // Order lines keep the store language, whatever language the visitor uses.
+  assert.equal(created.lines[0].name, "Въздушен филтър");
 });
 
 test("orders use live promotions and database stock", async () => {

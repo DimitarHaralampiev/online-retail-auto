@@ -75,7 +75,10 @@ export function createStaticCatalog(
       return taxonomy;
     },
     async browse(input) {
-      const query = normalizeBrowseQuery({ locale, ...input });
+      const query = normalizeBrowseQuery({
+        ...input,
+        locale: input.locale ?? locale,
+      });
       const matches = filterProducts(products, query, (text) =>
         translate(text, query.locale ?? "bg"),
       );

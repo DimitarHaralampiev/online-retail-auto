@@ -179,7 +179,10 @@ export function createPostgresCatalog(
   }
 
   async function browse(input: BrowseQuery) {
-    const query = normalizeBrowseQuery({ locale, ...input });
+    const query = normalizeBrowseQuery({
+      ...input,
+      locale: input.locale ?? locale,
+    });
     const { page, pageSize } = query;
     const sort = query.sort ?? "featured";
     const params = (limit: number, offset: number) => [

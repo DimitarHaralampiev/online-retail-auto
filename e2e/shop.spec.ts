@@ -454,3 +454,43 @@ test("in English, catalog and cart show English product names", async ({
     "Air filter",
   );
 });
+
+test.describe("language and the catalog", () => {
+  test("an English visitor on an old Bulgarian category link is redirected", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await context.addCookies([
+      { name: "auto_locale", value: "en", url: baseURL! },
+    ]);
+    await page.goto(`/catalog?category=${encodeURIComponent("Автокозметика")}`);
+    await expect(page).toHaveURL(/\/catalog\?category=car-care$/);
+  });
+
+  test("switching language on the cart page updates product names in place", async ({
+    page,
+  }) => {
+    await page.goto("/catalog/DEMO-003");
+    await addCurrentProductToCart(page);
+    await page.goto("/cart");
+    const name = page.getByRole("heading", {
+      level: 2,
+      name: /Въздушен филтър|Air filter/,
+    });
+    await expect(name).toHaveText("Въздушен филтър");
+    // The cache must re-fetch the cart's products in the new language (the
+    // dictionary alone would hide a missing refresh for demo names).
+    const refreshed = page.waitForRequest(
+      (request) =>
+        request.url().includes("/api/catalog/products") &&
+        request.url().includes("sku=DEMO-003") &&
+        request.url().includes("locale=en"),
+    );
+    await page.getByRole("button", { name: "English" }).click();
+    await refreshed;
+    await expect(name).toHaveText("Air filter");
+    await page.getByRole("button", { name: "Български" }).click();
+    await expect(name).toHaveText("Въздушен филтър");
+  });
+});

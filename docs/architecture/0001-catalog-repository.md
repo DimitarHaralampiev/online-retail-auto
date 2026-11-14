@@ -63,8 +63,12 @@ Recorded now so the PostgreSQL adapter does not freeze the interim shape.
   static: the UI dictionary). Filtering and search use the source text too, so
   a Cyrillic search still matches in English. Storefront pages pass the
   request locale; orders and emails use the store language (Bulgarian). The
-  lookup API takes `?locale=`, and the client cache refreshes loaded products
-  after a language switch while showing the previous names meanwhile.
+  lookup API takes `?locale=`, and the client cache refreshes loaded and in-flight products
+  in the background after a language switch: cached data keeps the cart
+  usable, the previous names show meanwhile, and responses for an outdated
+  language never overwrite current ones. Old Bulgarian category links are
+  resolved against the Bulgarian taxonomy for every visitor. A browse query's
+  explicit `locale` wins; otherwise the repository's locale applies.
 - **#73 — prices (done):** `Product.priceCents` (regular) and
   `salePriceCents` (live promotion below it); promotions stay derived in
   `pricing.ts`.

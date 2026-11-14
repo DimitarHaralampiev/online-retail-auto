@@ -24,10 +24,14 @@ export default async function CatalogPage({
   const store = catalog(locale);
   // Only categories that exist are applied (and shown back to the visitor).
   const taxonomy = await store.taxonomy();
-  // Categories are addressed by id; older links used the display name.
-  const category =
-    taxonomy.find((c) => c.id === parsed.category) ??
-    taxonomy.find((c) => c.name === parsed.category);
+  // Categories are addressed by id. Older links used the Bulgarian display
+  // name, whatever the visitor's language: resolve those to the id.
+  const legacyId =
+    taxonomy.some((c) => c.id === parsed.category) || !parsed.category
+      ? undefined
+      : (await catalog().taxonomy()).find((c) => c.name === parsed.category)
+          ?.id;
+  const category = taxonomy.find((c) => c.id === (legacyId ?? parsed.category));
   const subcategory = taxonomy
     .flatMap((c) => c.subcategories.map((s) => ({ ...s, parent: c.id })))
     .find(

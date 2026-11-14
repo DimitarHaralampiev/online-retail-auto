@@ -75,48 +75,68 @@ export default function CatalogProvider({
     [],
   );
 
-  const ensureProducts = useCallback(
-    async (skus: readonly string[]) => {
-      const wanted = currentLocale.current;
-      const key = (sku: string) => `${wanted}:${sku}`;
-      const missing = [...new Set(skus)].filter(
-        (sku) =>
-          known.current.get(sku)?.locale !== wanted &&
-          !inFlight.current.has(key(sku)),
-      );
-      for (let i = 0; i < missing.length; i += MAX_LOOKUP_SKUS) {
-        const chunk = missing.slice(i, i + MAX_LOOKUP_SKUS);
-        // A failed lookup rejects (callers keep their data) and is retried the
-        // next time those SKUs are needed.
-        const request = fetchProducts(chunk, wanted).then((products) => {
-          const found = new Map(products.map((p) => [p.sku, p]));
-          for (const sku of chunk)
+  // Loads SKUs in the current locale. `refresh` also reloads entries held in
+  // another locale; otherwise only unknown SKUs are fetched, so cached data
+  // (price, stock) keeps the cart usable while names refresh in the
+  // background. A response for a locale that is no longer current is only
+  // stored when nothing is known yet, and then triggers a refresh, so late or
+  // out-of-order responses cannot leave the wrong language behind.
+  const load = useCallback(function load(
+    skus: readonly string[],
+    refresh: boolean,
+  ): Promise<void> {
+    const wanted = currentLocale.current;
+    const key = (sku: string) => `${wanted}:${sku}`;
+    const unique = [...new Set(skus)];
+    const missing = unique.filter((sku) => {
+      const entry = known.current.get(sku);
+      const needed = refresh ? entry?.locale !== wanted : !entry;
+      return needed && !inFlight.current.has(key(sku));
+    });
+    for (let i = 0; i < missing.length; i += MAX_LOOKUP_SKUS) {
+      const chunk = missing.slice(i, i + MAX_LOOKUP_SKUS);
+      // A failed lookup rejects (callers keep their data) and is retried the
+      // next time those SKUs are needed.
+      const request = fetchProducts(chunk, wanted).then((products) => {
+        const current = currentLocale.current;
+        const found = new Map(products.map((p) => [p.sku, p]));
+        for (const sku of chunk)
+          if (wanted === current || !known.current.has(sku))
             known.current.set(sku, {
               locale: wanted,
               product: found.get(sku) ?? null,
             });
-          setLoaded(new Map(known.current));
-        });
-        for (const sku of chunk)
-          inFlight.current.set(
-            key(sku),
-            request.finally(() => inFlight.current.delete(key(sku))),
-          );
-      }
-      await Promise.all(
-        [...new Set(skus)].map((sku) => inFlight.current.get(key(sku))),
-      );
+        setLoaded(new Map(known.current));
+        if (wanted !== current) load(chunk, true).catch(() => undefined);
+      });
+      for (const sku of chunk)
+        inFlight.current.set(
+          key(sku),
+          request.finally(() => inFlight.current.delete(key(sku))),
+        );
+    }
+    return Promise.all(
+      unique.map((sku) => inFlight.current.get(key(sku))),
+    ).then(() => undefined);
+  }, []);
+
+  const ensureProducts = useCallback(
+    async (skus: readonly string[]) => {
+      await load(skus, false);
       return lookup;
     },
-    [lookup],
+    [load, lookup],
   );
 
-  // After a language switch, refresh every product loaded so far.
+  // After a language switch, refresh every product loaded or being loaded.
   useEffect(() => {
     if (currentLocale.current === locale) return;
     currentLocale.current = locale;
-    ensureProducts([...known.current.keys()]).catch(() => undefined);
-  }, [locale, ensureProducts]);
+    const pending = [...inFlight.current.keys()].map((k) =>
+      k.slice(k.indexOf(":") + 1),
+    );
+    load([...known.current.keys(), ...pending], true).catch(() => undefined);
+  }, [locale, load]);
 
   const value = useMemo(
     () => ({

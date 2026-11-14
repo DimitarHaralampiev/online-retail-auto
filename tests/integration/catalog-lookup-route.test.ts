@@ -52,3 +52,21 @@ test("returns names in the requested locale", async () => {
   const bg = await (await get("?sku=DEMO-003&locale=xx")).json();
   assert.equal(bg.products[0].name, "Въздушен филтър");
 });
+
+test("without ?locale= the language cookie decides; an explicit locale wins", async () => {
+  const withCookie = (query: string) =>
+    GET(
+      new Request(`http://localhost/api/catalog/products${query}`, {
+        headers: { cookie: "auto_locale=en" },
+      }),
+    );
+  assert.equal(
+    (await (await withCookie("?sku=DEMO-003")).json()).products[0].name,
+    "Air filter",
+  );
+  assert.equal(
+    (await (await withCookie("?sku=DEMO-003&locale=bg")).json()).products[0]
+      .name,
+    "Въздушен филтър",
+  );
+});
