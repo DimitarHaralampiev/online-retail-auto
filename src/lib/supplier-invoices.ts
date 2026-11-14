@@ -208,7 +208,7 @@ export async function postInvoice(
       // Products created by an admin may lack identity fields; the first
       // receipt completes them.
       await client.query(
-        "UPDATE warehouse_products SET brand=$2,manufacturer_code=$3,ean=$4 WHERE sku=$1 AND (brand,manufacturer_code,ean) IS DISTINCT FROM ($2,$3,$4)",
+        "UPDATE warehouse_products SET brand=$2,manufacturer_code=$3,ean=$4,content_version=content_version+1,content_updated_at=now() WHERE sku=$1 AND (brand,manufacturer_code,ean) IS DISTINCT FROM ($2,$3,$4)",
         [line.sku, identity.brand, identity.manufacturerCode, identity.ean],
       );
       await client.query(

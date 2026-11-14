@@ -266,3 +266,22 @@ test("invoice lines complete admin-created products but never overwrite them", (
     { ...full, ean: "4047025000000" },
   );
 });
+
+test("a known product needs at least one matching identity field", () => {
+  const known = { brand: "Bosch", manufacturerCode: "0986494", ean: "" };
+  const blank = { brand: "", manufacturerCode: "", ean: "" };
+  assert.equal(mergeProductIdentity(known, blank), null);
+  assert.equal(
+    mergeProductIdentity(
+      { brand: "Bosch", manufacturerCode: "", ean: "" },
+      { brand: "", manufacturerCode: "0986494", ean: "" },
+    ),
+    null,
+  );
+  // An admin-created product without identity accepts the line and is filled.
+  assert.deepEqual(mergeProductIdentity(blank, { ...known, ean: "12345670" }), {
+    ...known,
+    ean: "12345670",
+  });
+  assert.deepEqual(mergeProductIdentity(blank, blank), blank);
+});
