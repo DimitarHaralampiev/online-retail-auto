@@ -121,7 +121,9 @@ async function upsertProduct(
      ON CONFLICT(sku) DO UPDATE SET name=EXCLUDED.name,
        category_id=EXCLUDED.category_id,
        selling_price_cents=EXCLUDED.selling_price_cents,
-       image_path=EXCLUDED.image_path, updated_at=now()
+       image_path=EXCLUDED.image_path, updated_at=now(),
+       content_version=warehouse_products.content_version + 1,
+       content_updated_at=now()
      WHERE warehouse_products.is_demo
      RETURNING (xmax = 0) AS inserted`,
     [

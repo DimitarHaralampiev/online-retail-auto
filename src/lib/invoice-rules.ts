@@ -294,3 +294,35 @@ export function identityMatches(
         norm(line.manufacturerCode) === norm(offer.manufacturerCode ?? "")))
   );
 }
+
+type ProductIdentity = { brand: string; manufacturerCode: string; ean: string };
+
+const sameIdentityValue = (a: string, b: string) =>
+  a.trim().toUpperCase() === b.trim().toUpperCase();
+
+/**
+ * Whether an invoice line describes the stored product. A field that is
+ * empty on either side is unknown, not a conflict (admin-created products
+ * often have no code or barcode yet); otherwise values must match, ignoring
+ * case and surrounding spaces. A product with any known field needs at least
+ * one field that matches. Returns the identity to store, with empty product
+ * fields filled from the line, or null on a conflict.
+ */
+export function mergeProductIdentity(
+  product: ProductIdentity,
+  line: ProductIdentity,
+): ProductIdentity | null {
+  const merged = { ...product };
+  const keys = ["brand", "manufacturerCode", "ean"] as const;
+  let matched = false;
+  for (const key of keys) {
+    if (!line[key].trim()) continue;
+    if (!product[key].trim()) merged[key] = line[key];
+    else if (!sameIdentityValue(product[key], line[key])) return null;
+    else matched = true;
+  }
+  // A product with a known identity needs at least one positive match, so a
+  // line without identity (or a misread SKU) cannot post stock onto it.
+  const known = keys.some((key) => product[key].trim());
+  return known && !matched ? null : merged;
+}

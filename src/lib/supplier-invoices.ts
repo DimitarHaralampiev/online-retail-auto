@@ -7,6 +7,7 @@ import {
   acquisitionCosts,
   pricingAssumptionsSchema,
   defaultPricingAssumptions,
+  mergeProductIdentity,
   type PricingAssumptions,
   type InvoiceLine,
 } from "./invoice-rules";
@@ -190,16 +191,26 @@ export async function postInvoice(
         [line.sku],
       );
       const p = existing.rows[0];
-      if (
-        p.brand !== line.brand ||
-        p.manufacturer_code !== line.manufacturerCode ||
-        p.ean !== line.ean
-      )
+      const identity = mergeProductIdentity(
+        {
+          brand: p.brand,
+          manufacturerCode: p.manufacturer_code,
+          ean: p.ean,
+        },
+        line,
+      );
+      if (!identity)
         throw new Error(
           `Артикулът с SKU ${line.sku} вече принадлежи на продукт с друга идентичност. Избери правилния код.`,
         );
       if (p.on_hand + line.quantity > 1_000_000)
         throw new Error("Наличността надхвърля допустимия лимит.");
+      // Products created by an admin may lack identity fields; the first
+      // receipt completes them.
+      await client.query(
+        "UPDATE warehouse_products SET brand=$2,manufacturer_code=$3,ean=$4,content_version=content_version+1,content_updated_at=now() WHERE sku=$1 AND (brand,manufacturer_code,ean) IS DISTINCT FROM ($2,$3,$4)",
+        [line.sku, identity.brand, identity.manufacturerCode, identity.ean],
+      );
       await client.query(
         "INSERT INTO warehouse_receipts(id,invoice_id,line_number,sku,quantity,acquisition_total_cents,actor_id) VALUES($1,$2,$3,$4,$5,$6,$7)",
         [

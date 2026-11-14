@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { ReviewedInvoice } from "../../src/lib/invoice-rules";
+import {
+  createProduct,
+  productInputSchema,
+} from "../../src/lib/admin-products";
 import { postInvoice, uploadInvoice } from "../../src/lib/supplier-invoices";
 import { insertCustomer, setupTestDatabase } from "./database";
 
@@ -134,4 +138,65 @@ test("a SKU that belongs to another product rolls back the whole invoice", async
     [second.id],
   );
   assert.notEqual(status.rows[0].status, "posted");
+});
+
+test("an admin-created product receives stock and gains its codes from the invoice", async () => {
+  const actor = await insertCustomer(db().pool, { isAdmin: true });
+  const sku = `IT-ADMIN-${pdfCounter}`;
+  await createProduct(
+    db().pool,
+    actor,
+    sku,
+    productInputSchema.parse({ name: { bg: "Админ продукт" }, brand: "brand" }),
+  );
+  const { id } = await uploadInvoice(pdf(), "admin.pdf", actor);
+  const invoice = reviewed();
+  invoice.lines[0] = { ...invoice.lines[0], sku };
+  await postInvoice(id, invoice, actor);
+  const row = await db().pool.query(
+    "SELECT on_hand,brand,manufacturer_code,content_version FROM warehouse_products WHERE sku=$1",
+    [sku],
+  );
+  // The admin's brand spelling is kept; the empty code is filled in.
+  assert.deepEqual(row.rows[0], {
+    on_hand: 2,
+    brand: "brand",
+    manufacturer_code: "MPN-1",
+    // Filling codes bumps the version, so a stale admin form gets a 409.
+    content_version: 2,
+  });
+  // Once known, a different code is a conflict again.
+  const second = await uploadInvoice(pdf(), "admin-2.pdf", actor);
+  const conflicting = reviewed();
+  conflicting.lines[0] = {
+    ...conflicting.lines[0],
+    sku,
+    manufacturerCode: "MPN-9",
+  };
+  await assert.rejects(
+    postInvoice(second.id, conflicting, actor),
+    /друга идентичност/,
+  );
+});
+
+test("a line without any identity cannot post stock onto a known product", async () => {
+  const actor = await insertCustomer(db().pool, { isAdmin: true });
+  const first = await uploadInvoice(pdf(), "known.pdf", actor);
+  const original = reviewed();
+  await postInvoice(first.id, original, actor);
+  const second = await uploadInvoice(pdf(), "blank.pdf", actor);
+  const blank = reviewed();
+  blank.lines[1] = {
+    ...blank.lines[1],
+    sku: original.lines[0].sku,
+    brand: "",
+    manufacturerCode: "",
+    ean: "",
+  };
+  await assert.rejects(
+    postInvoice(second.id, blank, actor),
+    /друга идентичност/,
+  );
+  assert.equal(await stock(blank.lines[0].sku), null);
+  assert.equal((await stock(original.lines[0].sku)).on_hand, 2);
 });

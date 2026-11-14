@@ -7,6 +7,7 @@ import {
   defaultPricingAssumptions,
   priceScenario,
   identityMatches,
+  mergeProductIdentity,
   safeSourceUrl,
   type ReviewedInvoice,
 } from "./invoice-rules";
@@ -236,4 +237,51 @@ test("AI refusals/incomplete outputs fail and search citations are retained", ()
     }),
     ["https://shop.example/part"],
   );
+});
+
+test("invoice lines complete admin-created products but never overwrite them", () => {
+  const empty = { brand: "Bosch", manufacturerCode: "", ean: "" };
+  const line = {
+    brand: "BOSCH ",
+    manufacturerCode: "0986494",
+    ean: "4047025000000",
+  };
+  assert.deepEqual(mergeProductIdentity(empty, line), {
+    brand: "Bosch",
+    manufacturerCode: "0986494",
+    ean: "4047025000000",
+  });
+  const full = { brand: "Bosch", manufacturerCode: "0986494", ean: "" };
+  assert.equal(
+    mergeProductIdentity(full, { ...line, manufacturerCode: "0986495" }),
+    null,
+  );
+  assert.equal(mergeProductIdentity(full, { ...line, brand: "TRW" }), null);
+  // A line without a barcode does not conflict with a stored one.
+  assert.deepEqual(
+    mergeProductIdentity(
+      { ...full, ean: "4047025000000" },
+      { ...line, ean: "" },
+    ),
+    { ...full, ean: "4047025000000" },
+  );
+});
+
+test("a known product needs at least one matching identity field", () => {
+  const known = { brand: "Bosch", manufacturerCode: "0986494", ean: "" };
+  const blank = { brand: "", manufacturerCode: "", ean: "" };
+  assert.equal(mergeProductIdentity(known, blank), null);
+  assert.equal(
+    mergeProductIdentity(
+      { brand: "Bosch", manufacturerCode: "", ean: "" },
+      { brand: "", manufacturerCode: "0986494", ean: "" },
+    ),
+    null,
+  );
+  // An admin-created product without identity accepts the line and is filled.
+  assert.deepEqual(mergeProductIdentity(blank, { ...known, ean: "12345670" }), {
+    ...known,
+    ean: "12345670",
+  });
+  assert.deepEqual(mergeProductIdentity(blank, blank), blank);
 });

@@ -4041,3 +4041,68 @@ select {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* Admin product management */
+.admin-product-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.admin-product-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+.admin-product-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #5b6358;
+}
+.admin-product-status {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.admin-product-status.published {
+  color: #1f6b3a;
+}
+.admin-product-status.draft {
+  color: #5b6358;
+}
+.admin-product-status.archived {
+  color: #8a2f1d;
+}
+.admin-product-form textarea {
+  width: 100%;
+  font: inherit;
+}
+.admin-product-state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.admin-product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-product-history {
+  padding-left: 18px;
+  font-size: 14px;
+}
+@media (max-width: 700px) {
+  .admin-product-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
