@@ -294,3 +294,28 @@ export function identityMatches(
         norm(line.manufacturerCode) === norm(offer.manufacturerCode ?? "")))
   );
 }
+
+type ProductIdentity = { brand: string; manufacturerCode: string; ean: string };
+
+const sameIdentityValue = (a: string, b: string) =>
+  a.trim().toUpperCase() === b.trim().toUpperCase();
+
+/**
+ * Whether an invoice line describes the stored product. A field that is
+ * empty on either side is unknown, not a conflict (admin-created products
+ * often have no code or barcode yet); otherwise values must match, ignoring
+ * case and surrounding spaces. Returns the identity to store, with empty product
+ * fields filled from the line, or null on a conflict.
+ */
+export function mergeProductIdentity(
+  product: ProductIdentity,
+  line: ProductIdentity,
+): ProductIdentity | null {
+  const merged = { ...product };
+  for (const key of ["brand", "manufacturerCode", "ean"] as const) {
+    if (!line[key].trim()) continue;
+    if (!product[key].trim()) merged[key] = line[key];
+    else if (!sameIdentityValue(product[key], line[key])) return null;
+  }
+  return merged;
+}

@@ -12,6 +12,7 @@ import {
   updateProduct,
   type ProductInput,
 } from "../../src/lib/admin-products";
+import { adminProductError } from "../../src/lib/admin-product-http";
 import { createPostgresCatalog } from "../../src/lib/catalog-postgres";
 import { seedDemoCatalog } from "../../src/lib/catalog-seed";
 import { insertCustomer, setupTestDatabase } from "./database";
@@ -195,6 +196,54 @@ test("a published product cannot lose its price or category", async () => {
   }
 });
 
+test("a published product stays editable after its category is deactivated", async () => {
+  const { pool } = db();
+  const product = (await getAdminProduct(pool, "BRK-200"))!;
+  await pool.query("UPDATE product_categories SET active=false WHERE id=$1", [
+    product.categoryId,
+  ]);
+  try {
+    const saved = await updateProduct(
+      pool,
+      adminId,
+      "BRK-200",
+      product.version,
+      input({ brand: "Bosch Pro" }),
+    );
+    assert.equal(saved.brand, "Bosch Pro");
+    // Moving away from the price it had would still need a visible category.
+    await rejects(
+      updateProduct(
+        pool,
+        adminId,
+        "BRK-200",
+        saved.version,
+        input({ brand: "Bosch Pro", priceCents: 4000 }),
+      ),
+      400,
+      /Категорията не е активна/,
+    );
+    await updateProduct(pool, adminId, "BRK-200", saved.version, input());
+  } finally {
+    await pool.query("UPDATE product_categories SET active=true WHERE id=$1", [
+      product.categoryId,
+    ]);
+  }
+});
+
+test("NUL characters are refused as bad input, not as an outage", async () => {
+  const { pool } = db();
+  const error = await createProduct(
+    pool,
+    adminId,
+    "NUL-1",
+    input({ brand: "a\u0000b" }),
+  ).catch((e: unknown) => e);
+  const response = adminProductError(error);
+  assert.equal(response.status, 400);
+  assert.equal(await getAdminProduct(pool, "NUL-1"), null);
+});
+
 test("a stale version is refused; stock movements do not change the version", async () => {
   const { pool } = db();
   const loaded = (await getAdminProduct(pool, "BRK-200"))!;
@@ -282,7 +331,10 @@ test("clearing the English name removes the translation (Bulgarian fallback)", a
     adminId,
     "BRK-100",
     loaded.version,
-    input({ name: { bg: "Спирачни накладки", en: "" } }),
+    input({
+      name: { bg: "Спирачни накладки", en: "" },
+      description: { bg: "Предни накладки", en: "" },
+    }),
   );
   assert.equal(saved.name.en, "");
   const rows = await pool.query(
@@ -304,6 +356,9 @@ test("lists by status and search, escaping LIKE wildcards", async () => {
     "BRK-200",
   ]);
   assert.equal(search.total, 2);
+  const beyond = await listAdminProducts(pool, { q: "накладки", page: 9 });
+  assert.deepEqual(beyond.items, []);
+  assert.equal(beyond.total, 2);
   const wildcard = await listAdminProducts(pool, { q: "%", page: 1 });
   assert.equal(wildcard.total, 0);
   const all = await listAdminProducts(pool, { page: 1 });
@@ -330,7 +385,39 @@ test("input validation rejects bad codes, barcodes and image paths", () => {
   assert.throws(() =>
     productInputSchema.parse({ name: { bg: "Име" }, priceCents: 10.5 }),
   );
+  assert.throws(
+    () =>
+      productInputSchema.parse({
+        name: { bg: "Име" },
+        description: { en: "Only English text" },
+      }),
+    /Английското описание изисква и английско име/,
+  );
   const parsed = productInputSchema.parse({ name: { bg: "  Име  " } });
   assert.equal(parsed.name.bg, "Име");
   assert.equal(parsed.vatBps, 2000);
+});
+
+test("parallel edits of one version: exactly one wins, the rest get 409", async () => {
+  const { pool } = db();
+  const loaded = (await getAdminProduct(pool, "BRK-100"))!;
+  const results = await Promise.allSettled(
+    ["A", "B", "C", "D"].map((brand) =>
+      updateProduct(
+        pool,
+        adminId,
+        "BRK-100",
+        loaded.version,
+        input({
+          brand,
+          name: { bg: "Спирачни накладки", en: "" },
+          description: { bg: "Предни накладки", en: "" },
+        }),
+      ),
+    ),
+  );
+  assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+  for (const r of results)
+    if (r.status === "rejected")
+      assert.equal((r.reason as AdminProductError).status, 409);
 });

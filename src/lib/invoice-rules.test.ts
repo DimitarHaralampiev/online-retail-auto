@@ -7,6 +7,7 @@ import {
   defaultPricingAssumptions,
   priceScenario,
   identityMatches,
+  mergeProductIdentity,
   safeSourceUrl,
   type ReviewedInvoice,
 } from "./invoice-rules";
@@ -235,5 +236,33 @@ test("AI refusals/incomplete outputs fail and search citations are retained", ()
       ],
     }),
     ["https://shop.example/part"],
+  );
+});
+
+test("invoice lines complete admin-created products but never overwrite them", () => {
+  const empty = { brand: "Bosch", manufacturerCode: "", ean: "" };
+  const line = {
+    brand: "BOSCH ",
+    manufacturerCode: "0986494",
+    ean: "4047025000000",
+  };
+  assert.deepEqual(mergeProductIdentity(empty, line), {
+    brand: "Bosch",
+    manufacturerCode: "0986494",
+    ean: "4047025000000",
+  });
+  const full = { brand: "Bosch", manufacturerCode: "0986494", ean: "" };
+  assert.equal(
+    mergeProductIdentity(full, { ...line, manufacturerCode: "0986495" }),
+    null,
+  );
+  assert.equal(mergeProductIdentity(full, { ...line, brand: "TRW" }), null);
+  // A line without a barcode does not conflict with a stored one.
+  assert.deepEqual(
+    mergeProductIdentity(
+      { ...full, ean: "4047025000000" },
+      { ...line, ean: "" },
+    ),
+    { ...full, ean: "4047025000000" },
   );
 });

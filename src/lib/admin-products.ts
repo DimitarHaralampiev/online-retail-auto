@@ -55,57 +55,64 @@ const centsSchema = z
   .min(1, "Цената трябва да е положителна.")
   .max(10_000_000, "Цената е твърде висока.");
 
-export const productInputSchema = z.object({
-  name: z.object({
-    bg: z
+export const productInputSchema = z
+  .object({
+    name: z.object({
+      bg: z
+        .string()
+        .trim()
+        .min(2, "Въведи име на български.")
+        .max(200, "Името е до 200 знака."),
+      en: text(200, "Името е до 200 знака.").default(""),
+    }),
+    description: z
+      .object({
+        bg: text(5000, "Описанието е до 5000 знака.").default(""),
+        en: text(5000, "Описанието е до 5000 знака.").default(""),
+      })
+      .default({ bg: "", en: "" }),
+    categoryId: z.uuid("Невалидна категория.").nullable().default(null),
+    brand: text(120, "Марката е до 120 знака.").default(""),
+    manufacturerCode: text(120, "Каталожният номер е до 120 знака.").default(
+      "",
+    ),
+    ean: z
       .string()
       .trim()
-      .min(2, "Въведи име на български.")
-      .max(200, "Името е до 200 знака."),
-    en: text(200, "Името е до 200 знака.").default(""),
-  }),
-  description: z
-    .object({
-      bg: text(5000, "Описанието е до 5000 знака.").default(""),
-      en: text(5000, "Описанието е до 5000 знака.").default(""),
-    })
-    .default({ bg: "", en: "" }),
-  categoryId: z.uuid("Невалидна категория.").nullable().default(null),
-  brand: text(120, "Марката е до 120 знака.").default(""),
-  manufacturerCode: text(120, "Каталожният номер е до 120 знака.").default(""),
-  ean: z
-    .string()
-    .trim()
-    .regex(
-      /^(\d{8}|\d{12,14})?$/,
-      "Баркодът трябва да е 8, 12, 13 или 14 цифри.",
-    )
-    .default(""),
-  priceCents: centsSchema.nullable().default(null),
-  vatBps: z
-    .number()
-    .int()
-    .min(0, "Невалидна ставка на ДДС.")
-    .max(10000, "Невалидна ставка на ДДС.")
-    .default(2000),
-  // Same rule as the warehouse_products_image_path_local constraint.
-  imagePath: z
-    .string()
-    .trim()
-    .regex(
-      /^\/images\/[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+)*\.(png|jpe?g|webp|avif)$/,
-      "Изображението трябва да е път под /images/ (png, jpg, webp или avif).",
-    )
-    .nullable()
-    .default(null),
-  weightGrams: z
-    .number()
-    .int("Теглото е в цели грамове.")
-    .min(1, "Теглото трябва да е положително.")
-    .max(1_000_000, "Теглото е твърде голямо.")
-    .nullable()
-    .default(null),
-});
+      .regex(
+        /^(\d{8}|\d{12,14})?$/,
+        "Баркодът трябва да е 8, 12, 13 или 14 цифри.",
+      )
+      .default(""),
+    priceCents: centsSchema.nullable().default(null),
+    vatBps: z
+      .number()
+      .int()
+      .min(0, "Невалидна ставка на ДДС.")
+      .max(10000, "Невалидна ставка на ДДС.")
+      .default(2000),
+    // Same rule as the warehouse_products_image_path_local constraint.
+    imagePath: z
+      .string()
+      .trim()
+      .regex(
+        /^\/images\/[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+)*\.(png|jpe?g|webp|avif)$/,
+        "Изображението трябва да е път под /images/ (png, jpg, webp или avif).",
+      )
+      .nullable()
+      .default(null),
+    weightGrams: z
+      .number()
+      .int("Теглото е в цели грамове.")
+      .min(1, "Теглото трябва да е положително.")
+      .max(1_000_000, "Теглото е твърде голямо.")
+      .nullable()
+      .default(null),
+  })
+  .refine((input) => !input.description.en || input.name.en, {
+    message: "Английското описание изисква и английско име.",
+    path: ["name", "en"],
+  });
 export type ProductInput = z.infer<typeof productInputSchema>;
 
 export const versionSchema = z.number().int().min(1);
@@ -164,14 +171,14 @@ export async function listAdminProducts(
             w.selling_price_cents AS "priceCents",
             coalesce(ct.name, c.slug) AS "categoryName",
             w.on_hand AS "onHand", w.reserved, w.content_version AS version,
-            w.updated_at AS "updatedAt", count(*) OVER () AS total
+            w.content_updated_at AS "updatedAt", count(*) OVER () AS total
      FROM warehouse_products w
      LEFT JOIN product_translations t ON t.sku = w.sku AND t.locale = 'bg'
      LEFT JOIN product_categories c ON c.id = w.category_id
      LEFT JOIN category_translations ct ON ct.category_id = c.id AND ct.locale = 'bg'
      WHERE ($1::text IS NULL OR w.status = $1)
        AND ($2::text IS NULL OR w.sku ILIKE $2 OR coalesce(t.name, w.name) ILIKE $2)
-     ORDER BY w.updated_at DESC, w.sku
+     ORDER BY w.content_updated_at DESC, w.sku
      LIMIT $3 OFFSET $4`,
     [
       query.status ?? null,
@@ -180,12 +187,16 @@ export async function listAdminProducts(
       (query.page - 1) * ADMIN_PAGE_SIZE,
     ],
   );
+  let total = Number(result.rows[0]?.total ?? 0);
+  // Past the last page there are no rows to carry the window count.
+  if (!result.rowCount && query.page > 1)
+    total = (await listAdminProducts(db, { ...query, page: 1 })).total;
   return {
     items: result.rows.map(({ total: _total, ...row }) => ({
       ...row,
       updatedAt: new Date(row.updatedAt).toISOString(),
     })),
-    total: Number(result.rows[0]?.total ?? 0),
+    total,
   };
 }
 
@@ -204,7 +215,7 @@ type ProductRow = {
   on_hand: number;
   reserved: number;
   content_version: number;
-  updated_at: Date;
+  content_updated_at: Date;
   name_bg: string | null;
   name_en: string | null;
   description_bg: string | null;
@@ -238,7 +249,7 @@ function toAdminProduct(row: ProductRow): AdminProduct {
     onHand: row.on_hand,
     reserved: row.reserved,
     version: row.content_version,
-    updatedAt: row.updated_at.toISOString(),
+    updatedAt: row.content_updated_at.toISOString(),
   };
 }
 
@@ -460,7 +471,14 @@ export async function updateProduct(
   return transaction(pool, async (client) => {
     const before = await lockProduct(client, sku, version);
     await assertCategory(client, input.categoryId);
-    if (before.status === "published") {
+    // Only a change of price or category can make a published product
+    // invisible; other edits (e.g. a typo) stay possible even if its
+    // category was deactivated meanwhile.
+    if (
+      before.status === "published" &&
+      (before.priceCents !== input.priceCents ||
+        before.categoryId !== input.categoryId)
+    ) {
       const problems = await publishProblems(client, input);
       if (problems.length)
         throw new AdminProductError(
@@ -476,7 +494,8 @@ export async function updateProduct(
       `UPDATE warehouse_products SET name=$2, brand=$3, manufacturer_code=$4,
          ean=$5, category_id=$6, selling_price_cents=$7, vat_bps=$8,
          image_path=$9, weight_grams=$10,
-         content_version = content_version + 1, updated_at = now()
+         content_version = content_version + 1,
+         content_updated_at = now(), updated_at = now()
        WHERE sku=$1`,
       [
         sku,
@@ -525,7 +544,8 @@ export async function setProductStatus(
     }
     await client.query(
       `UPDATE warehouse_products SET status=$2,
-         content_version = content_version + 1, updated_at = now()
+         content_version = content_version + 1,
+         content_updated_at = now(), updated_at = now()
        WHERE sku=$1`,
       [sku, status],
     );

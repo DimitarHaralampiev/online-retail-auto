@@ -27,6 +27,9 @@ export function adminProductError(error: unknown) {
   if (error instanceof ZodError)
     return json({ error: error.issues[0]?.message ?? "Провери данните." }, 400);
   const e = error as { code?: string; message?: string };
+  // PostgreSQL refuses NUL characters in text (character_not_in_repertoire).
+  if (e.code === "22021")
+    return json({ error: "Текстът съдържа недопустими знаци." }, 400);
   // Request-level problems from requestJson (origin, size, format).
   if (!e.code && e.message && /^[А-Я]/u.test(e.message))
     return json({ error: e.message }, 400);

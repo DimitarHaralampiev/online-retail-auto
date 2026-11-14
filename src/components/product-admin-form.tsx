@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "./locale-provider";
 import {
   parseEuros,
+  parsePercentBps,
+  parseWholeNumber,
   STATUS_LABELS,
   type ProductStatus,
 } from "../lib/admin-product-shared";
@@ -118,8 +120,8 @@ export default function ProductAdminForm({
   async function save(event: React.FormEvent) {
     event.preventDefault();
     const priceCents = parseEuros(fields.price);
-    const vat = Number(fields.vat.replace(",", "."));
-    const weight = fields.weight.trim() ? Number(fields.weight) : null;
+    const vatBps = parsePercentBps(fields.vat);
+    const weight = parseWholeNumber(fields.weight);
     if (Number.isNaN(priceCents))
       return setError(
         text(
@@ -127,8 +129,20 @@ export default function ProductAdminForm({
           "The price must be an amount in euros, e.g. 45.90.",
         ),
       );
-    if (!Number.isFinite(vat))
-      return setError(text("Невалидно ДДС.", "Invalid VAT."));
+    if (vatBps === null || Number.isNaN(vatBps))
+      return setError(
+        text(
+          "ДДС трябва да е процент, напр. 20.",
+          "VAT must be a percentage, e.g. 20.",
+        ),
+      );
+    if (Number.isNaN(weight))
+      return setError(
+        text(
+          "Теглото трябва да е цяло число грамове.",
+          "The weight must be a whole number of grams.",
+        ),
+      );
     const body = {
       name: { bg: fields.nameBg, en: fields.nameEn },
       description: { bg: fields.descriptionBg, en: fields.descriptionEn },
@@ -137,7 +151,7 @@ export default function ProductAdminForm({
       manufacturerCode: fields.manufacturerCode,
       ean: fields.ean,
       priceCents,
-      vatBps: Math.round(vat * 100),
+      vatBps,
       imagePath: fields.imagePath.trim() || null,
       weightGrams: weight,
     };
@@ -182,6 +196,8 @@ export default function ProductAdminForm({
   }
 
   const tops = categories.filter((c) => !c.parentId);
+  // Status actions apply to the saved product; unsaved edits would not go live.
+  const dirty = JSON.stringify(fields) !== JSON.stringify(fieldsOf(product));
   return (
     <form className="checkout-panel admin-product-form" onSubmit={save}>
       {product && (
@@ -192,12 +208,20 @@ export default function ProductAdminForm({
               {text(...STATUS_LABELS[product.status])}
             </span>
           </p>
+          {dirty && (
+            <p>
+              {text(
+                "Запази промените, преди да смениш статуса.",
+                "Save your changes before changing the status.",
+              )}
+            </p>
+          )}
           <div className="admin-product-actions">
             {product.status !== "published" && (
               <button
                 type="button"
                 className="button"
-                disabled={busy}
+                disabled={busy || dirty}
                 onClick={() => changeStatus("published")}
               >
                 {text("Публикувай", "Publish")}
@@ -207,7 +231,7 @@ export default function ProductAdminForm({
               <button
                 type="button"
                 className="button"
-                disabled={busy}
+                disabled={busy || dirty}
                 onClick={() => changeStatus("draft")}
               >
                 {product.status === "published"
@@ -219,7 +243,7 @@ export default function ProductAdminForm({
               <button
                 type="button"
                 className="button"
-                disabled={busy}
+                disabled={busy || dirty}
                 onClick={() => changeStatus("archived")}
               >
                 {text("Архивирай", "Archive")}
