@@ -957,7 +957,7 @@ export default function InvoiceAdmin() {
                       <td>{formatMoney(Number(p.inventory_value_cents))}</td>
                       <td>
                         <a
-                          href={`/admin/products?sku=${encodeURIComponent(p.sku)}`}
+                          href={`/admin/products/media?sku=${encodeURIComponent(p.sku)}`}
                         >
                           Снимки и видео →
                         </a>

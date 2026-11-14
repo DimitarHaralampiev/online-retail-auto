@@ -20,9 +20,9 @@ export default async function AdminPage() {
             <Link href="/admin/products" className="checkout-panel">
               <h2>Продукти и медия</h2>
               <p>
-                Качи снимки и видеа, подреди галерията и избери основна снимка.
+                Създавай, редактирай и публикувай продукти. Качи снимки и видеа.
               </p>
-              <span className="text-link">Отвори продуктовите галерии →</span>
+              <span className="text-link">Отвори продуктите →</span>
             </Link>
             <Link href="/admin/insights" className="checkout-panel">
               <h2>Аналитика / ИИ</h2>

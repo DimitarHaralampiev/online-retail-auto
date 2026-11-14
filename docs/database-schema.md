@@ -2,7 +2,7 @@
 
 Apply migrations with `npm run db:migrate`. Each SQL file runs in its own transaction and is repeatable. Monetary values ending in `_cents` use integer minor units; `_bps` values use basis points.
 
-Accounts, verification, orders and notification queues retain their existing workflows. Warehouse receipts remain the active invoice stock ledger. Migrations 007–008 add schema foundations for suppliers, normalized lines, payments, shipments, promotions, replenishment and analytics. Creating these tables does not enable live payment collection, shipment labels, product publishing or automatic promotion execution. Analytics uses trusted aggregates and product full-text retrieval; product media uses the active `product_media` table from migration 009. `product_images` is reserved for a future object-storage adapter.
+Accounts, verification, orders and notification queues retain their existing workflows. Warehouse receipts remain the active invoice stock ledger. Migrations 007–008 add schema foundations for suppliers, normalized lines, payments, shipments, promotions, replenishment and analytics. Creating these tables does not enable live payment collection, shipment labels or automatic promotion execution. Product publishing goes through admin product management (`src/lib/admin-products.ts`, migration 012): every change writes `admin_audit_log`, price changes write `product_price_history`, and `content_version` guards concurrent edits (stock movements do not bump it). Analytics uses trusted aggregates and product full-text retrieval; product media uses the active `product_media` table from migration 009. `product_images` is reserved for a future object-storage adapter.
 
 The inventory below contains schema metadata only, with no customer or business records.
 
@@ -1050,6 +1050,7 @@ Constraints:
 | min_stock             | integer                  | NO       | 0             |
 | target_stock          | integer                  | NO       | 0             |
 | lead_time_days        | integer                  | NO       | 7             |
+| content_version       | integer                  | NO       | 1             |
 
 Constraints:
 
