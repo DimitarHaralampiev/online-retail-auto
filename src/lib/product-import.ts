@@ -167,7 +167,8 @@ async function processRow(
   const existing = locked.rowCount
     ? ((await getAdminProduct(client, sku)) as AdminProduct)
     : null;
-  if (existing && stock !== undefined)
+  // Re-importing the creation file is fine when stock is unchanged.
+  if (existing && stock !== undefined && stock !== existing.onHand)
     throw new RowError(
       "Наличността на съществуващ продукт се променя само чрез фактури и поръчки.",
     );
@@ -197,29 +198,34 @@ async function processRow(
   let product: AdminProduct;
   let action: RowResult["action"];
   if (existing) {
-    product = await updateProductIn(
-      client,
-      actorId,
-      sku,
-      existing.version,
-      input,
-    );
+    let version = existing.version;
+    // Unpublishing first lets the same row make changes that a published
+    // product could not have (e.g. move it to an inactive category).
+    if (status && status !== "published" && status !== existing.status)
+      version = (
+        await setProductStatusIn(client, actorId, sku, version, status)
+      ).version;
+    product = await updateProductIn(client, actorId, sku, version, input);
     action = product.version === existing.version ? "unchanged" : "update";
   } else {
     newSkuSchema.parse(sku);
+    // Every receipt carries a cost, so average cost and stock value stay right.
+    if (stock && unitCost === undefined)
+      throw new RowError("Начална наличност изисква себестойност (unit_cost).");
     product = await createProductIn(client, actorId, sku, input);
     action = "create";
     if (stock) {
-      const valueCents = (unitCost ?? 0) * stock;
+      const valueCents = unitCost! * stock;
       await client.query(
-        `INSERT INTO stock_movements(id,sku,kind,quantity,reference_key,unit_cost_cents,note)
-         VALUES($1,$2,'receipt',$3,$4,$5,'CSV import opening stock')`,
+        `INSERT INTO stock_movements(id,sku,kind,quantity,reference_key,unit_cost_cents,actor_id,note)
+         VALUES($1,$2,'receipt',$3,$4,$5,$6,'CSV import opening stock')`,
         [
           randomUUID(),
           sku,
           stock,
           `import:${batchId}:${sku}`,
-          unitCost ?? null,
+          unitCost,
+          actorId,
         ],
       );
       await client.query(
@@ -257,6 +263,12 @@ export async function importProducts(
   csv: string,
   options: { apply: boolean; filename?: string },
 ): Promise<ImportReport> {
+  // Excel's plain "CSV" in Bulgarian locale is Windows-1251; decoded as
+  // UTF-8 its Cyrillic turns into replacement characters.
+  if (csv.includes("\uFFFD"))
+    return emptyReport(
+      "Файлът не е в UTF-8. Запиши го като „CSV UTF-8“ и опитай отново.",
+    );
   let table;
   try {
     table = parseCsv(csv, MAX_IMPORT_ROWS);
@@ -264,6 +276,10 @@ export async function importProducts(
     if (error instanceof CsvError) return emptyReport(error.message);
     throw error;
   }
+  // Some exporters end every line with a delimiter: ignore empty trailing
+  // header columns (and the empty cells under them).
+  while (table.header.length > 1 && table.header.at(-1) === "")
+    table.header.pop();
   const unknown = table.header.filter(
     (name) => !(IMPORT_COLUMNS as readonly string[]).includes(name),
   );
@@ -288,7 +304,8 @@ export async function importProducts(
     const sku = values.sku?.trim() ?? "";
     const result: RowResult = { line, sku, action: "error", errors: [] };
     results.push(result);
-    if (cells.length > table.header.length)
+    const extra = cells.slice(table.header.length);
+    if (extra.some((cell) => cell.trim()))
       result.errors.push("Редът има повече клетки от заглавието.");
     else if (!sku) result.errors.push("Липсва продуктов код (sku).");
     else if (sku.length > 120) result.errors.push("Невалиден продуктов код.");
@@ -304,6 +321,20 @@ export async function importProducts(
   const batchId = randomUUID();
   try {
     await client.query("BEGIN");
+    // One import at a time: parallel imports would only wait on each other's
+    // row locks.
+    const free = await client.query<{ ok: boolean }>(
+      "SELECT pg_try_advisory_xact_lock(hashtext('product-import')) AS ok",
+    );
+    if (!free.rows[0].ok) {
+      await client.query("ROLLBACK");
+      return emptyReport(
+        "В момента тече друг импорт. Опитай отново след малко.",
+      );
+    }
+    // Apply locks the file's products until it commits; give up instead of
+    // making checkout wait long on a busy product.
+    if (options.apply) await client.query("SET LOCAL lock_timeout = '5s'");
     const categories = new Map(
       (
         await client.query<{ id: string; slug: string }>(
@@ -322,7 +353,15 @@ export async function importProducts(
           values,
           categories,
         );
-        await client.query("RELEASE SAVEPOINT import_row");
+        // A check undoes every row right away, so it never holds row locks
+        // that checkout or invoice posting would wait for. Rows are
+        // independent (duplicate SKUs are refused above), so the result is
+        // the same as keeping them.
+        await client.query(
+          options.apply
+            ? "RELEASE SAVEPOINT import_row"
+            : "ROLLBACK TO SAVEPOINT import_row",
+        );
       } catch (error) {
         const messages = rowErrors(error);
         if (!messages) throw error;
@@ -344,7 +383,13 @@ export async function importProducts(
           batchId,
           actorId,
           batchId,
-          JSON.stringify({ filename: options.filename ?? null, summary }),
+          JSON.stringify({
+            filename: options.filename ?? null,
+            summary,
+            changed: results
+              .filter((r) => r.action === "create" || r.action === "update")
+              .map((r) => ({ sku: r.sku, action: r.action })),
+          }),
         ],
       );
       await client.query("COMMIT");

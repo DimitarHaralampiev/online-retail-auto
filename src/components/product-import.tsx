@@ -46,7 +46,22 @@ export default function ProductImport() {
       return setError(
         text("Файлът е по-голям от 2 MB.", "The file is larger than 2 MB."),
       );
-    setFile({ name: chosen.name, csv: await chosen.text() });
+    // Allow choosing the same file again after editing it.
+    event.target.value = "";
+    let csv: string;
+    try {
+      csv = new TextDecoder("utf-8", { fatal: true }).decode(
+        await chosen.arrayBuffer(),
+      );
+    } catch {
+      return setError(
+        text(
+          "Файлът не е в UTF-8. Запиши го като „CSV UTF-8“ и опитай отново.",
+          "The file is not UTF-8. Save it as “CSV UTF-8” and try again.",
+        ),
+      );
+    }
+    setFile({ name: chosen.name, csv });
   }
 
   async function run(apply: boolean) {

@@ -46,7 +46,8 @@ export function parseCsv(input: string, maxRows = 5000): CsvTable {
   let afterQuote = false;
   const endRecord = () => {
     cells.push(cell);
-    if (cells.length > 1 || cells[0].trim() !== "")
+    // Skip blank lines, including lines of delimiters only (spreadsheets).
+    if (cells.some((value) => value.trim() !== ""))
       records.push({ line: recordLine, cells });
     if (records.length > maxRows + 1)
       throw new CsvError(`Файлът е с над ${maxRows} реда.`);

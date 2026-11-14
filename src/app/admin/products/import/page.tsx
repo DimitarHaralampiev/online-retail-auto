@@ -47,14 +47,14 @@ export default async function ProductImportPage() {
                 </li>
                 <li>
                   {text(
-                    "category е адресът на категорията (напр. parts-consumables); price и unit_cost са в евро с ДДС / без ДДС; vat е процент; status е draft, published или archived.",
-                    "category is the category address (e.g. parts-consumables); price and unit_cost are in euros incl. / excl. VAT; vat is a percentage; status is draft, published or archived.",
+                    "category е адресът на категорията (напр. parts-consumables); price е в евро с ДДС; vat е процент; status е draft, published или archived.",
+                    "category is the category address (e.g. parts-consumables); price is in euros incl. VAT; vat is a percentage; status is draft, published or archived.",
                   )}
                 </li>
                 <li>
                   {text(
-                    "stock задава начална наличност само за нови продукти; после наличността се променя чрез фактури и поръчки.",
-                    "stock sets opening stock for new products only; afterwards stock changes through invoices and orders.",
+                    "stock задава начална наличност само за нови продукти и изисква unit_cost — доставна цена на брой без възстановимия ДДС (както при заприхождаване от фактура). После наличността се променя чрез фактури и поръчки.",
+                    "stock sets opening stock for new products only and requires unit_cost — the acquisition cost per unit without recoverable VAT (as when receiving an invoice). Afterwards stock changes through invoices and orders.",
                   )}
                 </li>
               </ul>

@@ -160,3 +160,132 @@ test("a NUL character is a row error, not an outage", async () => {
   assert.equal(report.rows[0].action, "error");
   assert.match(report.rows[0].errors[0], /недопустими знаци/);
 });
+
+test("a check holds no row locks: checkout is never blocked by it", async () => {
+  const { pool } = db();
+  let blocked: string | null = "not run";
+  // Before the check's final ROLLBACK, another session updates an imported
+  // product with a short lock timeout, like a checkout would.
+  const watching = {
+    async connect() {
+      const client = await pool.connect();
+      const query = client.query.bind(client) as (
+        text: string,
+        values?: unknown[],
+      ) => Promise<unknown>;
+      return new Proxy(client, {
+        get(target, key) {
+          if (key === "query")
+            return async (text: string, values?: unknown[]) => {
+              if (text === "ROLLBACK" && blocked === "not run") {
+                const other = await pool.connect();
+                try {
+                  await other.query("BEGIN");
+                  await other.query("SET LOCAL lock_timeout = '200ms'");
+                  await other.query(
+                    "UPDATE warehouse_products SET reserved = reserved WHERE sku = 'IMP-1'",
+                  );
+                  await other.query("COMMIT");
+                  blocked = null;
+                } catch (error) {
+                  await other.query("ROLLBACK");
+                  blocked = (error as Error).message;
+                } finally {
+                  other.release();
+                }
+              }
+              return query(text, values);
+            };
+          const value = Reflect.get(target, key);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+    },
+  } as unknown as Parameters<typeof importProducts>[0];
+  const report = await importProducts(
+    watching,
+    adminId,
+    "sku,price\nIMP-1,11.00\nIMP-2,13.00\n",
+    { apply: false },
+  );
+  assert.deepEqual(report.summary, {
+    create: 0,
+    update: 2,
+    unchanged: 0,
+    error: 0,
+  });
+  assert.equal(blocked, null);
+});
+
+test("unpublishing and moving to an inactive category work in one row", async () => {
+  const { pool } = db();
+  const hidden = await createCategory(
+    pool,
+    adminId,
+    "hidden",
+    categoryInputSchema.parse({ name: { bg: "Скрита" }, active: false }),
+  );
+  assert.ok(hidden.id);
+  const report = await run("sku,category,status\nIMP-2,hidden,draft\n", true);
+  assert.deepEqual(report.summary, {
+    create: 0,
+    update: 1,
+    unchanged: 0,
+    error: 0,
+  });
+  const product = (await getAdminProduct(pool, "IMP-2"))!;
+  assert.equal(product.status, "draft");
+  assert.equal(product.categoryId, hidden.id);
+});
+
+test("opening stock needs a cost and records who booked it", async () => {
+  const noCost = await run("sku,name_bg,stock\nIMP-10,Без цена,3\n");
+  assert.match(noCost.rows[0].errors[0], /изисква себестойност/);
+  const zeroCost = await run(
+    "sku,name_bg,stock,unit_cost\nIMP-10,Подарък,3,0\n",
+    true,
+  );
+  assert.equal(zeroCost.applied, true);
+  const movement = await db().pool.query(
+    "SELECT actor_id, unit_cost_cents FROM stock_movements WHERE sku='IMP-10'",
+  );
+  assert.deepEqual(movement.rows, [{ actor_id: adminId, unit_cost_cents: 0 }]);
+  // Re-importing the creation file with the same stock is fine.
+  const again = await run("sku,name_bg,stock,unit_cost\nIMP-10,Подарък,3,0\n");
+  assert.equal(again.summary.error, 0);
+  const changed = await run("sku,stock\nIMP-10,4\n");
+  assert.match(changed.rows[0].errors[0], /само чрез фактури/);
+});
+
+test("spreadsheet quirks: trailing delimiters and delimiter-only rows", async () => {
+  const report = await run("sku;price;\r\nIMP-1;11,00;\r\n;;\r\n;;;\r\n");
+  assert.equal(report.error, undefined);
+  assert.deepEqual(
+    report.rows.map((r) => [r.sku, r.action]),
+    [["IMP-1", "update"]],
+  );
+  const extra = await run("sku,price\nIMP-1,11.00,surprise\n");
+  assert.match(extra.rows[0].errors[0], /повече клетки/);
+});
+
+test("non-UTF-8 files are refused before any row is checked", async () => {
+  const report = await run("sku,name_bg\nIMP-11,���\n");
+  assert.match(report.error!, /UTF-8/);
+  assert.deepEqual(report.rows, []);
+});
+
+test("only one import runs at a time", async () => {
+  const { pool } = db();
+  const holder = await pool.connect();
+  try {
+    await holder.query("BEGIN");
+    await holder.query(
+      "SELECT pg_advisory_xact_lock(hashtext('product-import'))",
+    );
+    const report = await run("sku,price\nIMP-1,12.00\n", true);
+    assert.match(report.error!, /друг импорт/);
+  } finally {
+    await holder.query("ROLLBACK");
+    holder.release();
+  }
+});
