@@ -102,6 +102,9 @@ export default async function AdminProductsPage({
                   {text("Филтрирай", "Filter")}
                 </button>
               </form>
+              <Link href="/admin/categories" className="button">
+                {text("Категории", "Categories")}
+              </Link>
               <Link href="/admin/products/edit" className="button">
                 {text("Нов продукт", "New product")}
               </Link>

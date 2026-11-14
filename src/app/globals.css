@@ -4097,6 +4097,13 @@ select {
   flex-wrap: wrap;
   gap: 8px;
 }
+.form-grid label.admin-checkbox {
+  flex-direction: row;
+  align-items: center;
+}
+.form-grid label.admin-checkbox input {
+  width: auto;
+}
 .admin-product-history {
   padding-left: 18px;
   font-size: 14px;

@@ -306,6 +306,21 @@ export default function ProductAdminForm({
           {text("Категория", "Category")}
           <select value={fields.categoryId} onChange={set("categoryId")}>
             <option value="">{text("Без категория", "No category")}</option>
+            {fields.categoryId &&
+              !categories.some(
+                (c) =>
+                  c.id === fields.categoryId &&
+                  (!c.parentId || tops.some((t) => t.id === c.parentId)),
+              ) && (
+                // A legacy category nested too deep: keep it visible instead
+                // of silently clearing it; the server asks to pick another.
+                <option value={fields.categoryId} disabled>
+                  {text(
+                    "Текуща (невалидна) категория",
+                    "Current (invalid) category",
+                  )}
+                </option>
+              )}
             {tops.map((top) => [
               <option key={top.id} value={top.id}>
                 {top.name}
