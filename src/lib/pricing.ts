@@ -1,8 +1,8 @@
 import type { Product } from "./catalog";
 
 export function getPromotion(product: Product) {
-  const regular = product.demoPriceCents;
-  const sale = product.demoSalePriceCents;
+  const regular = product.priceCents;
+  const sale = product.salePriceCents;
   if (!Number.isSafeInteger(regular) || regular <= 0)
     throw new Error("Невалидна основна цена.");
   if (
@@ -21,5 +21,5 @@ export function getPromotion(product: Product) {
 }
 
 export function sellingPrice(product: Product): number {
-  return getPromotion(product)?.saleCents ?? product.demoPriceCents;
+  return getPromotion(product)?.saleCents ?? product.priceCents;
 }

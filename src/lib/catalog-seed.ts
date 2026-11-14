@@ -133,7 +133,7 @@ async function upsertProduct(
       product.name,
       available,
       categoryId,
-      product.demoPriceCents,
+      product.priceCents,
       product.image,
     ],
   );
@@ -225,7 +225,7 @@ export async function seedDemoCatalog(
       [DEMO_PROMOTION_ID],
     );
     for (const product of products) {
-      if (product.demoSalePriceCents === undefined) {
+      if (product.salePriceCents === undefined) {
         await client.query(
           "DELETE FROM promotion_lines WHERE promotion_id=$1 AND sku=$2",
           [DEMO_PROMOTION_ID, product.sku],
@@ -241,8 +241,8 @@ export async function seedDemoCatalog(
         [
           DEMO_PROMOTION_ID,
           product.sku,
-          product.demoPriceCents,
-          product.demoSalePriceCents,
+          product.priceCents,
+          product.salePriceCents,
         ],
       );
       summary.promotionLines += 1;

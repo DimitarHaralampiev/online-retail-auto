@@ -139,7 +139,7 @@ test("edge fixtures behave as intended", async () => {
     ["TOP-1", "DEMO-003"],
   );
   const [noSale] = await both({ text: "Ъгъл" });
-  assert.equal(noSale.items[0].demoSalePriceCents, undefined);
+  assert.equal(noSale.items[0].salePriceCents, undefined);
   const [names] = await both({ sort: "name", subcategory: "wipers" });
   assert.deepEqual(
     names.items.map((p) => p.sku),

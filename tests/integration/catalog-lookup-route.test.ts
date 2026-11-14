@@ -28,7 +28,7 @@ test("returns published products for the requested SKUs in order", async () => {
     body.products.map((p: { sku: string }) => p.sku),
     ["DEMO-005", "DEMO-001"],
   );
-  assert.equal(body.products[1].demoSalePriceCents, 2390);
+  assert.equal(body.products[1].salePriceCents, 2390);
 });
 
 test("hides unpublished products", async () => {

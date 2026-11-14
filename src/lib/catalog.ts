@@ -17,8 +17,8 @@ export type Product = {
   subcategory: ProductSubcategory | null;
   description: string;
   image: string;
-  demoPriceCents: number;
-  demoSalePriceCents?: number;
+  priceCents: number;
+  salePriceCents?: number;
   stock: Stock;
 };
 

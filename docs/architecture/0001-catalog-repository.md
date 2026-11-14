@@ -60,8 +60,9 @@ Recorded now so the PostgreSQL adapter does not freeze the interim shape.
   wrapped in React `cache()`, so the adapter returns localised names and
   descriptions from `product_translations` / `category_translations` instead of
   translating demo strings in the browser.
-- **#73 — prices:** rename `demoPriceCents` / `demoSalePriceCents` to
-  `priceCents` / `salePriceCents`; promotions stay derived in `pricing.ts`.
+- **#73 — prices (done):** `Product.priceCents` (regular) and
+  `salePriceCents` (live promotion below it); promotions stay derived in
+  `pricing.ts`.
 - **#26 — done:** `catalog-postgres.ts` implements the current contract;
   `CATALOG_SOURCE=postgres` selects it. Categories are two levels deep
   (deeper rows are excluded, not misfiled). `getProducts` is bounded at 500

@@ -10,7 +10,7 @@ const lookup = productLookup(demoProducts);
 
 describe("promotional pricing", () => {
   it("keeps regular pricing when there is no promotion", () => {
-    const product = { ...demoProducts[0], demoSalePriceCents: undefined };
+    const product = { ...demoProducts[0], salePriceCents: undefined };
     assert.equal(getPromotion(product), null);
     assert.equal(sellingPrice(product), 2990);
   });
@@ -24,15 +24,15 @@ describe("promotional pricing", () => {
     assert.equal(
       getPromotion({
         ...demoProducts[0],
-        demoPriceCents: 1000,
-        demoSalePriceCents: 1,
+        priceCents: 1000,
+        salePriceCents: 1,
       })?.discountPercent,
       99,
     );
   });
   it("ignores invalid or non-reduced sale prices", () => {
     for (const sale of [0, -1, 1.5, NaN, Infinity, 2990, 3000]) {
-      const product = { ...demoProducts[0], demoSalePriceCents: sale };
+      const product = { ...demoProducts[0], salePriceCents: sale };
       assert.equal(getPromotion(product), null);
       assert.equal(sellingPrice(product), 2990);
     }
@@ -67,8 +67,6 @@ describe("promotional pricing", () => {
     );
   });
   it("rejects an invalid base price", () => {
-    assert.throws(() =>
-      sellingPrice({ ...demoProducts[0], demoPriceCents: 0 }),
-    );
+    assert.throws(() => sellingPrice({ ...demoProducts[0], priceCents: 0 }));
   });
 });
