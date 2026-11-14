@@ -7,12 +7,14 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import type { CatalogTaxonomy, Product, ProductLookup } from "../lib/catalog";
 import { MAX_LOOKUP_SKUS } from "../lib/catalog-lookup";
+import type { Locale } from "../lib/i18n/locale";
 
 type CatalogContextValue = {
   taxonomy: CatalogTaxonomy;
@@ -28,8 +30,12 @@ type CatalogContextValue = {
 
 const CatalogContext = createContext<CatalogContextValue | null>(null);
 
-async function fetchProducts(skus: string[]): Promise<Product[]> {
+async function fetchProducts(
+  skus: string[],
+  locale: Locale,
+): Promise<Product[]> {
   const params = new URLSearchParams(skus.map((sku) => ["sku", sku]));
+  params.set("locale", locale);
   const response = await fetch(`/api/catalog/products?${params}`, {
     cache: "no-store",
   });
@@ -39,9 +45,12 @@ async function fetchProducts(skus: string[]): Promise<Product[]> {
 
 export default function CatalogProvider({
   taxonomy,
+  locale,
   children,
 }: {
   taxonomy: CatalogTaxonomy;
+  /** Products are looked up with names in this locale. */
+  locale: Locale;
   children: React.ReactNode;
 }) {
   // router.refresh() (e.g. a language switch) re-sends layout props as new
@@ -50,51 +59,69 @@ export default function CatalogProvider({
   const [stable, setStable] = useState({ signature, taxonomy });
   if (stable.signature !== signature) setStable({ signature, taxonomy });
 
-  // null marks a SKU that was looked up but is not in the catalog.
-  const [loaded, setLoaded] = useState<ReadonlyMap<string, Product | null>>(
+  // null marks a SKU that was looked up but is not in the catalog. Each entry
+  // remembers its locale; after a language switch it is refreshed, and the
+  // previous names are shown until the new ones arrive.
+  type Entry = { locale: Locale; product: Product | null };
+  const [loaded, setLoaded] = useState<ReadonlyMap<string, Entry>>(
     () => new Map(),
   );
-  const known = useRef(new Map<string, Product | null>());
+  const known = useRef(new Map<string, Entry>());
   const inFlight = useRef(new Map<string, Promise<void>>());
+  const currentLocale = useRef(locale);
 
   const lookup = useCallback<ProductLookup>(
-    (sku) => known.current.get(sku) ?? undefined,
+    (sku) => known.current.get(sku)?.product ?? undefined,
     [],
   );
 
   const ensureProducts = useCallback(
     async (skus: readonly string[]) => {
+      const wanted = currentLocale.current;
+      const key = (sku: string) => `${wanted}:${sku}`;
       const missing = [...new Set(skus)].filter(
-        (sku) => !known.current.has(sku) && !inFlight.current.has(sku),
+        (sku) =>
+          known.current.get(sku)?.locale !== wanted &&
+          !inFlight.current.has(key(sku)),
       );
       for (let i = 0; i < missing.length; i += MAX_LOOKUP_SKUS) {
         const chunk = missing.slice(i, i + MAX_LOOKUP_SKUS);
         // A failed lookup rejects (callers keep their data) and is retried the
         // next time those SKUs are needed.
-        const request = fetchProducts(chunk).then((products) => {
+        const request = fetchProducts(chunk, wanted).then((products) => {
           const found = new Map(products.map((p) => [p.sku, p]));
           for (const sku of chunk)
-            known.current.set(sku, found.get(sku) ?? null);
+            known.current.set(sku, {
+              locale: wanted,
+              product: found.get(sku) ?? null,
+            });
           setLoaded(new Map(known.current));
         });
         for (const sku of chunk)
           inFlight.current.set(
-            sku,
-            request.finally(() => inFlight.current.delete(sku)),
+            key(sku),
+            request.finally(() => inFlight.current.delete(key(sku))),
           );
       }
       await Promise.all(
-        [...new Set(skus)].map((sku) => inFlight.current.get(sku)),
+        [...new Set(skus)].map((sku) => inFlight.current.get(key(sku))),
       );
       return lookup;
     },
     [lookup],
   );
 
+  // After a language switch, refresh every product loaded so far.
+  useEffect(() => {
+    if (currentLocale.current === locale) return;
+    currentLocale.current = locale;
+    ensureProducts([...known.current.keys()]).catch(() => undefined);
+  }, [locale, ensureProducts]);
+
   const value = useMemo(
     () => ({
       taxonomy: stable.taxonomy,
-      productBySku: (sku: string) => loaded.get(sku) ?? undefined,
+      productBySku: (sku: string) => loaded.get(sku)?.product ?? undefined,
       ensureProducts,
     }),
     [stable, loaded, ensureProducts],

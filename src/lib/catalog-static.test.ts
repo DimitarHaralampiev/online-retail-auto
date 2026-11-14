@@ -165,3 +165,28 @@ test("browse input is normalised to safe values", () => {
     /at most/,
   );
 });
+
+test("the static catalog localises results but searches the source text", async () => {
+  const demo: Product = {
+    ...product(
+      "F",
+      { id: "parts", name: "Части и консумативи" },
+      {
+        id: "filters",
+        name: "Филтри",
+      },
+    ),
+    name: "Въздушен филтър",
+  };
+  const en = createStaticCatalog([demo], ["parts"], "en");
+  assert.equal((await en.getProduct("F"))?.name, "Air filter");
+  assert.equal(
+    (await en.getProduct("F"))?.category.name,
+    "Parts and consumables",
+  );
+  assert.equal((await en.taxonomy())[0].subcategories[0].name, "Filters");
+  // Cyrillic and English search terms both match in English.
+  assert.equal((await en.browse({ text: "филтър" })).total, 1);
+  assert.equal((await en.browse({ text: "air" })).total, 1);
+  assert.equal((await en.browse({})).items[0].name, "Air filter");
+});

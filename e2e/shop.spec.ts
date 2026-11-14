@@ -427,3 +427,30 @@ test.describe("categories are addressed by id", () => {
     await expect(page).toHaveURL(/category=car-care/);
   });
 });
+
+test("in English, catalog and cart show English product names", async ({
+  page,
+}) => {
+  await page.goto("/catalog/DEMO-003");
+  await page.getByRole("button", { name: "English" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Air filter" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: /Add to demo cart/ })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /Added/ }),
+  ).toBeVisible();
+  await page.goto("/cart");
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Air filter" }),
+  ).toBeVisible();
+  // Server-rendered catalog cards use English names too.
+  await page.goto("/catalog?category=parts-consumables");
+  await expect(page.locator(".product-grid .product-title").first()).toHaveText(
+    "Air filter",
+  );
+});

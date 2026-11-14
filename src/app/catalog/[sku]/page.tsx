@@ -20,11 +20,12 @@ export default async function ProductPage({
   params: Promise<{ sku: string }>;
 }) {
   const { sku } = await params;
-  const store = catalog();
+  const locale = await requestLocale();
+  const store = catalog(locale);
   const product = await store.getProduct(sku);
   if (!product) notFound();
   const subcategory = product.subcategory;
-  const en = (await requestLocale()) === "en";
+  const en = locale === "en";
   const text = (bg: string, english: string) => (en ? english : bg);
   const related = (await store.listProducts()).filter(
     (p) => p.sku !== sku && p.category.id === product.category.id,

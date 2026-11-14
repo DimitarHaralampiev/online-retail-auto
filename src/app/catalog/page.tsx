@@ -20,7 +20,8 @@ export default async function CatalogPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const parsed = parseCatalogUrl(await searchParams);
-  const store = catalog();
+  const locale = await requestLocale();
+  const store = catalog(locale);
   // Only categories that exist are applied (and shown back to the visitor).
   const taxonomy = await store.taxonomy();
   // Categories are addressed by id; older links used the display name.
@@ -44,7 +45,7 @@ export default async function CatalogPage({
   // An old link that named the category: send it to the one canonical URL.
   if (category && parsed.category !== category.id)
     permanentRedirect(catalogHref(state, { page: state.page }));
-  const query = browseQueryFor(state, await requestLocale());
+  const query = browseQueryFor(state, locale);
   const result = query
     ? await store.browse({ ...query, compatibleSkus: fitment })
     : null;

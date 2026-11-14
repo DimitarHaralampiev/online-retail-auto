@@ -212,3 +212,32 @@ test("falls back to the English category name before the slug", async () => {
   });
   assert.equal((await store().taxonomy()).at(-1)?.name, "Car care");
 });
+
+test("in English, names come from English translations and match the static catalog", async () => {
+  const en = createPostgresCatalog(() => db().pool, "en");
+  const referenceEn = createStaticCatalog(
+    seededDemo,
+    demoCategories.map((c) => c.id),
+    "en",
+  );
+  assert.deepEqual(await en.listProducts(), await referenceEn.listProducts());
+  assert.deepEqual(await en.taxonomy(), await referenceEn.taxonomy());
+  const filter = await en.getProduct("DEMO-003");
+  assert.equal(filter?.name, "Air filter");
+  assert.deepEqual(filter?.category, {
+    id: "parts-consumables",
+    name: "Parts and consumables",
+  });
+  assert.deepEqual(filter?.subcategory, { id: "filters", name: "Filters" });
+});
+
+test("in English, a product without an English translation falls back to Bulgarian", async () => {
+  await db().pool.query(
+    "DELETE FROM product_translations WHERE sku='DEMO-001' AND locale='en'",
+  );
+  const en = createPostgresCatalog(() => db().pool, "en");
+  assert.equal(
+    (await en.getProduct("DEMO-001"))?.name,
+    "Органайзер за багажник",
+  );
+});

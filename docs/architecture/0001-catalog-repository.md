@@ -57,10 +57,14 @@ Recorded now so the PostgreSQL adapter does not freeze the interim shape.
   (id = `product_categories.slug`), the taxonomy carries ids, browsing and
   catalog URLs filter by `?category=<slug>`; the catalog page still accepts
   the old display-name links and redirects them permanently to the slug URL.
-- **#73 — locale:** scope the repository per request, `catalog({ locale })`,
-  wrapped in React `cache()`, so the adapter returns localised names and
-  descriptions from `product_translations` / `category_translations` instead of
-  translating demo strings in the browser.
+- **#73 — locale (done):** `catalog(locale)` returns a repository whose
+  products, categories and taxonomy are in that locale (PostgreSQL:
+  `product_translations` / `category_translations`, falling back to Bulgarian;
+  static: the UI dictionary). Filtering and search use the source text too, so
+  a Cyrillic search still matches in English. Storefront pages pass the
+  request locale; orders and emails use the store language (Bulgarian). The
+  lookup API takes `?locale=`, and the client cache refreshes loaded products
+  after a language switch while showing the previous names meanwhile.
 - **#73 — prices (done):** `Product.priceCents` (regular) and
   `salePriceCents` (live promotion below it); promotions stay derived in
   `pricing.ts`.

@@ -45,3 +45,10 @@ test("rejects malformed or oversized requests", async () => {
   assert.equal((await get(`?${many}`)).status, 400);
   assert.equal((await get("")).status, 200);
 });
+
+test("returns names in the requested locale", async () => {
+  const en = await (await get("?sku=DEMO-003&locale=en")).json();
+  assert.equal(en.products[0].name, "Air filter");
+  const bg = await (await get("?sku=DEMO-003&locale=xx")).json();
+  assert.equal(bg.products[0].name, "Въздушен филтър");
+});

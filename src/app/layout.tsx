@@ -21,16 +21,13 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const store = catalog();
-  const [locale, taxonomy] = await Promise.all([
-    requestLocale(),
-    store.taxonomy(),
-  ]);
+  const locale = await requestLocale();
+  const taxonomy = await catalog(locale).taxonomy();
   return (
     <html lang={locale}>
       <body>
         <LocaleProvider initialLocale={locale}>
-          <CatalogProvider taxonomy={taxonomy}>
+          <CatalogProvider taxonomy={taxonomy} locale={locale}>
             <AccountProvider>
               <CustomerProvider>
                 <CartProvider>{children}</CartProvider>

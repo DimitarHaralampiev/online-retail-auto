@@ -14,6 +14,7 @@ import {
   type CatalogTaxonomy,
   type Product,
 } from "./catalog";
+import type { Locale } from "./i18n/locale";
 
 /** Shown until products have their own public images (#44). */
 export const FALLBACK_PRODUCT_IMAGE = "/images/garage-hero.png";
@@ -36,6 +37,10 @@ type ProductRow = {
   category_name: string;
   parent_name: string | null;
   top_slug: string;
+  name_en: string;
+  description_en: string;
+  category_name_en: string;
+  parent_name_en: string | null;
 };
 
 // $1: optional SKU filter (lookups, vehicle fitment). Names are Bulgarian;
@@ -67,6 +72,8 @@ visible AS (
          c.slug AS category_slug,
          coalesce(ct.name, cte.name, c.slug) AS category_name,
          coalesce(pt.name, pte.name, parent.slug) AS parent_name,
+         coalesce(cte.name, ct.name, c.slug) AS category_name_en,
+         coalesce(pte.name, pt.name, parent.slug) AS parent_name_en,
          coalesce(parent.sort_order, c.sort_order) AS top_sort,
          coalesce(parent.slug, c.slug) AS top_slug,
          CASE WHEN parent.id IS NULL THEN -1 ELSE c.sort_order END AS sub_sort
@@ -124,27 +131,30 @@ LIMIT $10 OFFSET $11`;
 const TAXONOMY_SQL = `WITH ${VISIBLE_CTE}
 SELECT top_slug AS category_id,
        min(coalesce(parent_name, category_name)) AS category,
+       min(coalesce(parent_name_en, category_name_en)) AS category_en,
        CASE WHEN parent_name IS NULL THEN NULL ELSE category_slug END AS sub_id,
        min(CASE WHEN parent_name IS NULL THEN NULL ELSE category_name END) AS sub_name,
+       min(CASE WHEN parent_name IS NULL THEN NULL ELSE category_name_en END) AS sub_name_en,
        min(top_sort) AS top_sort, min(sub_sort) AS sub_sort,
        count(*)::int AS products
 FROM visible
 GROUP BY top_slug, sub_id
 ORDER BY top_sort, top_slug, sub_sort, sub_id NULLS FIRST`;
 
-function toProduct(row: ProductRow): Product {
+/** Maps a row to a Product with names in the requested locale. */
+function toProduct(row: ProductRow, locale: Locale): Product {
+  const en = locale === "en";
   const sub = row.parent_name !== null;
+  const categoryName = en ? row.category_name_en : row.category_name;
   return {
     sku: row.sku,
-    name: row.name,
+    name: en ? row.name_en : row.name,
     category: {
       id: row.top_slug,
-      name: sub ? row.parent_name! : row.category_name,
+      name: sub ? (en ? row.parent_name_en! : row.parent_name!) : categoryName,
     },
-    subcategory: sub
-      ? { id: row.category_slug, name: row.category_name }
-      : null,
-    description: row.description,
+    subcategory: sub ? { id: row.category_slug, name: categoryName } : null,
+    description: en ? row.description_en : row.description,
     image: row.image_path ?? FALLBACK_PRODUCT_IMAGE,
     priceCents: row.price_cents,
     // A sale only counts when it is actually below the regular price.
@@ -155,14 +165,21 @@ function toProduct(row: ProductRow): Product {
   };
 }
 
-export function createPostgresCatalog(db: () => Queryable): CatalogRepository {
+/**
+ * @param locale names and descriptions are returned in this locale, falling
+ *   back to Bulgarian (then the warehouse name or category slug).
+ */
+export function createPostgresCatalog(
+  db: () => Queryable,
+  locale: Locale = "bg",
+): CatalogRepository {
   async function products(skus: readonly string[] | null): Promise<Product[]> {
     const result = await db().query<ProductRow>(PRODUCTS_SQL, [skus]);
-    return result.rows.map(toProduct);
+    return result.rows.map((row) => toProduct(row, locale));
   }
 
   async function browse(input: BrowseQuery) {
-    const query = normalizeBrowseQuery(input);
+    const query = normalizeBrowseQuery({ locale, ...input });
     const { page, pageSize } = query;
     const sort = query.sort ?? "featured";
     const params = (limit: number, offset: number) => [
@@ -192,7 +209,7 @@ export function createPostgresCatalog(db: () => Queryable): CatalogRepository {
       total = Number(first.rows[0]?.total ?? 0);
     }
     return {
-      items: result.rows.map(toProduct),
+      items: result.rows.map((row) => toProduct(row, locale)),
       total,
       page,
       pageSize,
@@ -224,8 +241,10 @@ export function createPostgresCatalog(db: () => Queryable): CatalogRepository {
       const result = await db().query<{
         category_id: string;
         category: string;
+        category_en: string;
         sub_id: string | null;
         sub_name: string | null;
+        sub_name_en: string | null;
         products: number;
       }>(TAXONOMY_SQL, [null]);
       const taxonomy: CatalogTaxonomy = [];
@@ -234,7 +253,7 @@ export function createPostgresCatalog(db: () => Queryable): CatalogRepository {
         if (category?.id !== row.category_id) {
           category = {
             id: row.category_id,
-            name: row.category,
+            name: locale === "en" ? row.category_en : row.category,
             productCount: 0,
             subcategories: [],
           };
@@ -244,7 +263,7 @@ export function createPostgresCatalog(db: () => Queryable): CatalogRepository {
         if (row.sub_id)
           category.subcategories.push({
             id: row.sub_id,
-            name: row.sub_name!,
+            name: (locale === "en" ? row.sub_name_en : row.sub_name)!,
             productCount: row.products,
           });
       }
