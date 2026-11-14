@@ -668,6 +668,29 @@ Constraints:
 - `PRIMARY KEY (sku, locale)`
 - `FOREIGN KEY (sku) REFERENCES warehouse_products(sku) ON DELETE CASCADE`
 
+## product_vehicle_fitments
+
+| Column        | Type                     | Nullable | Default  |
+| ------------- | ------------------------ | -------- | -------- |
+| id            | uuid                     | NO       | —        |
+| sku           | text                     | NO       | —        |
+| generation_id | uuid                     | NO       | —        |
+| engine_id     | uuid                     | YES      | —        |
+| notes         | text                     | NO       | ''::text |
+| source        | text                     | NO       | —        |
+| created_by    | uuid                     | YES      | —        |
+| created_at    | timestamp with time zone | NO       | now()    |
+
+Constraints:
+
+- `PRIMARY KEY (id)`
+- `FOREIGN KEY (sku) REFERENCES warehouse_products(sku) ON DELETE CASCADE`
+- `FOREIGN KEY (generation_id) REFERENCES vehicle_generations(id)`
+- `FOREIGN KEY (engine_id, generation_id) REFERENCES vehicle_engines(id, generation_id)`
+- `FOREIGN KEY (created_by) REFERENCES customers(id)`
+- `UNIQUE NULLS NOT DISTINCT (sku, generation_id, engine_id)`
+- `CHECK ((length(TRIM(BOTH FROM source)) > 0))`
+
 ## promotion_lines
 
 | Column              | Type    | Nullable | Default |
@@ -1029,6 +1052,82 @@ Constraints:
 - `CHECK ((code = ANY (ARRAY['bg'::text, 'en'::text])))`
 - `PRIMARY KEY (code)`
 
+## vehicle_engines
+
+| Column          | Type                     | Nullable | Default  |
+| --------------- | ------------------------ | -------- | -------- |
+| id              | uuid                     | NO       | —        |
+| generation_id   | uuid                     | NO       | —        |
+| name            | text                     | NO       | —        |
+| fuel            | text                     | NO       | —        |
+| displacement_cc | integer                  | YES      | —        |
+| power_kw        | integer                  | YES      | —        |
+| engine_code     | text                     | NO       | ''::text |
+| created_at      | timestamp with time zone | NO       | now()    |
+
+Constraints:
+
+- `PRIMARY KEY (id)`
+- `FOREIGN KEY (generation_id) REFERENCES vehicle_generations(id)`
+- `UNIQUE (generation_id, name)`
+- `UNIQUE (id, generation_id)`
+- `CHECK (fuel IN ('petrol','diesel','hybrid','plug-in-hybrid','electric','lpg','cng','other'))`
+- `CHECK ((displacement_cc >= 1) AND (displacement_cc <= 20000))`
+- `CHECK ((power_kw >= 1) AND (power_kw <= 2000))`
+
+## vehicle_generations
+
+| Column     | Type                     | Nullable | Default |
+| ---------- | ------------------------ | -------- | ------- |
+| id         | uuid                     | NO       | —       |
+| model_id   | uuid                     | NO       | —       |
+| name       | text                     | NO       | —       |
+| year_from  | integer                  | NO       | —       |
+| year_to    | integer                  | YES      | —       |
+| created_at | timestamp with time zone | NO       | now()   |
+
+Constraints:
+
+- `PRIMARY KEY (id)`
+- `FOREIGN KEY (model_id) REFERENCES vehicle_models(id)`
+- `UNIQUE (model_id, name)`
+- `CHECK ((year_from >= 1950) AND (year_from <= 2100))`
+- `CHECK ((year_to IS NULL) OR ((year_to >= year_from) AND (year_to <= 2100)))`
+
+## vehicle_makes
+
+| Column     | Type                     | Nullable | Default |
+| ---------- | ------------------------ | -------- | ------- |
+| id         | uuid                     | NO       | —       |
+| slug       | text                     | NO       | —       |
+| name       | text                     | NO       | —       |
+| active     | boolean                  | NO       | true    |
+| created_at | timestamp with time zone | NO       | now()   |
+
+Constraints:
+
+- `PRIMARY KEY (id)`
+- `UNIQUE (slug)`
+- `CHECK ((slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text))`
+
+## vehicle_models
+
+| Column     | Type                     | Nullable | Default |
+| ---------- | ------------------------ | -------- | ------- |
+| id         | uuid                     | NO       | —       |
+| make_id    | uuid                     | NO       | —       |
+| slug       | text                     | NO       | —       |
+| name       | text                     | NO       | —       |
+| active     | boolean                  | NO       | true    |
+| created_at | timestamp with time zone | NO       | now()   |
+
+Constraints:
+
+- `PRIMARY KEY (id)`
+- `FOREIGN KEY (make_id) REFERENCES vehicle_makes(id)`
+- `UNIQUE (make_id, slug)`
+- `CHECK ((slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text))`
+
 ## warehouse_products
 
 | Column                | Type                     | Nullable | Default       |
@@ -1053,6 +1152,7 @@ Constraints:
 | target_stock          | integer                  | NO       | 0             |
 | lead_time_days        | integer                  | NO       | 7             |
 | content_version       | integer                  | NO       | 1             |
+| universal_fit         | boolean                  | NO       | false         |
 
 Constraints:
 
