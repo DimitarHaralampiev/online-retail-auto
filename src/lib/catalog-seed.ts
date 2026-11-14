@@ -80,8 +80,13 @@ async function upsertCategory(
      VALUES($1,$2,$3,$4,true,true)
      ON CONFLICT(slug) DO UPDATE SET parent_id=EXCLUDED.parent_id,
        sort_order=EXCLUDED.sort_order,
-       content_version=product_categories.content_version + 1,
-       content_updated_at=now()
+       content_version=product_categories.content_version +
+         CASE WHEN (product_categories.parent_id, product_categories.sort_order)
+           IS DISTINCT FROM (EXCLUDED.parent_id, EXCLUDED.sort_order)
+         THEN 1 ELSE 0 END,
+       content_updated_at=CASE WHEN (product_categories.parent_id, product_categories.sort_order)
+           IS DISTINCT FROM (EXCLUDED.parent_id, EXCLUDED.sort_order)
+         THEN now() ELSE product_categories.content_updated_at END
      WHERE product_categories.is_demo
      RETURNING id`,
     [randomUUID(), slug, parentId, sortOrder],

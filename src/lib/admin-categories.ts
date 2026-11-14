@@ -66,8 +66,12 @@ export type AdminCategory = {
   sortOrder: number;
   active: boolean;
   version: number;
-  /** Products filed directly under this category, by status. */
-  products: { published: number; other: number };
+  /**
+   * Products filed directly under this category, by status, and published
+   * products it shows including its subcategories (all hidden when it is
+   * deactivated).
+   */
+  products: { published: number; other: number; publishedInTree: number };
   subcategories: number;
 };
 
@@ -79,6 +83,10 @@ SELECT c.id, c.slug, coalesce(tb.name, c.slug) AS name,
          WHERE w.category_id = c.id AND w.status = 'published') AS published,
        (SELECT count(*)::int FROM warehouse_products w
          WHERE w.category_id = c.id AND w.status <> 'published') AS other,
+       (SELECT count(*)::int FROM warehouse_products w
+         JOIN product_categories wc ON wc.id = w.category_id
+         WHERE (wc.id = c.id OR wc.parent_id = c.id)
+           AND w.status = 'published') AS "publishedInTree",
        (SELECT count(*)::int FROM product_categories s
          WHERE s.parent_id = c.id) AS subcategories,
        coalesce(parent.sort_order, c.sort_order) AS top_sort,
@@ -91,15 +99,17 @@ LEFT JOIN category_translations te ON te.category_id = c.id AND te.locale = 'en'
 type CategoryRow = Omit<AdminCategory, "products"> & {
   published: number;
   other: number;
+  publishedInTree: number;
 };
 
 const toCategory = ({
   published,
   other,
+  publishedInTree,
   ...row
 }: CategoryRow & { top_sort?: number; top_slug?: string }): AdminCategory => {
   const { top_sort: _sort, top_slug: _slug, ...rest } = row;
-  return { ...rest, products: { published, other } };
+  return { ...rest, products: { published, other, publishedInTree } };
 };
 
 /**
@@ -234,11 +244,14 @@ export async function updateCategory(
   input: CategoryInput,
 ): Promise<AdminCategory> {
   return transaction(pool, async (client) => {
-    const locked = await client.query(
-      "SELECT 1 FROM product_categories WHERE id = $1 FOR UPDATE",
-      [id],
+    // Lock the category and its new parent together, in id order, so two
+    // admins moving categories under each other wait instead of deadlocking.
+    const locked = await client.query<{ id: string }>(
+      `SELECT id FROM product_categories WHERE id = ANY($1::uuid[])
+       ORDER BY id FOR UPDATE`,
+      [input.parentId ? [id, input.parentId] : [id]],
     );
-    if (!locked.rowCount)
+    if (!locked.rows.some((row) => row.id === id))
       throw new AdminProductError("Категорията не е намерена.", 404);
     const before = (await readCategory(client, id))!;
     if (before.version !== version)

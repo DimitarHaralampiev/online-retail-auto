@@ -15,7 +15,7 @@ export type CategoryRow = {
   sortOrder: number;
   active: boolean;
   version: number;
-  products: { published: number; other: number };
+  products: { published: number; other: number; publishedInTree: number };
   subcategories: number;
 };
 
@@ -56,7 +56,14 @@ export default function CategoryAdmin({
 
   function open(category: CategoryRow | null) {
     setEditing(category ? category.id : "new");
-    setFields(fieldsOf(category));
+    const next = fieldsOf(category);
+    // Legacy rows nested too deep: offer moving them to a valid place.
+    if (
+      next.parentId &&
+      !categories.some((c) => c.id === next.parentId && !c.parentId)
+    )
+      next.parentId = "";
+    setFields(next);
     setError("");
     setNotice("");
   }
@@ -75,13 +82,13 @@ export default function CategoryAdmin({
       current &&
       current.active &&
       !fields.active &&
-      current.products.published > 0;
+      current.products.publishedInTree > 0;
     if (
       hidden &&
       !window.confirm(
         text(
-          `${current.products.published} публикувани продукта ще се скрият от магазина. Продължи?`,
-          `${current.products.published} published products will be hidden from the shop. Continue?`,
+          `Публикувани продукти, които ще се скрият от магазина: ${current.products.publishedInTree}${current.subcategories ? " (заедно с подкатегориите)" : ""}. Продължи?`,
+          `Published products that will be hidden from the shop: ${current.products.publishedInTree}${current.subcategories ? " (including subcategories)" : ""}. Continue?`,
         ),
       )
     )

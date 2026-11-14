@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import type pg from "pg";
 import {
   categoryInputSchema,
   categorySlugSchema,
@@ -218,21 +219,115 @@ test("stale versions get 409; unchanged saves are no-ops", async () => {
   assert.equal(moved.sortOrder, 5);
 });
 
-test("concurrent moves cannot build a third level", async () => {
+/**
+ * A pool whose transactions each pause right before their first row-lock
+ * statement until `parties` of them got there, so they really overlap.
+ */
+function overlappingPool(pool: pg.Pool, parties: number) {
+  let waiting: (() => void)[] = [];
+  const barrier = () =>
+    new Promise<void>((resolve) => {
+      waiting.push(resolve);
+      if (waiting.length === parties) {
+        for (const release of waiting) release();
+        waiting = [];
+      }
+    });
+  return {
+    query: pool.query.bind(pool),
+    async connect() {
+      const client = await pool.connect();
+      const query = client.query.bind(client) as (
+        text: string,
+        values?: unknown[],
+      ) => Promise<pg.QueryResult>;
+      let paused = false;
+      return new Proxy(client, {
+        get(target, key) {
+          if (key === "query")
+            return async (text: string, values?: unknown[]) => {
+              if (!paused && /FOR (UPDATE|KEY SHARE)/.test(text)) {
+                paused = true;
+                await barrier();
+              }
+              return query(text, values);
+            };
+          const value = Reflect.get(target, key);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+    },
+  } as unknown as pg.Pool;
+}
+
+const depthThreeRows = async () =>
+  (
+    await db().pool.query(
+      `SELECT 1 FROM product_categories c JOIN product_categories p ON p.id=c.parent_id
+       WHERE p.parent_id IS NOT NULL`,
+    )
+  ).rowCount;
+
+const onlyOneWins = (results: PromiseSettledResult<unknown>[]) => {
+  assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+  const lost = results.find((r) => r.status === "rejected")!;
+  // A clean validation refusal, not a deadlock or other database error.
+  assert.ok(lost.reason instanceof AdminProductError, String(lost.reason));
+  assert.equal(lost.reason.status, 400);
+};
+
+test("two admins moving categories under each other: one wins, no deadlock", async () => {
   const { pool } = db();
   const a = await createCategory(pool, adminId, "race-a", input());
   const b = await createCategory(pool, adminId, "race-b", input());
-  // a under b and b under a at the same time: at most one may succeed.
-  const results = await Promise.allSettled([
-    updateCategory(pool, adminId, a.id, a.version, input({ parentId: b.id })),
-    updateCategory(pool, adminId, b.id, b.version, input({ parentId: a.id })),
-  ]);
-  assert.ok(results.filter((r) => r.status === "fulfilled").length <= 1);
-  const deep = await pool.query(
-    `SELECT 1 FROM product_categories c JOIN product_categories p ON p.id=c.parent_id
-     WHERE p.parent_id IS NOT NULL`,
+  const racing = overlappingPool(pool, 2);
+  onlyOneWins(
+    await Promise.allSettled([
+      updateCategory(
+        racing,
+        adminId,
+        a.id,
+        a.version,
+        input({ parentId: b.id }),
+      ),
+      updateCategory(
+        racing,
+        adminId,
+        b.id,
+        b.version,
+        input({ parentId: a.id }),
+      ),
+    ]),
   );
-  assert.equal(deep.rowCount, 0);
+  assert.equal(await depthThreeRows(), 0);
+});
+
+test("creating a subcategory while its parent moves cannot build a third level", async () => {
+  const { pool } = db();
+  const p = await createCategory(pool, adminId, "race-p", input());
+  const q = await createCategory(pool, adminId, "race-q", input());
+  const racing = overlappingPool(pool, 2);
+  onlyOneWins(
+    await Promise.allSettled([
+      createCategory(racing, adminId, "race-child", input({ parentId: p.id })),
+      updateCategory(
+        racing,
+        adminId,
+        p.id,
+        p.version,
+        input({ parentId: q.id }),
+      ),
+    ]),
+  );
+  assert.equal(await depthThreeRows(), 0);
+});
+
+test("the subtree count covers products in subcategories", async () => {
+  const top = await byslug("brakes");
+  assert.equal(top.products.published, 0);
+  // CAT-1 is published in brake-pads, a subcategory of brakes, but its
+  // category was deactivated above; publishing state still counts.
+  assert.equal(top.products.publishedInTree, 1);
 });
 
 test("slugs and names are validated", () => {
