@@ -143,10 +143,10 @@ export default function SiteHeader() {
                 <Link className="promotions-shortcut" href="/promotions">
                   Промоции <Icon name="spark" />
                 </Link>
-                {taxonomy.map(({ name: category, productCount }) => (
+                {taxonomy.map(({ id, name: category, productCount }) => (
                   <Link
-                    key={category}
-                    href={{ pathname: "/catalog", query: { category } }}
+                    key={id}
+                    href={{ pathname: "/catalog", query: { category: id } }}
                   >
                     {category === "Части и консумативи"
                       ? "Части"

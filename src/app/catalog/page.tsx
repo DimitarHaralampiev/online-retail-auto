@@ -1,11 +1,16 @@
 import Localize from "../../components/localize";
 import SiteHeader from "../../components/site-header";
 import SiteFooter from "../../components/site-footer";
+import { permanentRedirect } from "next/navigation";
 import Catalog from "../../components/catalog";
 import { currentCustomer } from "../../lib/accounts";
 import { MAX_COMPATIBLE_SKUS } from "../../lib/catalog";
 import { catalog } from "../../lib/catalog-server";
-import { browseQueryFor, parseCatalogUrl } from "../../lib/catalog-url";
+import {
+  browseQueryFor,
+  catalogHref,
+  parseCatalogUrl,
+} from "../../lib/catalog-url";
 import { getCustomerFeatures } from "../../lib/customer-features";
 import { requestLocale } from "../../lib/i18n/server";
 
@@ -18,22 +23,27 @@ export default async function CatalogPage({
   const store = catalog();
   // Only categories that exist are applied (and shown back to the visitor).
   const taxonomy = await store.taxonomy();
-  const category = taxonomy.find((c) => c.name === parsed.category);
+  // Categories are addressed by id; older links used the display name.
+  const category =
+    taxonomy.find((c) => c.id === parsed.category) ??
+    taxonomy.find((c) => c.name === parsed.category);
   const subcategory = taxonomy
-    .flatMap((c) => c.subcategories.map((s) => ({ ...s, parent: c.name })))
+    .flatMap((c) => c.subcategories.map((s) => ({ ...s, parent: c.id })))
     .find(
       (s) =>
-        s.id === parsed.subcategory &&
-        (!category || s.parent === category.name),
+        s.id === parsed.subcategory && (!category || s.parent === category.id),
     );
   const fitment = parsed.car ? await vehicleFitment() : undefined;
   // The state the server actually applied; links are built from it.
   const state = {
     ...parsed,
-    category: category?.name ?? subcategory?.parent ?? "",
+    category: category?.id ?? subcategory?.parent ?? "",
     subcategory: subcategory?.id ?? "",
     car: !!fitment,
   };
+  // An old link that named the category: send it to the one canonical URL.
+  if (category && parsed.category !== category.id)
+    permanentRedirect(catalogHref(state, { page: state.page }));
   const query = browseQueryFor(state, await requestLocale());
   const result = query
     ? await store.browse({ ...query, compatibleSkus: fitment })

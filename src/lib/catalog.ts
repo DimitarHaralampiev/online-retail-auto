@@ -8,12 +8,13 @@
 import type { Stock } from "./inventory";
 
 export type ProductSubcategory = { id: string; name: string };
+/** Top-level category; `id` is its stable slug, also used in catalog URLs. */
+export type ProductCategory = { id: string; name: string };
 
 export type Product = {
   sku: string;
   name: string;
-  /** Display name of the top-level category, also used in catalog URLs. */
-  category: string;
+  category: ProductCategory;
   subcategory: ProductSubcategory | null;
   description: string;
   image: string;
@@ -25,6 +26,7 @@ export type Product = {
 export type CatalogSubcategory = ProductSubcategory & { productCount: number };
 
 export type CatalogCategory = {
+  id: string;
   name: string;
   productCount: number;
   subcategories: CatalogSubcategory[];
@@ -37,7 +39,7 @@ export type BrowseSort = "featured" | "price-asc" | "price-desc" | "name";
 
 /** Structured catalog query; every filter is optional. */
 export type BrowseQuery = {
-  /** Top-level category display name. */
+  /** Top-level category id (slug). */
   category?: string;
   /** Subcategory id. */
   subcategory?: string;
@@ -163,19 +165,20 @@ export interface CatalogRepository {
 }
 
 /**
- * Builds the category tree with product counts in the given order. Categories
- * not listed in the order are appended, so counts always match the products.
+ * Builds the category tree with product counts in the given order of category
+ * ids. Categories not listed in the order are appended, so counts always
+ * match the products.
  */
 export function buildTaxonomy(
   products: readonly Product[],
   categoryOrder: readonly string[],
 ): CatalogTaxonomy {
-  const names = [
-    ...new Set([...categoryOrder, ...products.map((p) => p.category)]),
+  const ids = [
+    ...new Set([...categoryOrder, ...products.map((p) => p.category.id)]),
   ];
-  return names
-    .map((name) => {
-      const inCategory = products.filter((p) => p.category === name);
+  return ids
+    .map((id) => {
+      const inCategory = products.filter((p) => p.category.id === id);
       const subcategories = new Map<string, CatalogSubcategory>();
       for (const product of inCategory) {
         if (!product.subcategory) continue;
@@ -187,7 +190,8 @@ export function buildTaxonomy(
         subcategories.set(entry.id, entry);
       }
       return {
-        name,
+        id,
+        name: inCategory[0]?.category.name ?? id,
         productCount: inCategory.length,
         subcategories: [...subcategories.values()],
       };

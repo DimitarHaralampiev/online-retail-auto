@@ -37,7 +37,7 @@ export function filterProducts(
     : null;
   const filtered = products.filter(
     (p) =>
-      (!query.category || p.category === query.category) &&
+      (!query.category || p.category.id === query.category) &&
       (!query.subcategory || p.subcategory?.id === query.subcategory) &&
       (!query.available || availableStock(p.stock) > 0) &&
       (!query.promotions || !!getPromotion(p)) &&

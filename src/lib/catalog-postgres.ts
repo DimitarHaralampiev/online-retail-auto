@@ -35,6 +35,7 @@ type ProductRow = {
   category_slug: string;
   category_name: string;
   parent_name: string | null;
+  top_slug: string;
 };
 
 // $1: optional SKU filter (lookups, vehicle fitment). Names are Bulgarian;
@@ -102,11 +103,11 @@ const BROWSE_ORDER: Record<BrowseSort, string> = {
   name: `(CASE WHEN $9 = 'en' THEN name_en ELSE name END) COLLATE "und-x-icu", ${FEATURED_ORDER}`,
 };
 
-// $2 category name, $3 subcategory id, $4 text, $5/$6 price bounds,
+// $2 category id (top-level slug), $3 subcategory id, $4 text, $5/$6 price bounds,
 // $7 available only, $8 promotions only, $9 locale, $10 limit, $11 offset.
 const browseSql = (sort: BrowseSort) => `WITH ${VISIBLE_CTE}
 SELECT *, count(*) OVER () AS total FROM visible
-WHERE ($2::text IS NULL OR coalesce(parent_name, category_name) = $2)
+WHERE ($2::text IS NULL OR top_slug = $2)
   AND ($3::text IS NULL OR (parent_name IS NOT NULL AND category_slug = $3))
   AND ($4::text IS NULL
        OR position(lower($4) IN lower(name || ' ' || sku || ' ' || description)) > 0
@@ -121,21 +122,25 @@ LIMIT $10 OFFSET $11`;
 
 // Category counts computed in SQL, in display order.
 const TAXONOMY_SQL = `WITH ${VISIBLE_CTE}
-SELECT coalesce(parent_name, category_name) AS category,
+SELECT top_slug AS category_id,
+       min(coalesce(parent_name, category_name)) AS category,
        CASE WHEN parent_name IS NULL THEN NULL ELSE category_slug END AS sub_id,
-       CASE WHEN parent_name IS NULL THEN NULL ELSE category_name END AS sub_name,
-       min(top_sort) AS top_sort, min(top_slug) AS top_slug, min(sub_sort) AS sub_sort,
+       min(CASE WHEN parent_name IS NULL THEN NULL ELSE category_name END) AS sub_name,
+       min(top_sort) AS top_sort, min(sub_sort) AS sub_sort,
        count(*)::int AS products
 FROM visible
-GROUP BY 1, 2, 3
-ORDER BY 4, 5, 6, 2 NULLS FIRST`;
+GROUP BY top_slug, sub_id
+ORDER BY top_sort, top_slug, sub_sort, sub_id NULLS FIRST`;
 
 function toProduct(row: ProductRow): Product {
   const sub = row.parent_name !== null;
   return {
     sku: row.sku,
     name: row.name,
-    category: sub ? row.parent_name! : row.category_name,
+    category: {
+      id: row.top_slug,
+      name: sub ? row.parent_name! : row.category_name,
+    },
     subcategory: sub
       ? { id: row.category_slug, name: row.category_name }
       : null,
@@ -217,6 +222,7 @@ export function createPostgresCatalog(db: () => Queryable): CatalogRepository {
     },
     async taxonomy() {
       const result = await db().query<{
+        category_id: string;
         category: string;
         sub_id: string | null;
         sub_name: string | null;
@@ -225,8 +231,13 @@ export function createPostgresCatalog(db: () => Queryable): CatalogRepository {
       const taxonomy: CatalogTaxonomy = [];
       for (const row of result.rows) {
         let category = taxonomy.at(-1);
-        if (category?.name !== row.category) {
-          category = { name: row.category, productCount: 0, subcategories: [] };
+        if (category?.id !== row.category_id) {
+          category = {
+            id: row.category_id,
+            name: row.category,
+            productCount: 0,
+            subcategories: [],
+          };
           taxonomy.push(category);
         }
         category.productCount += row.products;

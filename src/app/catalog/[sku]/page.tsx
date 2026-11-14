@@ -27,7 +27,7 @@ export default async function ProductPage({
   const en = (await requestLocale()) === "en";
   const text = (bg: string, english: string) => (en ? english : bg);
   const related = (await store.listProducts()).filter(
-    (p) => p.sku !== sku && p.category === product.category,
+    (p) => p.sku !== sku && p.category.id === product.category.id,
   );
   return (
     <Localize>
@@ -43,10 +43,10 @@ export default async function ProductPage({
               <Link
                 href={{
                   pathname: "/catalog",
-                  query: { category: product.category },
+                  query: { category: product.category.id },
                 }}
               >
-                {product.category}
+                {product.category.name}
               </Link>
               {subcategory && (
                 <>
@@ -55,7 +55,7 @@ export default async function ProductPage({
                     href={{
                       pathname: "/catalog",
                       query: {
-                        category: product.category,
+                        category: product.category.id,
                         subcategory: subcategory.id,
                       },
                     }}
@@ -79,7 +79,7 @@ export default async function ProductPage({
                 <span className="product-demo-tag">ИЛЮСТРАЦИЯ</span>
               </div>
               <section className="product-detail-info">
-                <p className="eyebrow">{product.category}</p>
+                <p className="eyebrow">{product.category.name}</p>
                 <h1>{product.name}</h1>
                 <p className="intro">{product.description}</p>
                 <dl className="product-specs">
@@ -121,7 +121,7 @@ export default async function ProductPage({
                 <dl className="product-specs">
                   <div>
                     <dt>{text("Категория", "Category")}</dt>
-                    <dd>{product.category}</dd>
+                    <dd>{product.category.name}</dd>
                   </div>
                   <div>
                     <dt>SKU</dt>
@@ -176,7 +176,7 @@ export default async function ProductPage({
                   <Link
                     href={{
                       pathname: "/catalog",
-                      query: { category: product.category },
+                      query: { category: product.category.id },
                     }}
                   >
                     {text("Виж всички →", "View all →")}

@@ -92,13 +92,13 @@ async function both(query: BrowseQuery) {
   const postgres = createPostgresCatalog(() => db().pool);
   reference ??= createStaticCatalog(
     await postgres.listProducts(),
-    (await postgres.taxonomy()).map((c) => c.name),
+    (await postgres.taxonomy()).map((c) => c.id),
   );
   return Promise.all([postgres.browse(query), reference.browse(query)]);
 }
 
 const queries: [string, BrowseQuery][] = [
-  ["top-level product in its category", { category: "Части и консумативи" }],
+  ["top-level product in its category", { category: "parts-consumables" }],
   ["top-level slug is not a subcategory", { subcategory: "parts-consumables" }],
   ["minimum uses the price paid", { minPriceCents: 2500 }],
   ["exact maximum is included", { maxPriceCents: 1890 }],

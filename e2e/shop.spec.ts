@@ -399,3 +399,31 @@ test.describe("cart when product lookups fail", () => {
     ).toBeEnabled();
   });
 });
+
+test.describe("categories are addressed by id", () => {
+  test("header and menu links use category ids", async ({ page }) => {
+    await page.goto("/");
+    const hrefs = await page
+      .locator('a[href*="/catalog?category="]')
+      .evaluateAll((links) => links.map((a) => a.getAttribute("href")));
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) expect(href).toMatch(/category=[a-z-]+(&|$)/);
+  });
+
+  test("an old link with the category name still filters, then uses the id", async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto(
+      `/catalog?category=${encodeURIComponent("Автокозметика")}&sort=name`,
+    );
+    // Redirected to the one canonical URL, keeping the other filters.
+    await expect(page).toHaveURL(/\/catalog\?category=car-care&sort=name$/);
+    await expect(
+      page.getByRole("status").filter({ hasText: "продукт" }),
+    ).toHaveText(/^\s*2\s*продукта\s*$/);
+    if (isMobile) await page.getByRole("button", { name: /^Филтри/ }).click();
+    await page.getByText("Само налични").click();
+    await expect(page).toHaveURL(/category=car-care/);
+  });
+});

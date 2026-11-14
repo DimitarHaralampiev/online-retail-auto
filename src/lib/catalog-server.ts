@@ -32,7 +32,10 @@ export function catalogSource(
 
 function createCatalog(): CatalogRepository {
   if (catalogSource() === "static")
-    return createStaticCatalog(demoProducts, demoCategories);
+    return createStaticCatalog(
+      demoProducts,
+      demoCategories.map((c) => c.id),
+    );
   if (!process.env.DATABASE_URL)
     throw new Error("CATALOG_SOURCE=postgres requires DATABASE_URL.");
   const store = createPostgresCatalog(database);

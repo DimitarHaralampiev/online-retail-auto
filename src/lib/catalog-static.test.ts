@@ -17,7 +17,7 @@ import { createStaticCatalog } from "./catalog-static";
 
 function product(
   sku: string,
-  category: string,
+  category: Product["category"],
   subcategory: Product["subcategory"],
 ): Product {
   return {
@@ -32,19 +32,27 @@ function product(
   };
 }
 
+const parts = { id: "parts", name: "Части" };
+const accessories = { id: "accessories", name: "Аксесоари" };
 const filters = { id: "filters", name: "Филтри" };
 const wipers = { id: "wipers", name: "Чистачки" };
 const products = [
-  product("A", "Части", filters),
-  product("B", "Аксесоари", null),
-  product("C", "Части", wipers),
-  product("D", "Части", filters),
+  product("A", parts, filters),
+  product("B", accessories, null),
+  product("C", parts, wipers),
+  product("D", parts, filters),
 ];
 
 test("taxonomy keeps category order, counts products and omits empty categories", () => {
-  assert.deepEqual(buildTaxonomy(products, ["Аксесоари", "Празна", "Части"]), [
-    { name: "Аксесоари", productCount: 1, subcategories: [] },
+  assert.deepEqual(buildTaxonomy(products, ["accessories", "empty", "parts"]), [
     {
+      id: "accessories",
+      name: "Аксесоари",
+      productCount: 1,
+      subcategories: [],
+    },
+    {
+      id: "parts",
       name: "Части",
       productCount: 3,
       subcategories: [
@@ -57,16 +65,16 @@ test("taxonomy keeps category order, counts products and omits empty categories"
 
 test("categories missing from the configured order are appended, not dropped", () => {
   assert.deepEqual(
-    buildTaxonomy(products, ["Части"]).map((c) => [c.name, c.productCount]),
+    buildTaxonomy(products, ["parts"]).map((c) => [c.id, c.productCount]),
     [
-      ["Части", 3],
-      ["Аксесоари", 1],
+      ["parts", 3],
+      ["accessories", 1],
     ],
   );
 });
 
 test("static catalog finds products by SKU in request order", async () => {
-  const store = createStaticCatalog(products, ["Части", "Аксесоари"]);
+  const store = createStaticCatalog(products, ["parts", "accessories"]);
   assert.equal((await store.listProducts()).length, 4);
   assert.equal((await store.getProduct("C"))?.sku, "C");
   assert.equal(await store.getProduct("missing"), null);
@@ -78,14 +86,14 @@ test("static catalog finds products by SKU in request order", async () => {
 });
 
 test("listProducts returns a new array, so callers cannot add or remove products", async () => {
-  const store = createStaticCatalog(products, ["Части"]);
+  const store = createStaticCatalog(products, ["parts"]);
   (await store.listProducts()).pop();
   assert.equal((await store.listProducts()).length, 4);
 });
 
 test("product lookup resolves known SKUs only", () => {
   const lookup = productLookup(products);
-  assert.equal(lookup("B")?.category, "Аксесоари");
+  assert.equal(lookup("B")?.category.name, "Аксесоари");
   assert.equal(lookup("Z"), undefined);
 });
 
@@ -102,8 +110,8 @@ test("page window clamps page and size", () => {
 });
 
 test("static browse filters, sorts and paginates", async () => {
-  const store = createStaticCatalog(products, ["Части", "Аксесоари"]);
-  const page = await store.browse({ category: "Части", pageSize: 2, page: 2 });
+  const store = createStaticCatalog(products, ["parts", "accessories"]);
+  const page = await store.browse({ category: "parts", pageSize: 2, page: 2 });
   assert.deepEqual(
     page.items.map((p) => p.sku),
     ["D"],

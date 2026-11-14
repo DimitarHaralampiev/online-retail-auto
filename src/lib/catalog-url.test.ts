@@ -11,7 +11,7 @@ import {
 test("parses a full catalog URL", () => {
   assert.deepEqual(
     parseCatalogUrl({
-      category: "Автокозметика",
+      category: "car-care",
       subcategory: "washing",
       q: "  шампоан ",
       min: "5",
@@ -23,7 +23,7 @@ test("parses a full catalog URL", () => {
       page: "3",
     }),
     {
-      category: "Автокозметика",
+      category: "car-care",
       subcategory: "washing",
       q: "шампоан",
       min: "5",
@@ -104,18 +104,18 @@ test("builds the browse query for a locale and rejects invalid prices", () => {
 
 test("links keep state canonical and reset paging on filter changes", () => {
   const state = parseCatalogUrl({
-    category: "Автокозметика",
+    category: "car-care",
     page: "4",
     sort: "name",
   });
   assert.equal(catalogHref(EMPTY_CATALOG_STATE), "/catalog");
   assert.equal(
     catalogHref(state, { page: 5 }),
-    "/catalog?category=%D0%90%D0%B2%D1%82%D0%BE%D0%BA%D0%BE%D0%B7%D0%BC%D0%B5%D1%82%D0%B8%D0%BA%D0%B0&sort=name&page=5",
+    "/catalog?category=car-care&sort=name&page=5",
   );
   assert.equal(
     catalogHref(state, { available: true }),
-    "/catalog?category=%D0%90%D0%B2%D1%82%D0%BE%D0%BA%D0%BE%D0%B7%D0%BC%D0%B5%D1%82%D0%B8%D0%BA%D0%B0&available=1&sort=name",
+    "/catalog?category=car-care&available=1&sort=name",
   );
   // Round trip.
   const url = new URL(
@@ -182,7 +182,7 @@ test("the browse query carries every filter but never vehicle SKUs", () => {
 
 test("links carry every filter", () => {
   const all = parseCatalogUrl({
-    category: "Части и консумативи",
+    category: "parts-consumables",
     subcategory: "filters",
     q: "филтър",
     min: "1",
@@ -196,7 +196,7 @@ test("links carry every filter", () => {
   const href = catalogHref(all, { page: 2 });
   const url = new URL(href, "http://x");
   assert.deepEqual(Object.fromEntries(url.searchParams), {
-    category: "Части и консумативи",
+    category: "parts-consumables",
     subcategory: "filters",
     q: "филтър",
     min: "1",

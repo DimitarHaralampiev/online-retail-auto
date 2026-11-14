@@ -13,6 +13,7 @@ const featuredSkus = ["DEMO-001", "DEMO-003", "DEMO-005"];
 const categories = [
   {
     number: "01",
+    id: "car-accessories",
     title: "Автоаксесоари",
     line: "Твоят стил. Твоят комфорт.",
     image: "/images/organizer.png",
@@ -20,6 +21,7 @@ const categories = [
   },
   {
     number: "02",
+    id: "parts-consumables",
     title: "Части и консумативи",
     line: "Грижа, която има значение.",
     image: "/images/air-filter.png",
@@ -27,6 +29,7 @@ const categories = [
   },
   {
     number: "03",
+    id: "car-care",
     title: "Автокозметика",
     line: "Добрият вид е в детайлите.",
     image: "/images/car-shampoo.png",
@@ -134,7 +137,7 @@ export default async function Home() {
                     className="category-card"
                     href={{
                       pathname: "/catalog",
-                      query: { category: category.title },
+                      query: { category: category.id },
                     }}
                     key={category.number}
                   >

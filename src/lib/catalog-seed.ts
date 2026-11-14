@@ -9,11 +9,7 @@
 import { randomUUID } from "node:crypto";
 import type pg from "pg";
 import type { Product } from "./catalog";
-import {
-  demoCategories,
-  demoCategorySlugs,
-  demoProducts,
-} from "./catalog-demo-data";
+import { demoCategories, demoProducts } from "./catalog-demo-data";
 import { translate } from "./i18n/translate";
 
 /** Fixed id, so re-seeding updates the same demo promotion. */
@@ -181,25 +177,19 @@ export async function seedDemoCatalog(
       "SELECT pg_advisory_xact_lock(hashtext('demo-catalog-seed'))",
     );
     const categoryIds = new Map<string, string>();
-    for (const [index, name] of demoCategories.entries()) {
+    for (const [index, category] of demoCategories.entries()) {
       categoryIds.set(
-        name,
-        await upsertCategory(
-          client,
-          demoCategorySlugs[name],
-          name,
-          null,
-          index,
-        ),
+        category.id,
+        await upsertCategory(client, category.id, category.name, null, index),
       );
       summary.categories += 1;
     }
     const subcategoryIds = new Map<string, string>();
     const subcategoryCounts = new Map<string, number>();
     for (const product of products) {
-      const parentId = categoryIds.get(product.category);
+      const parentId = categoryIds.get(product.category.id);
       if (!parentId)
-        throw new Error(`Unknown demo category ${product.category}`);
+        throw new Error(`Unknown demo category ${product.category.id}`);
       let categoryId = parentId;
       if (product.subcategory) {
         const { id, name } = product.subcategory;
