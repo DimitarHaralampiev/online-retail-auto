@@ -102,6 +102,9 @@ export default async function AdminProductsPage({
                   {text("Филтрирай", "Filter")}
                 </button>
               </form>
+              <Link href="/admin/products/import" className="button">
+                {text("Импорт от CSV", "CSV import")}
+              </Link>
               <Link href="/admin/categories" className="button">
                 {text("Категории", "Categories")}
               </Link>
