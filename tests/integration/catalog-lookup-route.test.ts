@@ -45,3 +45,28 @@ test("rejects malformed or oversized requests", async () => {
   assert.equal((await get(`?${many}`)).status, 400);
   assert.equal((await get("")).status, 200);
 });
+
+test("returns names in the requested locale", async () => {
+  const en = await (await get("?sku=DEMO-003&locale=en")).json();
+  assert.equal(en.products[0].name, "Air filter");
+  const bg = await (await get("?sku=DEMO-003&locale=xx")).json();
+  assert.equal(bg.products[0].name, "Въздушен филтър");
+});
+
+test("without ?locale= the language cookie decides; an explicit locale wins", async () => {
+  const withCookie = (query: string) =>
+    GET(
+      new Request(`http://localhost/api/catalog/products${query}`, {
+        headers: { cookie: "auto_locale=en" },
+      }),
+    );
+  assert.equal(
+    (await (await withCookie("?sku=DEMO-003")).json()).products[0].name,
+    "Air filter",
+  );
+  assert.equal(
+    (await (await withCookie("?sku=DEMO-003&locale=bg")).json()).products[0]
+      .name,
+    "Въздушен филтър",
+  );
+});

@@ -20,13 +20,18 @@ export default async function CatalogPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const parsed = parseCatalogUrl(await searchParams);
-  const store = catalog();
+  const locale = await requestLocale();
+  const store = catalog(locale);
   // Only categories that exist are applied (and shown back to the visitor).
   const taxonomy = await store.taxonomy();
-  // Categories are addressed by id; older links used the display name.
-  const category =
-    taxonomy.find((c) => c.id === parsed.category) ??
-    taxonomy.find((c) => c.name === parsed.category);
+  // Categories are addressed by id. Older links used the Bulgarian display
+  // name, whatever the visitor's language: resolve those to the id.
+  const legacyId =
+    taxonomy.some((c) => c.id === parsed.category) || !parsed.category
+      ? undefined
+      : (await catalog().taxonomy()).find((c) => c.name === parsed.category)
+          ?.id;
+  const category = taxonomy.find((c) => c.id === (legacyId ?? parsed.category));
   const subcategory = taxonomy
     .flatMap((c) => c.subcategories.map((s) => ({ ...s, parent: c.id })))
     .find(
@@ -44,7 +49,7 @@ export default async function CatalogPage({
   // An old link that named the category: send it to the one canonical URL.
   if (category && parsed.category !== category.id)
     permanentRedirect(catalogHref(state, { page: state.page }));
-  const query = browseQueryFor(state, await requestLocale());
+  const query = browseQueryFor(state, locale);
   const result = query
     ? await store.browse({ ...query, compatibleSkus: fitment })
     : null;

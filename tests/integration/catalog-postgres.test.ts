@@ -212,3 +212,56 @@ test("falls back to the English category name before the slug", async () => {
   });
   assert.equal((await store().taxonomy()).at(-1)?.name, "Car care");
 });
+
+test("in English, names come from English translations and match the static catalog", async () => {
+  const en = createPostgresCatalog(() => db().pool, "en");
+  const referenceEn = createStaticCatalog(
+    seededDemo,
+    demoCategories.map((c) => c.id),
+    "en",
+  );
+  assert.deepEqual(await en.listProducts(), await referenceEn.listProducts());
+  assert.deepEqual(await en.taxonomy(), await referenceEn.taxonomy());
+  const filter = await en.getProduct("DEMO-003");
+  assert.equal(filter?.name, "Air filter");
+  assert.deepEqual(filter?.category, {
+    id: "parts-consumables",
+    name: "Parts and consumables",
+  });
+  assert.deepEqual(filter?.subcategory, { id: "filters", name: "Filters" });
+});
+
+test("in English, a product without an English translation falls back to Bulgarian", async () => {
+  await db().pool.query(
+    "DELETE FROM product_translations WHERE sku='DEMO-001' AND locale='en'",
+  );
+  const en = createPostgresCatalog(() => db().pool, "en");
+  assert.equal(
+    (await en.getProduct("DEMO-001"))?.name,
+    "Органайзер за багажник",
+  );
+});
+
+test("in English, a category without an English name falls back to Bulgarian, then the slug", async () => {
+  await db().pool.query(
+    `DELETE FROM category_translations WHERE locale='en'
+     AND category_id IN (SELECT id FROM product_categories WHERE slug IN ('car-care','washing'))`,
+  );
+  await db().pool.query(
+    `DELETE FROM category_translations WHERE locale='bg'
+     AND category_id IN (SELECT id FROM product_categories WHERE slug='washing')`,
+  );
+  const en = createPostgresCatalog(() => db().pool, "en");
+  const shampoo = await en.getProduct("DEMO-005");
+  assert.deepEqual(shampoo?.category, {
+    id: "car-care",
+    name: "Автокозметика",
+  });
+  assert.deepEqual(shampoo?.subcategory, { id: "washing", name: "washing" });
+  const care = (await en.taxonomy()).find((c) => c.id === "car-care");
+  assert.equal(care?.name, "Автокозметика");
+  assert.equal(
+    care?.subcategories.find((s) => s.id === "washing")?.name,
+    "washing",
+  );
+});

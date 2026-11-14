@@ -1,3 +1,4 @@
+import { requestLocale } from "../lib/i18n/server";
 import Localize from "../components/localize";
 import Image from "next/image";
 import Link from "next/link";
@@ -38,7 +39,9 @@ const categories = [
 ];
 
 export default async function Home() {
-  const featured = await catalog().getProducts(featuredSkus);
+  const featured = await catalog(await requestLocale()).getProducts(
+    featuredSkus,
+  );
   return (
     <Localize>
       {

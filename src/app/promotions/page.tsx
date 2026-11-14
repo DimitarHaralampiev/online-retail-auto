@@ -1,3 +1,4 @@
+import { requestLocale } from "../../lib/i18n/server";
 import Localize from "../../components/localize";
 import Link from "next/link";
 import SiteHeader from "../../components/site-header";
@@ -8,8 +9,8 @@ import { catalog } from "../../lib/catalog-server";
 import { getPromotion } from "../../lib/pricing";
 
 export default async function PromotionsPage() {
-  const products = (await catalog().listProducts()).filter((product) =>
-    getPromotion(product),
+  const products = (await catalog(await requestLocale()).listProducts()).filter(
+    (product) => getPromotion(product),
   );
   return (
     <Localize>

@@ -3,6 +3,7 @@
 // is used (builds and browser tests run without a database).
 import { cache } from "react";
 import { database } from "./accounts";
+import type { Locale } from "./i18n/locale";
 import {
   productLookup,
   type Product,
@@ -30,15 +31,16 @@ export function catalogSource(
   );
 }
 
-function createCatalog(): CatalogRepository {
+function createCatalog(locale: Locale): CatalogRepository {
   if (catalogSource() === "static")
     return createStaticCatalog(
       demoProducts,
       demoCategories.map((c) => c.id),
+      locale,
     );
   if (!process.env.DATABASE_URL)
     throw new Error("CATALOG_SOURCE=postgres requires DATABASE_URL.");
-  const store = createPostgresCatalog(database);
+  const store = createPostgresCatalog(database, locale);
   // The layout and page both read the catalog; cache() shares results within
   // one server render (it is a pass-through elsewhere).
   return {
@@ -48,10 +50,20 @@ function createCatalog(): CatalogRepository {
   };
 }
 
-let repository: CatalogRepository | undefined;
+const repositories = new Map<Locale, CatalogRepository>();
 
-export function catalog(): CatalogRepository {
-  return (repository ??= createCatalog());
+/**
+ * The catalog with names and descriptions in `locale`. Storefront pages pass
+ * the visitor's locale; business logic (orders, emails) uses the default,
+ * Bulgarian, the store's language.
+ */
+export function catalog(locale: Locale = "bg"): CatalogRepository {
+  let repository = repositories.get(locale);
+  if (!repository) {
+    repository = createCatalog(locale);
+    repositories.set(locale, repository);
+  }
+  return repository;
 }
 
 /**

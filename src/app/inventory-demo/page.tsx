@@ -1,3 +1,4 @@
+import { requestLocale } from "../../lib/i18n/server";
 import Localize from "../../components/localize";
 import SiteHeader from "../../components/site-header";
 import SiteFooter from "../../components/site-footer";
@@ -5,7 +6,7 @@ import InventoryDemo from "../../components/inventory-demo";
 import { catalog } from "../../lib/catalog-server";
 
 export default async function InventoryDemoPage() {
-  const products = await catalog().listProducts();
+  const products = await catalog(await requestLocale()).listProducts();
   return (
     <Localize>
       {

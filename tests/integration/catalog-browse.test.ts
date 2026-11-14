@@ -90,3 +90,21 @@ test("text with SQL wildcards and quotes is matched literally", async () => {
   for (const text of ["%", "_", "'", "\\", "' OR 1=1 --"])
     assert.equal((await postgres().browse({ text })).total, 0, text);
 });
+
+for (const query of queries)
+  test(`in English, PostgreSQL browse matches the static catalog: ${JSON.stringify(query)}`, async () => {
+    const en = createPostgresCatalog(() => db().pool, "en");
+    const referenceEn = createStaticCatalog(
+      demoProducts.map((p): Product => ({
+        ...p,
+        stock: { onHand: p.stock.onHand - p.stock.reserved, reserved: 0 },
+      })),
+      demoCategories.map((c) => c.id),
+      "en",
+    );
+    const [actual, expected] = await Promise.all([
+      en.browse(query),
+      referenceEn.browse(query),
+    ]);
+    assert.deepEqual(actual, expected);
+  });
