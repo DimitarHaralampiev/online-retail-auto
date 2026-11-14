@@ -143,13 +143,6 @@ export type AdminProduct = ProductInput & {
   updatedAt: string;
 };
 
-export type AdminCategory = {
-  id: string;
-  name: string;
-  parentId: string | null;
-  active: boolean;
-};
-
 export const listQuerySchema = z.object({
   status: z.enum(["draft", "published", "archived"]).optional(),
   q: z.string().trim().max(100).optional(),
@@ -259,24 +252,6 @@ export async function getAdminProduct(
 ): Promise<AdminProduct | null> {
   const result = await db.query<ProductRow>(PRODUCT_SQL, [sku]);
   return result.rows[0] ? toAdminProduct(result.rows[0]) : null;
-}
-
-/** Categories a product can be filed under (two levels, as the storefront). */
-export async function listAdminCategories(
-  db: Pick<pg.Pool, "query">,
-): Promise<AdminCategory[]> {
-  const result = await db.query<AdminCategory>(
-    `SELECT c.id, coalesce(t.name, c.slug) AS name, c.parent_id AS "parentId",
-            c.active
-     FROM product_categories c
-     LEFT JOIN product_categories parent ON parent.id = c.parent_id
-     LEFT JOIN category_translations t ON t.category_id = c.id AND t.locale = 'bg'
-     WHERE parent.id IS NULL OR parent.parent_id IS NULL
-     ORDER BY coalesce(parent.sort_order, c.sort_order),
-              coalesce(parent.slug, c.slug), c.parent_id NULLS FIRST,
-              c.sort_order, c.slug`,
-  );
-  return result.rows;
 }
 
 async function transaction<T>(

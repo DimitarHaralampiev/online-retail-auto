@@ -79,7 +79,9 @@ async function upsertCategory(
     `INSERT INTO product_categories(id,slug,parent_id,sort_order,active,is_demo)
      VALUES($1,$2,$3,$4,true,true)
      ON CONFLICT(slug) DO UPDATE SET parent_id=EXCLUDED.parent_id,
-       sort_order=EXCLUDED.sort_order
+       sort_order=EXCLUDED.sort_order,
+       content_version=product_categories.content_version + 1,
+       content_updated_at=now()
      WHERE product_categories.is_demo
      RETURNING id`,
     [randomUUID(), slug, parentId, sortOrder],

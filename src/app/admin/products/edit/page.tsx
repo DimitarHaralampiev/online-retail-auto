@@ -4,10 +4,10 @@ import { database } from "../../../../lib/accounts";
 import { currentAdmin } from "../../../../lib/admin-product-http";
 import {
   getAdminProduct,
-  listAdminCategories,
   productHistory,
   skuSchema,
 } from "../../../../lib/admin-products";
+import { listAdminCategories } from "../../../../lib/admin-categories";
 import { requestLocale } from "../../../../lib/i18n/server";
 import SiteHeader from "../../../../components/site-header";
 import SiteFooter from "../../../../components/site-footer";

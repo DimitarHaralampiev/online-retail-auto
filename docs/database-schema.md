@@ -558,13 +558,15 @@ Constraints:
 
 ## product_categories
 
-| Column     | Type    | Nullable | Default |
-| ---------- | ------- | -------- | ------- |
-| id         | uuid    | NO       | —       |
-| slug       | text    | NO       | —       |
-| parent_id  | uuid    | YES      | —       |
-| sort_order | integer | NO       | 0       |
-| active     | boolean | NO       | true    |
+| Column             | Type                     | Nullable | Default |
+| ------------------ | ------------------------ | -------- | ------- |
+| id                 | uuid                     | NO       | —       |
+| slug               | text                     | NO       | —       |
+| parent_id          | uuid                     | YES      | —       |
+| sort_order         | integer                  | NO       | 0       |
+| active             | boolean                  | NO       | true    |
+| content_version    | integer                  | NO       | 1       |
+| content_updated_at | timestamp with time zone | NO       | now()   |
 
 Constraints:
 

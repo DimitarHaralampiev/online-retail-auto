@@ -4,7 +4,6 @@ import {
   AdminProductError,
   createProduct,
   getAdminProduct,
-  listAdminCategories,
   listAdminProducts,
   productHistory,
   productInputSchema,
@@ -12,6 +11,7 @@ import {
   updateProduct,
   type ProductInput,
 } from "../../src/lib/admin-products";
+import { listAdminCategories } from "../../src/lib/admin-categories";
 import { adminProductError } from "../../src/lib/admin-product-http";
 import { createPostgresCatalog } from "../../src/lib/catalog-postgres";
 import { seedDemoCatalog } from "../../src/lib/catalog-seed";
@@ -365,10 +365,11 @@ test("lists by status and search, escaping LIKE wildcards", async () => {
   assert.ok(all.total >= 8);
 });
 
-test("lists categories up to two levels", async () => {
+test("lists categories, including too-deep legacy rows", async () => {
   const categories = await listAdminCategories(db().pool);
   assert.ok(categories.some((c) => c.id === categoryId));
-  assert.ok(!categories.some((c) => c.name === "too-deep"));
+  // Legacy rows deeper than two levels are listed so an admin can move them.
+  assert.ok(categories.some((c) => c.slug === "too-deep"));
 });
 
 test("input validation rejects bad codes, barcodes and image paths", () => {
