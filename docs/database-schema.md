@@ -294,17 +294,19 @@ Constraints:
 
 ## garage_vehicles
 
-| Column      | Type                     | Nullable | Default  |
-| ----------- | ------------------------ | -------- | -------- |
-| id          | uuid                     | NO       | —        |
-| customer_id | uuid                     | NO       | —        |
-| nickname    | text                     | NO       | ''::text |
-| make        | text                     | NO       | —        |
-| model       | text                     | NO       | —        |
-| year        | integer                  | NO       | —        |
-| engine      | text                     | NO       | —        |
-| is_selected | boolean                  | NO       | false    |
-| created_at  | timestamp with time zone | NO       | now()    |
+| Column        | Type                     | Nullable | Default  |
+| ------------- | ------------------------ | -------- | -------- |
+| id            | uuid                     | NO       | —        |
+| customer_id   | uuid                     | NO       | —        |
+| nickname      | text                     | NO       | ''::text |
+| make          | text                     | NO       | —        |
+| model         | text                     | NO       | —        |
+| year          | integer                  | NO       | —        |
+| engine        | text                     | NO       | —        |
+| is_selected   | boolean                  | NO       | false    |
+| created_at    | timestamp with time zone | NO       | now()    |
+| generation_id | uuid                     | YES      | —        |
+| engine_id     | uuid                     | YES      | —        |
 
 Constraints:
 
