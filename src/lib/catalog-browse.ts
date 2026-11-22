@@ -43,6 +43,8 @@ export function filterProducts(
       (!query.available || availableStock(p.stock) > 0) &&
       (!query.promotions || !!getPromotion(p)) &&
       (!compatible || compatible.has(p.sku)) &&
+      // Products carry no brand here (static demo): a brand filter matches none.
+      !query.brands?.length &&
       (query.minPriceCents === undefined ||
         sellingPrice(p) >= query.minPriceCents) &&
       (query.maxPriceCents === undefined ||

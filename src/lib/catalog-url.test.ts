@@ -31,6 +31,7 @@ test("parses a full catalog URL", () => {
       available: true,
       promotions: true,
       car: true,
+      brands: [],
       sort: "price-desc",
       page: 3,
     },
@@ -91,6 +92,7 @@ test("builds the browse query for a locale and rejects invalid prices", () => {
     maxPriceCents: undefined,
     available: false,
     promotions: false,
+    brands: undefined,
     sort: "name",
     locale: "en",
     page: 2,
@@ -208,4 +210,34 @@ test("links carry every filter", () => {
     page: "2",
   });
   assert.deepEqual(parseCatalogUrl(Object.fromEntries(url.searchParams)), all);
+});
+
+test("brands are repeatable, validated, sorted and round-trip", () => {
+  assert.deepEqual(parseCatalogUrl({ brand: "valeo" }).brands, ["valeo"]);
+  assert.deepEqual(
+    parseCatalogUrl({ brand: ["valeo", "bosch", "valeo", "Bad Key", "x'--"] })
+      .brands,
+    ["bosch", "valeo"],
+  );
+  assert.deepEqual(parseCatalogUrl({}).brands, []);
+  const state = parseCatalogUrl({ brand: ["valeo", "bosch"], q: "филтър" });
+  const href = catalogHref(state);
+  assert.equal(
+    href,
+    "/catalog?q=%D1%84%D0%B8%D0%BB%D1%82%D1%8A%D1%80&brand=bosch&brand=valeo",
+  );
+  const back = Object.fromEntries(
+    [...new URL(href, "http://x").searchParams.keys()].map((key) => [
+      key,
+      new URL(href, "http://x").searchParams.getAll(key),
+    ]),
+  );
+  assert.deepEqual(parseCatalogUrl(back).brands, ["bosch", "valeo"]);
+  assert.deepEqual(browseQueryFor(state, "bg")?.brands, ["bosch", "valeo"]);
+  assert.equal(browseQueryFor(parseCatalogUrl({}), "bg")?.brands, undefined);
+  // Changing brands returns to the first page.
+  assert.equal(
+    catalogHref({ ...state, page: 3 }, { brands: [] }),
+    "/catalog?q=%D1%84%D0%B8%D0%BB%D1%82%D1%8A%D1%80",
+  );
 });

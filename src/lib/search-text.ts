@@ -26,3 +26,10 @@ export function latinize(value: string): string {
   }
   return out.normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
+
+/** Facet key of a brand ("Bosch Car Service" → "bosch-car-service"). */
+export function brandKey(brand: string): string {
+  return latinize(brand)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
