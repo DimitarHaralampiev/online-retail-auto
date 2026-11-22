@@ -264,6 +264,10 @@ test("spreadsheet quirks: trailing delimiters and delimiter-only rows", async ()
     report.rows.map((r) => [r.sku, r.action]),
     [["IMP-1", "update"]],
   );
+  assert.match(
+    (await run("sku;;price\nIMP-1;;1\n")).error!,
+    /\(празна колона\)/,
+  );
   const extra = await run("sku,price\nIMP-1,11.00,surprise\n");
   assert.match(extra.rows[0].errors[0], /повече клетки/);
 });

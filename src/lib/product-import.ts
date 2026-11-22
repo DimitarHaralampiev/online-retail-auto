@@ -284,7 +284,9 @@ export async function importProducts(
     (name) => !(IMPORT_COLUMNS as readonly string[]).includes(name),
   );
   if (unknown.length)
-    return emptyReport(`Непознати колони: ${unknown.join(", ")}.`);
+    return emptyReport(
+      `Непознати колони: ${unknown.map((name) => name || "(празна колона)").join(", ")}.`,
+    );
   if (!table.header.includes("sku")) return emptyReport("Липсва колона sku.");
   if (new Set(table.header).size !== table.header.length)
     return emptyReport("Има повторени колони.");
