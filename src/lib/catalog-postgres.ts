@@ -69,6 +69,7 @@ visible AS (
               THEN s.sale_cents ELSE w.selling_price_cents END AS pay_cents,
          w.on_hand,
          w.reserved,
+         w.universal_fit,
          c.slug AS category_slug,
          coalesce(ct.name, cte.name, c.slug) AS category_name,
          coalesce(pt.name, pte.name, parent.slug) AS parent_name,
@@ -111,7 +112,10 @@ const BROWSE_ORDER: Record<BrowseSort, string> = {
 };
 
 // $2 category id (top-level slug), $3 subcategory id, $4 text, $5/$6 price bounds,
-// $7 available only, $8 promotions only, $9 locale, $10 limit, $11 offset.
+// $7 available only, $8 promotions only, $9 locale, $10 limit, $11 offset,
+// $12/$13/$14 vehicle generation, engine and year (ADR 0002: generation-wide
+// fitments, the chosen engine's, year-limited ones only with a known year,
+// and universal products).
 const browseSql = (sort: BrowseSort) => `WITH ${VISIBLE_CTE}
 SELECT *, count(*) OVER () AS total FROM visible
 WHERE ($2::text IS NULL OR top_slug = $2)
@@ -124,6 +128,12 @@ WHERE ($2::text IS NULL OR top_slug = $2)
   AND ($6::int IS NULL OR pay_cents <= $6)
   AND (NOT $7::boolean OR on_hand - reserved > 0)
   AND (NOT $8::boolean OR sale_cents < price_cents)
+  AND ($12::uuid IS NULL OR universal_fit OR EXISTS (
+        SELECT 1 FROM product_vehicle_fitments f
+        WHERE f.sku = visible.sku AND f.generation_id = $12
+          AND (f.engine_id IS NULL OR f.engine_id = $13::uuid)
+          AND (f.year_from IS NULL OR f.year_from <= $14::int)
+          AND (f.year_to IS NULL OR f.year_to >= $14::int)))
 ORDER BY ${BROWSE_ORDER[sort]}
 LIMIT $10 OFFSET $11`;
 
@@ -197,6 +207,9 @@ export function createPostgresCatalog(
       query.locale ?? "bg",
       limit,
       offset,
+      query.vehicle?.generationId ?? null,
+      query.vehicle?.engineId ?? null,
+      query.vehicle?.year ?? null,
     ];
     const result = await db().query<ProductRow & { total: string }>(
       browseSql(sort),

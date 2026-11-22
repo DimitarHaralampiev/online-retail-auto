@@ -14,9 +14,9 @@ import {
   type CatalogUrlState,
 } from "../lib/catalog-url";
 import { useCatalog } from "./catalog-provider";
-import { useCustomerFeatures } from "./customer-provider";
 import { useLocale } from "./locale-provider";
 import ProductCard from "./product-card";
+import type { FitStatus } from "../lib/vehicles";
 
 const TYPING_DELAY_MS = 300;
 
@@ -24,12 +24,21 @@ export default function Catalog({
   state,
   result,
   carFilter,
+  vehicle,
+  fit = {},
 }: {
   state: CatalogUrlState;
   /** Null when the URL's price range is invalid. */
   result: BrowsePage | null;
   /** Whether the vehicle filter was applied by the server. */
   carFilter: boolean;
+  /**
+   * The car chosen in the vehicle selector; undefined when the catalog has
+   * no vehicle reference (static demo), label null when none is chosen.
+   */
+  vehicle?: { label: string | null };
+  /** Fit status per SKU for the chosen car (ADR 0002). */
+  fit?: Record<string, FitStatus>;
 }) {
   const { t, locale } = useLocale();
   const en = locale === "en";
@@ -40,8 +49,6 @@ export default function Catalog({
   const subcategories = taxonomy.flatMap((c) =>
     c.subcategories.map((s) => ({ ...s, category: c.id })),
   );
-  const { data, ready } = useCustomerFeatures();
-  const selectedVehicle = data.vehicles.find((v) => v.selected);
   const [view, setView] = useState("grid");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -304,38 +311,40 @@ export default function Catalog({
                 />
                 {text("Само промоции", "Only promotions")}
               </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={carFilter}
-                  disabled={!ready || !selectedVehicle}
-                  onChange={(e) => navigate({ car: e.target.checked })}
-                />
-                {t("Само за моя автомобил")}
-              </label>
+              {vehicle && (
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={carFilter}
+                    disabled={!vehicle.label}
+                    onChange={(e) => navigate({ car: e.target.checked })}
+                  />
+                  {t("Само за моя автомобил")}
+                </label>
+              )}
             </div>
-            <div className="catalog-vehicle-note">
-              {selectedVehicle ? (
-                <>
-                  <strong>
-                    {selectedVehicle.make} {selectedVehicle.model}
-                  </strong>
+            {vehicle && (
+              <div className="catalog-vehicle-note">
+                {vehicle.label ? (
+                  <strong>{vehicle.label}</strong>
+                ) : (
                   <p>
-                    {selectedVehicle.year} · {selectedVehicle.engine}
+                    {text(
+                      "Избери автомобила си от „Моят автомобил“ отгоре.",
+                      "Choose your car in “My car” above.",
+                    )}
                   </p>
-                </>
-              ) : (
-                <Link href="/garage">{t("Добави и избери автомобил →")}</Link>
-              )}
-              {carFilter && (
-                <p>
-                  {text(
-                    "Показваме само проверена съвместимост.",
-                    "Only verified compatibility is shown.",
-                  )}
-                </p>
-              )}
-            </div>
+                )}
+                {carFilter && (
+                  <p>
+                    {text(
+                      "Показваме само проверена съвместимост и универсални продукти.",
+                      "Only verified compatibility and universal products are shown.",
+                    )}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </aside>
         <div className="catalog-browse-results" aria-busy={pending}>
@@ -437,7 +446,11 @@ export default function Catalog({
             className={`product-grid ${view === "list" ? "catalog-list-view" : ""}`}
           >
             {products.map((product) => (
-              <ProductCard key={product.sku} product={product} />
+              <ProductCard
+                key={product.sku}
+                product={product}
+                fit={fit[product.sku]}
+              />
             ))}
           </div>
           {result && result.pageCount > 1 && products.length > 0 && (

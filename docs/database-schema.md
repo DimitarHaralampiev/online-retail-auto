@@ -577,22 +577,6 @@ Constraints:
 - `PRIMARY KEY (id)`
 - `UNIQUE (slug)`
 
-## product_fitments
-
-| Column    | Type    | Nullable | Default |
-| --------- | ------- | -------- | ------- |
-| sku       | text    | NO       | —       |
-| make      | text    | NO       | —       |
-| model     | text    | NO       | —       |
-| engine    | text    | NO       | —       |
-| year_from | integer | NO       | —       |
-| year_to   | integer | NO       | —       |
-
-Constraints:
-
-- `CHECK ((year_to >= year_from))`
-- `PRIMARY KEY (sku, make, model, engine, year_from, year_to)`
-
 ## product_images
 
 | Column      | Type    | Nullable | Default     |

@@ -4141,3 +4141,21 @@ select {
   flex-direction: row;
   align-items: center;
 }
+
+/* Vehicle fit badges on product cards */
+.fit-badge {
+  display: inline-block;
+  margin: 0 0 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  border: 1px solid currentColor;
+}
+.fit-badge.fit-fits {
+  color: #1f6b3a;
+}
+.fit-badge.fit-universal {
+  color: #2d4f7c;
+}
+.fit-badge.fit-check {
+  color: #7a5200;
+}

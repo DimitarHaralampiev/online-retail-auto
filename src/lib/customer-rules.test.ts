@@ -3,11 +3,9 @@ import assert from "node:assert/strict";
 import {
   customerActionSchema,
   customerActionSkus,
-  fitmentMatches,
   prepareRepeatOrder,
   todayInSofia,
   reminderSchema,
-  type Vehicle,
 } from "./customer-rules";
 import { registrationSchema } from "./account-schema";
 import { readGuestFavorites } from "./guest-favorites";
@@ -108,27 +106,6 @@ test("customer actions list the SKUs that must exist in the catalog", () => {
     ),
     [],
   );
-});
-test("fitment requires matching engine, model and inclusive year range", () => {
-  const v: Vehicle = {
-    id: "test",
-    nickname: "",
-    make: " VW ",
-    model: "Golf VII",
-    year: 2018,
-    engine: "1.6 TDI",
-    selected: true,
-  };
-  const f = {
-    make: "vw",
-    model: "Golf VII",
-    engine: "1.6 TDI",
-    year_from: 2013,
-    year_to: 2018,
-  };
-  assert.equal(fitmentMatches(v, f), true);
-  assert.equal(fitmentMatches({ ...v, year: 2019 }, f), false);
-  assert.equal(fitmentMatches({ ...v, engine: "2.0 TDI" }, f), false);
 });
 test("repeat order uses current free stock, combines duplicates and skips missing products", () => {
   const result = prepareRepeatOrder(

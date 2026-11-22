@@ -5,7 +5,6 @@ import {
 import {
   customerActionSchema,
   customerActionSkus,
-  fitmentMatches,
   type CustomerFeatures,
 } from "./customer-rules";
 import { randomUUID } from "node:crypto";
@@ -39,18 +38,6 @@ export async function getCustomerFeatures(
       customerId,
     ]),
   ]);
-  const selected = vehicles.rows.find((v) => v.selected);
-  let compatibleSkus: string[] = [];
-  if (selected) {
-    const fitments = await db.query("SELECT * FROM product_fitments");
-    compatibleSkus = [
-      ...new Set(
-        fitments.rows
-          .filter((f) => fitmentMatches(selected, f))
-          .map((f) => f.sku),
-      ),
-    ];
-  }
   return {
     preferences:
       notificationPreferencesSchema.safeParse(
@@ -60,7 +47,6 @@ export async function getCustomerFeatures(
     alerts: alerts.rows,
     vehicles: vehicles.rows,
     reminders: reminders.rows,
-    compatibleSkus,
   };
 }
 export async function mutateCustomerFeatures(

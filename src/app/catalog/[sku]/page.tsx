@@ -11,7 +11,9 @@ import ProductPrice from "../../../components/product-price";
 
 import ProductActions from "../../../components/product-actions";
 import ProductCard from "../../../components/product-card";
-import { catalog } from "../../../lib/catalog-server";
+import { catalog, catalogSource } from "../../../lib/catalog-server";
+import { database } from "../../../lib/accounts";
+import { productFitInfo, type ProductFitment } from "../../../lib/vehicles";
 import { requestLocale } from "../../../lib/i18n/server";
 
 export default async function ProductPage({
@@ -27,6 +29,16 @@ export default async function ProductPage({
   const subcategory = product.subcategory;
   const en = locale === "en";
   const text = (bg: string, english: string) => (en ? english : bg);
+  // Verified fitment lives with the vehicle reference in PostgreSQL.
+  const fitInfo =
+    catalogSource() === "postgres"
+      ? await productFitInfo(database(), sku).catch(() => null)
+      : null;
+  const years = (f: ProductFitment) => {
+    const from = f.fitYearFrom ?? f.yearFrom;
+    const to = f.fitYearTo ?? f.yearTo;
+    return `${from}–${to ?? text("днес", "today")}`;
+  };
   const related = (await store.listProducts()).filter(
     (p) => p.sku !== sku && p.category.id === product.category.id,
   );
@@ -140,12 +152,49 @@ export default async function ProductPage({
                 <summary>
                   {text("Съвместимост с автомобил", "Vehicle compatibility")}
                 </summary>
-                <p>
-                  {text(
-                    "Проверената съвместимост за този демонстрационен продукт още не е въведена. Не избирай част само по снимката. Запази точния модел, година и двигател в гаража си.",
-                    "Verified compatibility for this demo product has not been entered yet. Do not choose a part based only on its photo. Save the exact model, year and engine in your garage.",
-                  )}
-                </p>
+                {fitInfo?.universal ? (
+                  <p>
+                    {text(
+                      "Универсален продукт — подходящ за всеки автомобил.",
+                      "Universal product — fits every vehicle.",
+                    )}
+                  </p>
+                ) : fitInfo?.fitments.length ? (
+                  <div className="table-wrapper">
+                    <table>
+                      <caption className="visually-hidden">
+                        {text("Проверена съвместимост", "Verified fitment")}
+                      </caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">{text("Автомобил", "Vehicle")}</th>
+                          <th scope="col">{text("Години", "Years")}</th>
+                          <th scope="col">{text("Двигател", "Engine")}</th>
+                          <th scope="col">{text("Бележка", "Note")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {fitInfo.fitments.map((f, index) => (
+                          <tr key={index}>
+                            <td>
+                              {f.make} {f.model} {f.generation}
+                            </td>
+                            <td>{years(f)}</td>
+                            <td>{f.engine ?? text("Всички", "All")}</td>
+                            <td>{f.notes || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p>
+                    {text(
+                      "Проверената съвместимост за този продукт още не е въведена. Не избирай част само по снимката. Запази точния модел, година и двигател в гаража си.",
+                      "Verified compatibility for this product has not been entered yet. Do not choose a part based only on its photo. Save the exact model, year and engine in your garage.",
+                    )}
+                  </p>
+                )}
                 <Link href="/garage" className="text-link">
                   {text("Към моя гараж →", "Go to my garage →")}
                 </Link>

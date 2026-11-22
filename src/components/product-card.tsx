@@ -7,11 +7,25 @@ import Icon from "./icon";
 import AddToCart from "./add-to-cart";
 import ProductPrice from "./product-price";
 import { getPromotion } from "../lib/pricing";
+import type { FitStatus } from "../lib/vehicles";
 
 import ProductActions from "./product-actions";
 import ProductQuickView from "./product-quick-view";
 
-export default function ProductCard({ product }: { product: Product }) {
+const FIT_LABELS: Record<FitStatus, [string, string]> = {
+  fits: ["Подходящ за твоя автомобил", "fits"],
+  universal: ["Универсален", "universal"],
+  check: ["Провери съвместимостта", "check"],
+};
+
+export default function ProductCard({
+  product,
+  fit,
+}: {
+  product: Product;
+  /** Fit for the shopper's selected car; no badge without verified data. */
+  fit?: FitStatus;
+}) {
   const available = availableStock(product.stock) > 0;
   const promotion = getPromotion(product);
   return (
@@ -44,6 +58,11 @@ export default function ProductCard({ product }: { product: Product }) {
             </span>
           </Link>
           <div className="product-info">
+            {fit && (
+              <p className={`fit-badge fit-${FIT_LABELS[fit][1]}`}>
+                {FIT_LABELS[fit][0]}
+              </p>
+            )}
             <ProductPrice product={product} />
             <p className="product-category">{product.category.name}</p>
             <h2 className="product-title">
