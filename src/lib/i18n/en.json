@@ -787,5 +787,15 @@
   "Ако има профил с този имейл, изпратихме линк за нова парола. Линкът е валиден 30 минути.": "If an account uses this email, we have sent a link to set a new password. The link is valid for 30 minutes.",
   "Линкът е невалиден или е изтекъл. Поискай нов.": "The link is invalid or has expired. Request a new one.",
   "Паролата е сменена. Влез с новата парола.": "Your password has been changed. Sign in with the new password.",
-  "Твърде много заявки. Опитай след 15 минути.": "Too many requests. Try again in 15 minutes."
+  "Твърде много заявки. Опитай след 15 минути.": "Too many requests. Try again in 15 minutes.",
+  "ИНФОРМАЦИЯ": "INFORMATION",
+  "Информация за пазаруване": "Shopping information",
+  "Общи условия": "Terms and conditions",
+  "Политика за поверителност": "Privacy policy",
+  "Доставка и плащане": "Delivery and payment",
+  "Връщане и отказ от поръчка": "Returns and withdrawal",
+  "Бисквитки": "Cookies",
+  "Правни страници": "Legal pages",
+  "Текстове от търговеца: общи условия, поверителност, доставка, връщане и бисквитки.": "Texts from the trader: terms, privacy, delivery, returns and cookies.",
+  "Отвори правните страници →": "Open the legal pages →"
 }
