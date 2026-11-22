@@ -29,6 +29,7 @@ export class AdminProductError extends Error {
 
 type Pool = Pick<pg.Pool, "connect" | "query">;
 type Queryable = Pick<pg.PoolClient, "query">;
+type Rest<T extends unknown[]> = T extends [unknown, ...infer R] ? R : never;
 
 const text = (max: number, message: string) =>
   z.string().trim().max(max, message);
@@ -364,43 +365,46 @@ async function writeTranslations(
 }
 
 /** Creates a draft product without stock (stock arrives through receipts). */
-export async function createProduct(
-  pool: Pool,
+export async function createProductIn(
+  client: Queryable,
   actorId: string,
   sku: string,
   input: ProductInput,
 ): Promise<AdminProduct> {
-  return transaction(pool, async (client) => {
-    await assertCategory(client, input.categoryId);
-    const inserted = await client.query(
-      `INSERT INTO warehouse_products(sku,name,brand,manufacturer_code,ean,
+  await assertCategory(client, input.categoryId);
+  const inserted = await client.query(
+    `INSERT INTO warehouse_products(sku,name,brand,manufacturer_code,ean,
          category_id,status,selling_price_cents,vat_bps,image_path,weight_grams)
        VALUES($1,$2,$3,$4,$5,$6,'draft',$7,$8,$9,$10)
        ON CONFLICT(sku) DO NOTHING RETURNING sku`,
-      [
-        sku,
-        input.name.bg,
-        input.brand,
-        input.manufacturerCode,
-        input.ean,
-        input.categoryId,
-        input.priceCents,
-        input.vatBps,
-        input.imagePath,
-        input.weightGrams,
-      ],
-    );
-    if (!inserted.rowCount)
-      throw new AdminProductError("Продукт с този код вече съществува.", 409);
-    await writeTranslations(client, sku, input);
-    if (input.priceCents !== null)
-      await recordPrice(client, actorId, sku, input.priceCents);
-    await audit(client, actorId, "product.create", sku, { input });
-    return toAdminProduct(
-      (await client.query<ProductRow>(PRODUCT_SQL, [sku])).rows[0],
-    );
-  });
+    [
+      sku,
+      input.name.bg,
+      input.brand,
+      input.manufacturerCode,
+      input.ean,
+      input.categoryId,
+      input.priceCents,
+      input.vatBps,
+      input.imagePath,
+      input.weightGrams,
+    ],
+  );
+  if (!inserted.rowCount)
+    throw new AdminProductError("Продукт с този код вече съществува.", 409);
+  await writeTranslations(client, sku, input);
+  if (input.priceCents !== null)
+    await recordPrice(client, actorId, sku, input.priceCents);
+  await audit(client, actorId, "product.create", sku, { input });
+  return toAdminProduct(
+    (await client.query<ProductRow>(PRODUCT_SQL, [sku])).rows[0],
+  );
 }
+
+export const createProduct = (
+  pool: Pool,
+  ...args: Rest<Parameters<typeof createProductIn>>
+) => transaction(pool, (client) => createProductIn(client, ...args));
 
 async function lockProduct(
   client: Queryable,
@@ -436,103 +440,109 @@ const EDITABLE: (keyof ProductInput)[] = [
 ];
 
 /** Saves an edit made on `version`; a published product must stay publishable. */
-export async function updateProduct(
-  pool: Pool,
+export async function updateProductIn(
+  client: Queryable,
   actorId: string,
   sku: string,
   version: number,
   input: ProductInput,
 ): Promise<AdminProduct> {
-  return transaction(pool, async (client) => {
-    const before = await lockProduct(client, sku, version);
-    await assertCategory(client, input.categoryId);
-    // Only a change of price or category can make a published product
-    // invisible; other edits (e.g. a typo) stay possible even if its
-    // category was deactivated meanwhile.
-    if (
-      before.status === "published" &&
-      (before.priceCents !== input.priceCents ||
-        before.categoryId !== input.categoryId)
-    ) {
-      const problems = await publishProblems(client, input);
-      if (problems.length)
-        throw new AdminProductError(
-          `Публикуваният продукт трябва да остане видим: ${problems.join(" ")} Свали го от публикация, ако искаш да го промениш така.`,
-        );
-    }
-    const changes: Record<string, { from: unknown; to: unknown }> = {};
-    for (const field of EDITABLE)
-      if (JSON.stringify(before[field]) !== JSON.stringify(input[field]))
-        changes[field] = { from: before[field], to: input[field] };
-    if (!Object.keys(changes).length) return before;
-    await client.query(
-      `UPDATE warehouse_products SET name=$2, brand=$3, manufacturer_code=$4,
+  const before = await lockProduct(client, sku, version);
+  await assertCategory(client, input.categoryId);
+  // Only a change of price or category can make a published product
+  // invisible; other edits (e.g. a typo) stay possible even if its
+  // category was deactivated meanwhile.
+  if (
+    before.status === "published" &&
+    (before.priceCents !== input.priceCents ||
+      before.categoryId !== input.categoryId)
+  ) {
+    const problems = await publishProblems(client, input);
+    if (problems.length)
+      throw new AdminProductError(
+        `Публикуваният продукт трябва да остане видим: ${problems.join(" ")} Свали го от публикация, ако искаш да го промениш така.`,
+      );
+  }
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  for (const field of EDITABLE)
+    if (JSON.stringify(before[field]) !== JSON.stringify(input[field]))
+      changes[field] = { from: before[field], to: input[field] };
+  if (!Object.keys(changes).length) return before;
+  await client.query(
+    `UPDATE warehouse_products SET name=$2, brand=$3, manufacturer_code=$4,
          ean=$5, category_id=$6, selling_price_cents=$7, vat_bps=$8,
          image_path=$9, weight_grams=$10,
          content_version = content_version + 1,
          content_updated_at = now(), updated_at = now()
        WHERE sku=$1`,
-      [
-        sku,
-        input.name.bg,
-        input.brand,
-        input.manufacturerCode,
-        input.ean,
-        input.categoryId,
-        input.priceCents,
-        input.vatBps,
-        input.imagePath,
-        input.weightGrams,
-      ],
-    );
-    await writeTranslations(client, sku, input);
-    if (changes.priceCents && input.priceCents !== null)
-      await recordPrice(client, actorId, sku, input.priceCents);
-    await audit(client, actorId, "product.update", sku, { changes });
-    return toAdminProduct(
-      (await client.query<ProductRow>(PRODUCT_SQL, [sku])).rows[0],
-    );
-  });
+    [
+      sku,
+      input.name.bg,
+      input.brand,
+      input.manufacturerCode,
+      input.ean,
+      input.categoryId,
+      input.priceCents,
+      input.vatBps,
+      input.imagePath,
+      input.weightGrams,
+    ],
+  );
+  await writeTranslations(client, sku, input);
+  if (changes.priceCents && input.priceCents !== null)
+    await recordPrice(client, actorId, sku, input.priceCents);
+  await audit(client, actorId, "product.update", sku, { changes });
+  return toAdminProduct(
+    (await client.query<ProductRow>(PRODUCT_SQL, [sku])).rows[0],
+  );
 }
+
+export const updateProduct = (
+  pool: Pool,
+  ...args: Rest<Parameters<typeof updateProductIn>>
+) => transaction(pool, (client) => updateProductIn(client, ...args));
 
 /**
  * Publishes, unpublishes (draft) or archives a product. Publishing checks
  * that shoppers can actually see and buy it. Reservations of open orders are
  * unaffected: they are fulfilled or released as usual.
  */
-export async function setProductStatus(
-  pool: Pool,
+export async function setProductStatusIn(
+  client: Queryable,
   actorId: string,
   sku: string,
   version: number,
   status: ProductStatus,
 ): Promise<AdminProduct> {
-  return transaction(pool, async (client) => {
-    const before = await lockProduct(client, sku, version);
-    if (before.status === status) return before;
-    if (status === "published") {
-      const problems = await publishProblems(client, before);
-      if (problems.length)
-        throw new AdminProductError(
-          `Продуктът не може да бъде публикуван: ${problems.join(" ")}`,
-        );
-    }
-    await client.query(
-      `UPDATE warehouse_products SET status=$2,
+  const before = await lockProduct(client, sku, version);
+  if (before.status === status) return before;
+  if (status === "published") {
+    const problems = await publishProblems(client, before);
+    if (problems.length)
+      throw new AdminProductError(
+        `Продуктът не може да бъде публикуван: ${problems.join(" ")}`,
+      );
+  }
+  await client.query(
+    `UPDATE warehouse_products SET status=$2,
          content_version = content_version + 1,
          content_updated_at = now(), updated_at = now()
        WHERE sku=$1`,
-      [sku, status],
-    );
-    await audit(client, actorId, "product.status", sku, {
-      from: before.status,
-      to: status,
-    });
-    return toAdminProduct(
-      (await client.query<ProductRow>(PRODUCT_SQL, [sku])).rows[0],
-    );
+    [sku, status],
+  );
+  await audit(client, actorId, "product.status", sku, {
+    from: before.status,
+    to: status,
   });
+  return toAdminProduct(
+    (await client.query<ProductRow>(PRODUCT_SQL, [sku])).rows[0],
+  );
 }
+
+export const setProductStatus = (
+  pool: Pool,
+  ...args: Rest<Parameters<typeof setProductStatusIn>>
+) => transaction(pool, (client) => setProductStatusIn(client, ...args));
 
 /** Most recent audit entries for a product (newest first). */
 export async function productHistory(

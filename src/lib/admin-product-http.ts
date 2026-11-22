@@ -36,6 +36,15 @@ export function adminProductError(error: unknown) {
       },
       409,
     );
+  // lock_timeout: a product stayed locked (e.g. by an order) too long.
+  if (e.code === "55P03")
+    return json(
+      {
+        error:
+          "Продукт е зает в момента (например поръчка в ход). Опитай отново.",
+      },
+      409,
+    );
   // PostgreSQL refuses NUL characters in text (character_not_in_repertoire).
   if (e.code === "22021")
     return json({ error: "Текстът съдържа недопустими знаци." }, 400);
