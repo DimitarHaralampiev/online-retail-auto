@@ -16,6 +16,7 @@ import {
   MAX_PRODUCTS_PER_LOOKUP,
 } from "./catalog-postgres";
 import { createStaticCatalog } from "./catalog-static";
+import { cachedAcrossRequests } from "./catalog-cache";
 import { createCatalogSearch, type SearchProvider } from "./search";
 
 const LOOKUP_CHUNK = MAX_PRODUCTS_PER_LOOKUP;
@@ -43,11 +44,17 @@ function createCatalog(locale: Locale): CatalogRepository {
     throw new Error("CATALOG_SOURCE=postgres requires DATABASE_URL.");
   const store = createPostgresCatalog(database, locale);
   // The layout and page both read the catalog; cache() shares results within
-  // one server render (it is a pass-through elsewhere).
+  // one server render (it is a pass-through elsewhere). The taxonomy is also
+  // cached across requests until an admin change (catalog-cache.ts).
   return {
     ...store,
     listProducts: cache(store.listProducts),
-    taxonomy: cache(store.taxonomy),
+    taxonomy: cache(
+      cachedAcrossRequests(
+        () => store.taxonomy(),
+        ["catalog-taxonomy", locale],
+      ),
+    ),
   };
 }
 
