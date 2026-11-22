@@ -73,6 +73,7 @@ visible AS (
          w.reserved,
          w.universal_fit,
          w.brand,
+         w.content_updated_at,
          c.slug AS category_slug,
          coalesce(ct.name, cte.name, c.slug) AS category_name,
          coalesce(pt.name, pte.name, parent.slug) AS parent_name,
@@ -187,6 +188,12 @@ FROM filtered f
 GROUP BY key
 ORDER BY 3 DESC, 1
 LIMIT $10 OFFSET $11`;
+
+// Sitemaps: visible products in SKU order ($2 offset, $3 limit).
+const COUNT_SQL = `WITH ${VISIBLE_CTE} SELECT count(*)::int AS count FROM visible`;
+const SKU_PAGE_SQL = `WITH ${VISIBLE_CTE}
+SELECT sku, content_updated_at AS updated_at FROM visible
+ORDER BY sku OFFSET $2 LIMIT $3`;
 
 // Category counts computed in SQL, in display order.
 const TAXONOMY_SQL = `WITH ${VISIBLE_CTE}
@@ -312,6 +319,24 @@ export function createPostgresCatalog(
 
   return {
     facets,
+    async countProducts() {
+      const result = await db().query<{ count: number }>(COUNT_SQL, [null]);
+      return result.rows[0]?.count ?? 0;
+    },
+    async listProductSkus(offset, limit) {
+      const result = await db().query<{ sku: string; updated_at: Date }>(
+        SKU_PAGE_SQL,
+        [
+          null,
+          Math.max(0, Math.trunc(offset)),
+          Math.min(Math.max(0, Math.trunc(limit)), 50_000),
+        ],
+      );
+      return result.rows.map((row) => ({
+        sku: row.sku,
+        updatedAt: row.updated_at,
+      }));
+    },
     listProducts: () => products(null),
     async getProduct(sku) {
       return (await products([sku]))[0] ?? null;
