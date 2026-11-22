@@ -42,18 +42,23 @@ CREATE TABLE IF NOT EXISTS vehicle_engines (
   -- Target of the fitment foreign key that keeps engine and generation consistent.
   UNIQUE (id, generation_id)
 );
--- A product fits a whole generation (engine_id NULL) or one engine of it.
+-- A product fits a whole generation (engine_id NULL) or one engine of it,
+-- optionally only for some production years (e.g. after a facelift).
 -- `source` records where the fitment was verified (catalog, manufacturer).
 CREATE TABLE IF NOT EXISTS product_vehicle_fitments (
   id uuid PRIMARY KEY,
   sku text NOT NULL REFERENCES warehouse_products(sku) ON DELETE CASCADE,
   generation_id uuid NOT NULL REFERENCES vehicle_generations(id),
   engine_id uuid,
+  -- NULL: from the start / to the end of the generation.
+  year_from integer CHECK (year_from BETWEEN 1950 AND 2100),
+  year_to integer CHECK (year_to BETWEEN 1950 AND 2100),
   notes text NOT NULL DEFAULT '',
   source text NOT NULL CHECK (length(trim(source)) > 0),
-  created_by uuid REFERENCES customers(id),
+  created_by uuid REFERENCES customers(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE NULLS NOT DISTINCT (sku, generation_id, engine_id)
+  CHECK (year_to IS NULL OR year_from IS NULL OR year_to >= year_from),
+  UNIQUE NULLS NOT DISTINCT (sku, generation_id, engine_id, year_from, year_to)
 );
 DO $$
 BEGIN
@@ -68,12 +73,12 @@ BEGIN
       REFERENCES vehicle_engines(id, generation_id);
   END IF;
 END $$;
-CREATE INDEX IF NOT EXISTS product_vehicle_fitments_generation
-  ON product_vehicle_fitments(generation_id);
-CREATE INDEX IF NOT EXISTS product_vehicle_fitments_engine
-  ON product_vehicle_fitments(engine_id) WHERE engine_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS vehicle_models_make ON vehicle_models(make_id);
-CREATE INDEX IF NOT EXISTS vehicle_generations_model ON vehicle_generations(model_id);
+-- Matching by vehicle; lookups by product use the unique index (sku first).
+-- Models by make and generations by model use their unique indexes.
+CREATE INDEX IF NOT EXISTS product_vehicle_fitments_vehicle
+  ON product_vehicle_fitments(generation_id, engine_id) INCLUDE (sku);
 -- Products that fit every vehicle (e.g. microfibre cloths, phone holders).
 ALTER TABLE warehouse_products
   ADD COLUMN IF NOT EXISTS universal_fit boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS warehouse_products_universal
+  ON warehouse_products(sku) WHERE universal_fit AND status = 'published';

@@ -1,9 +1,28 @@
 // Vehicle reference lookups (make > model > generation > engine) and product
 // fitment queries over PostgreSQL. Reference data is maintained from a
 // verified source; nothing here guesses compatibility.
+//
+// Ids are passed straight to SQL: callers (API routes) validate them as
+// UUIDs first. Hiding happens at make and model level (`active`); every
+// lookup below a model checks that its make and model are active.
 import type pg from "pg";
 
 type Queryable = Pick<pg.Pool, "query">;
+
+export const FUELS = [
+  "petrol",
+  "diesel",
+  "hybrid",
+  "plug-in-hybrid",
+  "electric",
+  "lpg",
+  "cng",
+  "other",
+] as const;
+export type Fuel = (typeof FUELS)[number];
+
+const ACTIVE_MODEL = `JOIN vehicle_models m ON m.id = g.model_id AND m.active
+  JOIN vehicle_makes k ON k.id = m.make_id AND k.active`;
 
 export type VehicleMake = { id: string; slug: string; name: string };
 export type VehicleModel = { id: string; slug: string; name: string };
@@ -17,16 +36,22 @@ export type VehicleGeneration = {
 export type VehicleEngine = {
   id: string;
   name: string;
-  fuel: string;
+  fuel: Fuel;
   displacementCc: number | null;
   powerKw: number | null;
   engineCode: string;
 };
 
-/** A vehicle as far as the shopper has narrowed it down. */
-export type VehicleSelection =
-  | { generationId: string; engineId?: undefined }
-  | { generationId: string; engineId: string };
+/**
+ * A vehicle as far as the shopper has narrowed it down: a generation, and
+ * optionally its engine and model year (a year matters for fitments limited
+ * to part of a generation, e.g. after a facelift).
+ */
+export type VehicleSelection = {
+  generationId: string;
+  engineId?: string;
+  year?: number;
+};
 
 export type ProductFitment = {
   make: string;
@@ -36,6 +61,9 @@ export type ProductFitment = {
   yearTo: number | null;
   /** null: every engine of the generation. */
   engine: string | null;
+  /** Limits within the generation; null: no limit. */
+  fitYearFrom: number | null;
+  fitYearTo: number | null;
   notes: string;
 };
 
@@ -66,9 +94,10 @@ export async function listGenerations(
   modelId: string,
 ): Promise<VehicleGeneration[]> {
   const result = await db.query<VehicleGeneration>(
-    `SELECT id, name, year_from AS "yearFrom", year_to AS "yearTo"
-     FROM vehicle_generations WHERE model_id = $1
-     ORDER BY year_from, name`,
+    `SELECT g.id, g.name, g.year_from AS "yearFrom", g.year_to AS "yearTo"
+     FROM vehicle_generations g ${ACTIVE_MODEL}
+     WHERE g.model_id = $1
+     ORDER BY g.year_from, g.name`,
     [modelId],
   );
   return result.rows;
@@ -79,20 +108,26 @@ export async function listEngines(
   generationId: string,
 ): Promise<VehicleEngine[]> {
   const result = await db.query<VehicleEngine>(
-    `SELECT id, name, fuel, displacement_cc AS "displacementCc",
-            power_kw AS "powerKw", engine_code AS "engineCode"
-     FROM vehicle_engines WHERE generation_id = $1
-     ORDER BY fuel, displacement_cc NULLS LAST, power_kw NULLS LAST, name`,
+    `SELECT e.id, e.name, e.fuel, e.displacement_cc AS "displacementCc",
+            e.power_kw AS "powerKw", e.engine_code AS "engineCode"
+     FROM vehicle_engines e
+     JOIN vehicle_generations g ON g.id = e.generation_id ${ACTIVE_MODEL}
+     WHERE e.generation_id = $1
+     ORDER BY e.fuel, e.displacement_cc NULLS LAST, e.power_kw NULLS LAST, e.name`,
     [generationId],
   );
   return result.rows;
 }
 
 /**
- * SKUs that fit the selection: fitments for the whole generation, for the
- * chosen engine, and universal products. With only a generation chosen,
- * engine-specific fitments are not included: they may not fit the shopper's
- * engine (the storefront asks to pick one).
+ * Published SKUs that fit the selection: fitments for the whole generation,
+ * for the chosen engine, and universal products. Conservative on purpose:
+ * without an engine, engine-specific fitments are left out (they may not fit
+ * the shopper's engine), and without a year, year-limited ones are left out.
+ * An engine of another generation matches only generation-wide fitments.
+ *
+ * Returns a full list, so it suits small sets (garage, product page). The
+ * catalog filter (#33) pushes the same rule into its browse SQL instead.
  */
 export async function compatibleSkus(
   db: Queryable,
@@ -100,12 +135,21 @@ export async function compatibleSkus(
 ): Promise<string[]> {
   const result = await db.query<{ sku: string }>(
     `SELECT f.sku FROM product_vehicle_fitments f
+     JOIN warehouse_products p ON p.sku = f.sku AND p.status = 'published'
+     JOIN vehicle_generations g ON g.id = f.generation_id ${ACTIVE_MODEL}
      WHERE f.generation_id = $1
        AND (f.engine_id IS NULL OR f.engine_id = $2)
+       AND (f.year_from IS NULL OR f.year_from <= $3)
+       AND (f.year_to IS NULL OR f.year_to >= $3)
      UNION
-     SELECT sku FROM warehouse_products WHERE universal_fit
+     SELECT sku FROM warehouse_products
+     WHERE universal_fit AND status = 'published'
      ORDER BY sku`,
-    [selection.generationId, selection.engineId ?? null],
+    [
+      selection.generationId,
+      selection.engineId ?? null,
+      selection.year ?? null,
+    ],
   );
   return result.rows.map((row) => row.sku);
 }
@@ -118,15 +162,16 @@ export async function productFitments(
   const result = await db.query<ProductFitment>(
     `SELECT k.name AS make, m.name AS model, g.name AS generation,
             g.year_from AS "yearFrom", g.year_to AS "yearTo",
-            e.name AS engine, f.notes
+            e.name AS engine, f.year_from AS "fitYearFrom",
+            f.year_to AS "fitYearTo", f.notes
      FROM product_vehicle_fitments f
      JOIN vehicle_generations g ON g.id = f.generation_id
-     JOIN vehicle_models m ON m.id = g.model_id
-     JOIN vehicle_makes k ON k.id = m.make_id
+     JOIN vehicle_models m ON m.id = g.model_id AND m.active
+     JOIN vehicle_makes k ON k.id = m.make_id AND k.active
      LEFT JOIN vehicle_engines e ON e.id = f.engine_id
      WHERE f.sku = $1
      ORDER BY k.name COLLATE "und-x-icu", m.name COLLATE "und-x-icu",
-              g.year_from, e.name NULLS FIRST`,
+              g.year_from, e.name NULLS FIRST, f.year_from NULLS FIRST`,
     [sku],
   );
   return result.rows;

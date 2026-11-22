@@ -676,6 +676,8 @@ Constraints:
 | sku           | text                     | NO       | —        |
 | generation_id | uuid                     | NO       | —        |
 | engine_id     | uuid                     | YES      | —        |
+| year_from     | integer                  | YES      | —        |
+| year_to       | integer                  | YES      | —        |
 | notes         | text                     | NO       | ''::text |
 | source        | text                     | NO       | —        |
 | created_by    | uuid                     | YES      | —        |
@@ -687,8 +689,10 @@ Constraints:
 - `FOREIGN KEY (sku) REFERENCES warehouse_products(sku) ON DELETE CASCADE`
 - `FOREIGN KEY (generation_id) REFERENCES vehicle_generations(id)`
 - `FOREIGN KEY (engine_id, generation_id) REFERENCES vehicle_engines(id, generation_id)`
-- `FOREIGN KEY (created_by) REFERENCES customers(id)`
-- `UNIQUE NULLS NOT DISTINCT (sku, generation_id, engine_id)`
+- `FOREIGN KEY (created_by) REFERENCES customers(id) ON DELETE SET NULL`
+- `UNIQUE NULLS NOT DISTINCT (sku, generation_id, engine_id, year_from, year_to)`
+- `CHECK ((year_to IS NULL) OR (year_from IS NULL) OR (year_to >= year_from))`
+- `CHECK ((year_from >= 1950) AND (year_from <= 2100))`, same for `year_to`
 - `CHECK ((length(TRIM(BOTH FROM source)) > 0))`
 
 ## promotion_lines
