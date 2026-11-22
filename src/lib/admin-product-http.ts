@@ -1,4 +1,5 @@
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CATALOG_TAG } from "./catalog-cache";
 import { ZodError } from "zod";
 import { currentCustomer } from "./accounts";
 import { AdminProductError } from "./admin-products";
@@ -14,10 +15,11 @@ export const forbidden = () =>
   json({ error: "Нужен е администраторски достъп." }, 403);
 
 /**
- * Storefront pages read the catalog per request today; this also drops any
- * cached render, so a change is visible to shoppers right away.
+ * Makes an admin change visible to shoppers right away: expires the cached
+ * catalog data (no stale serving) and any cached render.
  */
 export function refreshStorefront() {
+  revalidateTag(CATALOG_TAG, { expire: 0 });
   revalidatePath("/", "layout");
 }
 
