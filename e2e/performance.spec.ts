@@ -8,8 +8,9 @@ const BUDGET = {
   lcpMs: 2500,
   cls: 0.1,
   interactionMs: 200,
-  // Compressed script bytes per page (first visit).
-  scriptKb: 450,
+  // Compressed script bytes per page (first visit). Measured 203–209 KB in
+  // CI (2026-11-23); about 25 % headroom, so dependency growth is noticed.
+  scriptKb: 260,
 };
 
 async function vitals(page: Page) {
