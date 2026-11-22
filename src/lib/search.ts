@@ -78,3 +78,17 @@ export function createCatalogSearch(
     },
   };
 }
+
+/** JSON of GET /api/search/suggest (header autocomplete). */
+export type SuggestResponse = {
+  products: {
+    sku: string;
+    name: string;
+    category: string;
+    image: string;
+    priceCents: number;
+    salePriceCents?: number;
+    href: string;
+  }[];
+  categories: { name: string; parent?: string; href: string }[];
+};
