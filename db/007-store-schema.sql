@@ -36,10 +36,8 @@ CREATE TABLE IF NOT EXISTS product_translations (
  description text NOT NULL DEFAULT '', specifications jsonb NOT NULL DEFAULT '{}',
  updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(sku,locale)
 );
-CREATE TABLE IF NOT EXISTS product_images (
- id uuid PRIMARY KEY, sku text NOT NULL REFERENCES warehouse_products(sku) ON DELETE CASCADE,
- storage_key text NOT NULL, alt_text jsonb NOT NULL DEFAULT '{}', sort_order integer NOT NULL DEFAULT 0
-);
+-- product_images was reserved here for object storage; product_media covers
+-- it (019, which drops the table).
 CREATE TABLE IF NOT EXISTS supplier_products (
  supplier_id uuid NOT NULL REFERENCES suppliers(id), sku text NOT NULL REFERENCES warehouse_products(sku),
  supplier_code text NOT NULL DEFAULT '', last_unit_net_cents integer CHECK(last_unit_net_cents>=0),

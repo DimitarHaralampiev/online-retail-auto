@@ -31,6 +31,7 @@ type ProductRow = {
   name: string;
   description: string;
   image_path: string | null;
+  media_path: string | null;
   price_cents: number;
   sale_cents: number | null;
   on_hand: number;
@@ -65,6 +66,10 @@ visible AS (
          coalesce(te.name, t.name, w.name) AS name_en,
          coalesce(te.description, t.description, '') AS description_en,
          w.image_path,
+         -- The primary uploaded image wins over the static path (#44).
+         (SELECT '/media/' || m.id FROM product_media m
+          WHERE m.sku = w.sku AND m.is_primary AND m.kind = 'image'
+          LIMIT 1) AS media_path,
          w.selling_price_cents AS price_cents,
          s.sale_cents,
          CASE WHEN s.sale_cents < w.selling_price_cents
@@ -223,7 +228,7 @@ function toProduct(row: ProductRow, locale: Locale): Product {
     },
     subcategory: sub ? { id: row.category_slug, name: categoryName } : null,
     description: en ? row.description_en : row.description,
-    image: row.image_path ?? FALLBACK_PRODUCT_IMAGE,
+    image: row.media_path ?? row.image_path ?? FALLBACK_PRODUCT_IMAGE,
     priceCents: row.price_cents,
     // A sale only counts when it is actually below the regular price.
     ...(row.sale_cents !== null && row.sale_cents < row.price_cents
