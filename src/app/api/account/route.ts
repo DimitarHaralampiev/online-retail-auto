@@ -1,4 +1,12 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import {
+  forgotSchema,
+  RESET_MINUTES,
+  requestPasswordReset,
+  resetPassword,
+  resetSchema,
+} from "../../../lib/password-reset";
+import { clientKey, createRateLimiter } from "../../../lib/rate-limit";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
 import { ZodError } from "zod";
@@ -20,6 +28,10 @@ import {
   mailPreviewUrl,
 } from "../../../lib/verification";
 export const runtime = "nodejs";
+// Per client: stops one visitor from mailing many addresses or guessing
+// reset tokens (each account also has its own email limits).
+const forgotLimiter = createRateLimiter(5, 15 * 60_000);
+const resetLimiter = createRateLimiter(10, 15 * 60_000);
 const respond = (data: unknown, status = 200) =>
   NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
 export async function GET() {
@@ -113,6 +125,46 @@ export async function POST(request: Request) {
         [profile.name, profile.phone, profile.delivery, customer.id],
       );
       return respond({ customer: result.rows[0] });
+    }
+    if (data.action === "forgot") {
+      if (!forgotLimiter.take(clientKey(request)).allowed)
+        return respond(
+          { error: "Твърде много заявки. Опитай след 15 минути." },
+          429,
+        );
+      const { email } = forgotSchema.parse({ email: data.email });
+      // Same answer and timing whether or not the account exists: the
+      // lookup and email happen after the response.
+      after(() =>
+        requestPasswordReset(email).catch((e) =>
+          console.error(
+            "Password reset email failed",
+            (e as { code?: string }).code ?? "mail or database error",
+          ),
+        ),
+      );
+      return respond({
+        message: `Ако има профил с този имейл, изпратихме линк за нова парола. Линкът е валиден ${RESET_MINUTES} минути.`,
+      });
+    }
+    if (data.action === "reset") {
+      if (!resetLimiter.take(clientKey(request)).allowed)
+        return respond(
+          { error: "Твърде много опити. Опитай след 15 минути." },
+          429,
+        );
+      const { token, password } = resetSchema.parse({
+        token: data.token,
+        password: data.password,
+      });
+      if (!(await resetPassword(token, password)))
+        return respond(
+          { error: "Линкът е невалиден или е изтекъл. Поискай нов." },
+          400,
+        );
+      // Every session was ended, including this browser's.
+      (await cookies()).delete(sessionCookie);
+      return respond({ message: "Паролата е сменена. Влез с новата парола." });
     }
     if (data.action !== "login" && data.action !== "register")
       return respond({ error: "Непознато действие." }, 400);

@@ -773,5 +773,19 @@
   "Не успяхме да заредим продуктите. Опитай отново.": "We could not load the products. Please try again.",
   "Някои продукти не се заредиха.": "Some products could not be loaded.",
   "Някои продукти от количката не се заредиха. Прегледът е спрян, докато не се заредят.": "Some products in the cart could not be loaded. The preview is paused until they load.",
-  "Поръчката е отказана и не може да бъде платена.": "The order is cancelled and cannot be paid."
+  "Поръчката е отказана и не може да бъде платена.": "The order is cancelled and cannot be paid.",
+  "Забравена парола?": "Forgot your password?",
+  "Ще изпратим линк за нова парола на имейла на профила.": "We will email a link to set a new password.",
+  "Имейл на профила": "Account email",
+  "Изпрати линк за нова парола": "Send a password reset link",
+  "Нова парола": "New password",
+  "Повтори новата парола": "Repeat the new password",
+  "Запази новата парола": "Save the new password",
+  "Паролите не съвпадат.": "The passwords do not match.",
+  "Липсва линк за нова парола. Отвори писмото или поискай нов линк от страницата за вход.": "The reset link is missing. Open the email or request a new link from the sign-in page.",
+  "Към вход →": "Go to sign in →",
+  "Ако има профил с този имейл, изпратихме линк за нова парола. Линкът е валиден 30 минути.": "If an account uses this email, we have sent a link to set a new password. The link is valid for 30 minutes.",
+  "Линкът е невалиден или е изтекъл. Поискай нов.": "The link is invalid or has expired. Request a new one.",
+  "Паролата е сменена. Влез с новата парола.": "Your password has been changed. Sign in with the new password.",
+  "Твърде много заявки. Опитай след 15 минути.": "Too many requests. Try again in 15 minutes."
 }
