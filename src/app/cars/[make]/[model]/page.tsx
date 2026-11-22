@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "../../../../lib/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { database } from "../../../../lib/accounts";
@@ -33,16 +34,18 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const found = await load(params);
   if (!found) return {};
   const { make, model } = found;
-  const en = (await requestLocale()) === "en";
-  return {
+  const locale = await requestLocale();
+  const en = locale === "en";
+  return pageMetadata({
+    locale,
+    path: `/cars/${make.slug}/${model.slug}`,
     title: en
-      ? `${make.name} ${model.name} parts — AUTO/SHOP`
-      : `Части за ${make.name} ${model.name} — AUTO/SHOP`,
+      ? `${make.name} ${model.name} parts`
+      : `Части за ${make.name} ${model.name}`,
     description: en
       ? `Parts with verified fitment for the ${make.name} ${model.name}.`
       : `Части с проверена съвместимост за ${make.name} ${model.name}.`,
-    alternates: { canonical: `/cars/${make.slug}/${model.slug}` },
-  };
+  });
 }
 
 export default async function ModelPage({ params }: Params) {

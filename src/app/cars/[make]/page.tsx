@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "../../../lib/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { database } from "../../../lib/accounts";
@@ -18,16 +19,18 @@ async function load(slug: string) {
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const make = await load((await params).make);
   if (!make) return {};
-  const en = (await requestLocale()) === "en";
-  return {
+  const locale = await requestLocale();
+  const en = locale === "en";
+  return pageMetadata({
+    locale,
+    path: `/cars/${make.slug}`,
     title: en
-      ? `${make.name} parts and accessories — AUTO/SHOP`
-      : `Части и аксесоари за ${make.name} — AUTO/SHOP`,
+      ? `${make.name} parts and accessories`
+      : `Части и аксесоари за ${make.name}`,
     description: en
       ? `${make.name} models with parts of verified fitment.`
       : `Модели ${make.name} с части с проверена съвместимост.`,
-    alternates: { canonical: `/cars/${make.slug}` },
-  };
+  });
 }
 
 export default async function MakePage({ params }: Params) {

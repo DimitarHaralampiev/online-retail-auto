@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "../../lib/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { database } from "../../lib/accounts";
@@ -9,15 +10,16 @@ import SiteHeader from "../../components/site-header";
 import SiteFooter from "../../components/site-footer";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const en = (await requestLocale()) === "en";
-  return {
-    title: en
-      ? "Parts by car make — AUTO/SHOP"
-      : "Части по марка автомобил — AUTO/SHOP",
+  const locale = await requestLocale();
+  const en = locale === "en";
+  return pageMetadata({
+    locale,
+    path: "/cars",
+    title: en ? "Parts by car make" : "Части по марка автомобил",
     description: en
       ? "Choose your car make to see parts with verified fitment."
       : "Избери марката на автомобила си и виж частите с проверена съвместимост.",
-  };
+  });
 }
 
 export default async function CarsPage() {
