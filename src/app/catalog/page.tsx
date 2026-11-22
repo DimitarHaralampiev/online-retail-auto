@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { pageMetadata } from "../../lib/seo";
+import { pageMetadata, siteUrl } from "../../lib/seo";
+import JsonLd from "../../components/json-ld";
+import { breadcrumbJsonLd } from "../../lib/structured-data";
 import Localize from "../../components/localize";
 import SiteHeader from "../../components/site-header";
 import SiteFooter from "../../components/site-footer";
@@ -142,6 +144,32 @@ export default async function CatalogPage({
       {
         <>
           <SiteHeader />
+          {category && (
+            <JsonLd
+              data={breadcrumbJsonLd(
+                [
+                  { name: locale === "en" ? "Home" : "Начало", path: "/" },
+                  {
+                    name: locale === "en" ? "Catalog" : "Каталог",
+                    path: "/catalog",
+                  },
+                  {
+                    name: category.name,
+                    path: `/catalog?category=${encodeURIComponent(category.id)}`,
+                  },
+                  ...(subcategory
+                    ? [
+                        {
+                          name: subcategory.name,
+                          path: `/catalog?category=${encodeURIComponent(category.id)}&subcategory=${encodeURIComponent(subcategory.id)}`,
+                        },
+                      ]
+                    : []),
+                ],
+                siteUrl(),
+              )}
+            />
+          )}
           <main id="main-content" className="catalog-main">
             <section className="catalog-heading site-width">
               <p className="eyebrow">ПОДБРАНО ЗА ТВОЯ АВТОМОБИЛ</p>

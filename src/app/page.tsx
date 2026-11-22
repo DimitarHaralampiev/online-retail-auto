@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { requestLocale } from "../lib/i18n/server";
-import { pageMetadata } from "../lib/seo";
+import { pageMetadata, siteUrl } from "../lib/seo";
+import JsonLd from "../components/json-ld";
+import { websiteJsonLd } from "../lib/structured-data";
 import Localize from "../components/localize";
 import Image from "next/image";
 import Link from "next/link";
@@ -62,6 +64,7 @@ export default async function Home() {
       {
         <>
           <SiteHeader />
+          <JsonLd data={websiteJsonLd(siteUrl())} />
           <main id="main-content">
             <section className="hero" aria-labelledby="hero-title">
               <Image

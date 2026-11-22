@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { pageMetadata } from "../../../lib/seo";
+import { pageMetadata, siteUrl } from "../../../lib/seo";
+import JsonLd from "../../../components/json-ld";
+import { breadcrumbJsonLd, productJsonLd } from "../../../lib/structured-data";
 import Localize from "../../../components/localize";
 import Image from "next/image";
 import Link from "next/link";
@@ -67,6 +69,34 @@ export default async function ProductPage({
       {
         <>
           <SiteHeader />
+          <JsonLd
+            data={[
+              productJsonLd(product, siteUrl()),
+              breadcrumbJsonLd(
+                [
+                  { name: text("Начало", "Home"), path: "/" },
+                  { name: text("Каталог", "Catalog"), path: "/catalog" },
+                  {
+                    name: product.category.name,
+                    path: `/catalog?category=${encodeURIComponent(product.category.id)}`,
+                  },
+                  ...(subcategory
+                    ? [
+                        {
+                          name: subcategory.name,
+                          path: `/catalog?category=${encodeURIComponent(product.category.id)}&subcategory=${encodeURIComponent(subcategory.id)}`,
+                        },
+                      ]
+                    : []),
+                  {
+                    name: product.name,
+                    path: `/catalog/${encodeURIComponent(product.sku)}`,
+                  },
+                ],
+                siteUrl(),
+              ),
+            ]}
+          />
           <main id="main-content" className="site-width product-page">
             <nav className="breadcrumbs" aria-label="Път до продукта">
               <Link href="/">Начало</Link>
