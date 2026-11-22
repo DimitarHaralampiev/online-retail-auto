@@ -7,7 +7,9 @@ import { useLocale } from "./locale-provider";
 
 type RowResult = {
   line: number;
-  sku: string;
+  /** What the row describes: a SKU (products) or a vehicle (reference). */
+  sku?: string;
+  key?: string;
   action: "create" | "update" | "unchanged" | "error";
   errors: string[];
 };
@@ -20,7 +22,19 @@ type Report = {
 
 const MAX_BYTES = 2 * 1024 * 1024;
 
-export default function ProductImport() {
+export default function CsvImport({
+  endpoint,
+  doneHref,
+  doneLabel,
+  keyLabel = ["SKU", "SKU"],
+}: {
+  /** Admin import route accepting {csv, apply, filename}. */
+  endpoint: string;
+  doneHref: string;
+  doneLabel: [string, string];
+  /** Header of the column naming each row. */
+  keyLabel?: [string, string];
+}) {
   const { locale } = useLocale();
   const text = (bg: string, en: string) => (locale === "en" ? en : bg);
   const [file, setFile] = useState<{ name: string; csv: string } | null>(null);
@@ -69,7 +83,7 @@ export default function ProductImport() {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/admin/catalog/imports", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ csv: file.csv, apply, filename: file.name }),
@@ -142,9 +156,7 @@ export default function ProductImport() {
         )}
         {report?.applied && (
           <p>
-            <Link href="/admin/products">
-              {text("Към продуктите →", "Go to products →")}
-            </Link>
+            <Link href={doneHref}>{text(...doneLabel)}</Link>
           </p>
         )}
       </div>
@@ -154,7 +166,7 @@ export default function ProductImport() {
             <thead>
               <tr>
                 <th scope="col">{text("Ред", "Line")}</th>
-                <th scope="col">SKU</th>
+                <th scope="col">{text(...keyLabel)}</th>
                 <th scope="col">{text("Действие", "Action")}</th>
                 <th scope="col">{text("Грешки", "Errors")}</th>
               </tr>
@@ -163,7 +175,7 @@ export default function ProductImport() {
               {shown.map((row) => (
                 <tr key={row.line}>
                   <td>{row.line}</td>
-                  <td>{row.sku || "—"}</td>
+                  <td>{row.key || row.sku || "—"}</td>
                   <td>{labels[row.action]}</td>
                   <td>{row.errors.join(" ")}</td>
                 </tr>

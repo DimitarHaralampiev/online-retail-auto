@@ -56,6 +56,14 @@ export default async function AdminPage() {
               </p>
               <span className="text-link">Отвори поръчките →</span>
             </Link>
+            <Link href="/admin/vehicles" className="checkout-panel">
+              <h2>Автомобили</h2>
+              <p>
+                Справочник на марки, модели, поколения и двигатели за
+                съвместимостта на частите.
+              </p>
+              <span className="text-link">Отвори справочника →</span>
+            </Link>
             <Link href="/admin/settings" className="checkout-panel">
               <h2>Настройки на доставката</h2>
               <p>
