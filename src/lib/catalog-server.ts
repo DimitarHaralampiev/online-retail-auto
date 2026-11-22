@@ -16,6 +16,7 @@ import {
   MAX_PRODUCTS_PER_LOOKUP,
 } from "./catalog-postgres";
 import { createStaticCatalog } from "./catalog-static";
+import { createCatalogSearch, type SearchProvider } from "./search";
 
 const LOOKUP_CHUNK = MAX_PRODUCTS_PER_LOOKUP;
 
@@ -64,6 +65,18 @@ export function catalog(locale: Locale = "bg"): CatalogRepository {
     repositories.set(locale, repository);
   }
   return repository;
+}
+
+const searches = new Map<Locale, SearchProvider>();
+
+/** Autocomplete and search for the storefront, in `locale` (ADR 0003). */
+export function searchProvider(locale: Locale = "bg"): SearchProvider {
+  let provider = searches.get(locale);
+  if (!provider) {
+    provider = createCatalogSearch(catalog(locale));
+    searches.set(locale, provider);
+  }
+  return provider;
 }
 
 /**
