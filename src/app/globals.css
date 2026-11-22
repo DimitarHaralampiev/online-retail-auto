@@ -4113,3 +4113,31 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+/* Vehicle selector (catalog) */
+.vehicle-selector {
+  border: 1px solid #c8ccbf;
+  padding: 18px;
+  margin-bottom: 24px;
+}
+.vehicle-selector h2 {
+  font-size: 18px;
+  margin: 0 0 12px;
+}
+.vehicle-selector-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+.vehicle-selector-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #5b6358;
+}
+.vehicle-selector-form label.admin-checkbox {
+  flex-direction: row;
+  align-items: center;
+}

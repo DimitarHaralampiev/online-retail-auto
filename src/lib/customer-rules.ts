@@ -100,6 +100,8 @@ export type Vehicle = {
   year: number;
   engine: string;
   selected: boolean;
+  /** Linked to the vehicle reference (selectable in the catalog selector). */
+  mapped?: boolean;
 };
 export type Reminder = {
   id: string;

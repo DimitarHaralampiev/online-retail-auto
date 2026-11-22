@@ -3,9 +3,17 @@ import SiteHeader from "../../components/site-header";
 import SiteFooter from "../../components/site-footer";
 import { permanentRedirect } from "next/navigation";
 import Catalog from "../../components/catalog";
-import { currentCustomer } from "../../lib/accounts";
+import { currentCustomer, database } from "../../lib/accounts";
 import { MAX_COMPATIBLE_SKUS } from "../../lib/catalog";
-import { catalog } from "../../lib/catalog-server";
+import { catalog, catalogSource } from "../../lib/catalog-server";
+import { cookies } from "next/headers";
+import VehicleSelector from "../../components/vehicle-selector";
+import {
+  parseSelectionCookie,
+  resolveSelection,
+  VEHICLE_COOKIE,
+  type ResolvedVehicle,
+} from "../../lib/vehicle-selection";
 import {
   browseQueryFor,
   catalogHref,
@@ -39,6 +47,14 @@ export default async function CatalogPage({
         s.id === parsed.subcategory && (!category || s.parent === category.id),
     );
   const fitment = parsed.car ? await vehicleFitment() : undefined;
+  // The vehicle reference lives in PostgreSQL; the static demo has none.
+  const vehicles = catalogSource() === "postgres";
+  const [selected, customer] = vehicles
+    ? await Promise.all([
+        selectedVehicle(),
+        currentCustomer().catch(() => null),
+      ])
+    : [null, null];
   // The state the server actually applied; links are built from it.
   const state = {
     ...parsed,
@@ -78,6 +94,11 @@ export default async function CatalogPage({
                 изображения. Поръчките предстоят.
               </p>
             </section>
+            {vehicles && (
+              <div className="site-width">
+                <VehicleSelector initial={selected} signedIn={!!customer} />
+              </div>
+            )}
             <section
               className="site-width catalog-section"
               aria-label="Продукти"
@@ -108,5 +129,17 @@ async function vehicleFitment(): Promise<string[] | undefined> {
     return features.compatibleSkus;
   } catch {
     return undefined;
+  }
+}
+
+/** The visitor's selected vehicle from the cookie, or null (also on errors). */
+async function selectedVehicle(): Promise<ResolvedVehicle | null> {
+  try {
+    const selection = parseSelectionCookie(
+      (await cookies()).get(VEHICLE_COOKIE)?.value,
+    );
+    return selection ? await resolveSelection(database(), selection) : null;
+  } catch {
+    return null;
   }
 }

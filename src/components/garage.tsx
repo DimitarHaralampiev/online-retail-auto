@@ -3,6 +3,7 @@ import Localize from "./localize";
 import { useLocale } from "./locale-provider";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useAccount } from "./account-provider";
 import { useCustomerFeatures } from "./customer-provider";
@@ -13,6 +14,7 @@ export default function Garage() {
   const { data, ready, busy, error: loadError, mutate } = useCustomerFeatures();
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const router = useRouter();
   async function act(value: unknown) {
     setError("");
     setMessage("");
@@ -22,6 +24,26 @@ export default function Garage() {
     } catch (e) {
       setError((e as Error).message);
       return false;
+    }
+  }
+  /** Makes a reference-linked garage vehicle the catalog selection. */
+  async function showParts(id: string) {
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/vehicle-selection", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ garageVehicleId: id }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error ?? "Неуспешно.");
+        return;
+      }
+      router.push("/catalog");
+    } catch {
+      setError("Няма връзка. Опитай отново.");
     }
   }
   async function addVehicle(event: FormEvent<HTMLFormElement>) {
@@ -128,6 +150,15 @@ export default function Garage() {
                       >
                         {v.selected ? "Избран" : "Избери"}
                       </button>
+                      {v.mapped && (
+                        <button
+                          className="button button-light"
+                          disabled={busy}
+                          onClick={() => void showParts(v.id)}
+                        >
+                          Покажи частите за него
+                        </button>
+                      )}
                       <button
                         className="text-link"
                         disabled={busy}

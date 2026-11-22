@@ -28,7 +28,7 @@ export async function getCustomerFeatures(
       [customerId],
     ),
     db.query(
-      "SELECT id,nickname,make,model,year,engine,is_selected AS selected FROM garage_vehicles WHERE customer_id=$1 ORDER BY created_at",
+      "SELECT id,nickname,make,model,year,engine,is_selected AS selected,generation_id IS NOT NULL AS mapped FROM garage_vehicles WHERE customer_id=$1 ORDER BY created_at",
       [customerId],
     ),
     db.query(
