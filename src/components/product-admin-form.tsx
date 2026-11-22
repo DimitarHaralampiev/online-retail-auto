@@ -24,6 +24,7 @@ export type EditableProduct = {
   vatBps: number;
   imagePath: string | null;
   weightGrams: number | null;
+  universalFit: boolean;
   status: ProductStatus;
   version: number;
 };
@@ -49,6 +50,7 @@ type Fields = {
   vat: string;
   imagePath: string;
   weight: string;
+  universalFit: boolean;
 };
 
 const fieldsOf = (p: EditableProduct | null): Fields => ({
@@ -65,6 +67,7 @@ const fieldsOf = (p: EditableProduct | null): Fields => ({
   vat: String((p?.vatBps ?? 2000) / 100),
   imagePath: p?.imagePath ?? "",
   weight: p?.weightGrams == null ? "" : String(p.weightGrams),
+  universalFit: p?.universalFit ?? false,
 });
 
 export default function ProductAdminForm({
@@ -154,6 +157,7 @@ export default function ProductAdminForm({
       vatBps,
       imagePath: fields.imagePath.trim() || null,
       weightGrams: weight,
+      universalFit: fields.universalFit,
     };
     if (!product) {
       const created = await send("/api/admin/catalog/products", "POST", {
@@ -383,6 +387,22 @@ export default function ProductAdminForm({
             onChange={set("weight")}
             inputMode="numeric"
           />
+        </label>
+        <label className="full-width admin-checkbox">
+          <input
+            type="checkbox"
+            checked={fields.universalFit}
+            onChange={(event) =>
+              setFields((current) => ({
+                ...current,
+                universalFit: event.target.checked,
+              }))
+            }
+          />
+          {text(
+            "Универсален — подходящ за всеки автомобил (без проверка на съвместимост)",
+            "Universal — fits every vehicle (no fitment check)",
+          )}
         </label>
         <label className="full-width">
           {text(

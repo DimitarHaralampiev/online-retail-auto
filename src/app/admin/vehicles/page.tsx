@@ -4,6 +4,7 @@ import { currentAdmin } from "../../../lib/admin-product-http";
 import { referenceTree } from "../../../lib/admin-vehicles";
 import { requestLocale } from "../../../lib/i18n/server";
 import { VEHICLE_IMPORT_COLUMNS } from "../../../lib/vehicle-import";
+import { FITMENT_IMPORT_COLUMNS } from "../../../lib/fitment-import";
 import { FUELS } from "../../../lib/vehicles";
 import SiteHeader from "../../../components/site-header";
 import SiteFooter from "../../../components/site-footer";
@@ -86,6 +87,32 @@ export default async function AdminVehiclesPage() {
               doneHref="/admin/vehicles"
               doneLabel={["Обнови справочника →", "Refresh the reference →"]}
               keyLabel={["Автомобил", "Vehicle"]}
+            />
+            <section className="checkout-panel">
+              <h2>{text("Импорт на съвместимост", "Fitment import")}</h2>
+              <p>
+                <code>{FITMENT_IMPORT_COLUMNS.join(";")}</code>
+              </p>
+              <ul>
+                <li>
+                  {text(
+                    "Един ред е една проверена съвместимост продукт–автомобил. Автомобилът трябва вече да е в справочника; source (източникът на проверката) е задължителен.",
+                    "One row is one verified product–vehicle fitment. The vehicle must already be in the reference; source (where it was verified) is required.",
+                  )}
+                </li>
+                <li>
+                  {text(
+                    "Празен engine значи всички двигатели на поколението; year_from/year_to ограничават годините в поколението. remove = yes премахва съвместимостта.",
+                    "An empty engine means every engine of the generation; year_from/year_to limit the years within it. remove = yes deletes the fitment.",
+                  )}
+                </li>
+              </ul>
+            </section>
+            <CsvImport
+              endpoint="/api/admin/vehicles/fitment-imports"
+              doneHref="/admin/vehicles"
+              doneLabel={["Обнови справочника →", "Refresh the reference →"]}
+              keyLabel={["Съвместимост", "Fitment"]}
             />
             <section className="checkout-panel">
               <h2>{text("Справочник", "Reference")}</h2>

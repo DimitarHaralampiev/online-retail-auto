@@ -5,7 +5,8 @@ export const json = (value: unknown, status = 200) =>
     status,
     headers: { "Cache-Control": "no-store" },
   });
-export async function requestJson(request: Request, maxBytes = 16384) {
+/** Throws unless the request comes from this site (state-changing routes). */
+export function requireSameOrigin(request: Request) {
   const origin = request.headers.get("origin");
   let valid = false;
   try {
@@ -15,6 +16,9 @@ export async function requestJson(request: Request, maxBytes = 16384) {
       parsed.host === request.headers.get("host");
   } catch {}
   if (!valid) throw new Error("Невалиден произход на заявката.");
+}
+export async function requestJson(request: Request, maxBytes = 16384) {
+  requireSameOrigin(request);
   if (!request.headers.get("content-type")?.includes("application/json"))
     throw new Error("Изпрати данните като JSON.");
   const reader = request.body?.getReader();

@@ -109,6 +109,8 @@ export const productInputSchema = z
       .max(1_000_000, "Теглото е твърде голямо.")
       .nullable()
       .default(null),
+    // Fits every vehicle (e.g. cleaning products); see ADR 0002.
+    universalFit: z.boolean().default(false),
   })
   .refine((input) => !input.description.en || input.name.en, {
     message: "Английското описание изисква и английско име.",
@@ -206,6 +208,7 @@ type ProductRow = {
   vat_bps: number;
   image_path: string | null;
   weight_grams: number | null;
+  universal_fit: boolean;
   on_hand: number;
   reserved: number;
   content_version: number;
@@ -239,6 +242,7 @@ function toAdminProduct(row: ProductRow): AdminProduct {
     vatBps: row.vat_bps,
     imagePath: row.image_path,
     weightGrams: row.weight_grams,
+    universalFit: row.universal_fit,
     status: row.status,
     onHand: row.on_hand,
     reserved: row.reserved,
@@ -374,8 +378,9 @@ export async function createProductIn(
   await assertCategory(client, input.categoryId);
   const inserted = await client.query(
     `INSERT INTO warehouse_products(sku,name,brand,manufacturer_code,ean,
-         category_id,status,selling_price_cents,vat_bps,image_path,weight_grams)
-       VALUES($1,$2,$3,$4,$5,$6,'draft',$7,$8,$9,$10)
+         category_id,status,selling_price_cents,vat_bps,image_path,weight_grams,
+         universal_fit)
+       VALUES($1,$2,$3,$4,$5,$6,'draft',$7,$8,$9,$10,$11)
        ON CONFLICT(sku) DO NOTHING RETURNING sku`,
     [
       sku,
@@ -388,6 +393,7 @@ export async function createProductIn(
       input.vatBps,
       input.imagePath,
       input.weightGrams,
+      input.universalFit,
     ],
   );
   if (!inserted.rowCount)
@@ -437,6 +443,7 @@ const EDITABLE: (keyof ProductInput)[] = [
   "vatBps",
   "imagePath",
   "weightGrams",
+  "universalFit",
 ];
 
 /** Saves an edit made on `version`; a published product must stay publishable. */
@@ -471,7 +478,7 @@ export async function updateProductIn(
   await client.query(
     `UPDATE warehouse_products SET name=$2, brand=$3, manufacturer_code=$4,
          ean=$5, category_id=$6, selling_price_cents=$7, vat_bps=$8,
-         image_path=$9, weight_grams=$10,
+         image_path=$9, weight_grams=$10, universal_fit=$11,
          content_version = content_version + 1,
          content_updated_at = now(), updated_at = now()
        WHERE sku=$1`,
@@ -486,6 +493,7 @@ export async function updateProductIn(
       input.vatBps,
       input.imagePath,
       input.weightGrams,
+      input.universalFit,
     ],
   );
   await writeTranslations(client, sku, input);
