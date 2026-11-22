@@ -9,12 +9,26 @@ export function database() {
     throw new Error(
       "Профилите още не са конфигурирани. Можеш да продължиш като гост.",
     );
-  return (globalDb.accountPool ??= new Pool({
-    connectionString: process.env.DATABASE_URL,
-    max: 5,
-    // Fail instead of waiting forever when the pool is exhausted.
-    connectionTimeoutMillis: 10_000,
-  }));
+  if (!globalDb.accountPool) {
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 5,
+      // Fail instead of waiting forever when the pool is exhausted.
+      connectionTimeoutMillis: 10_000,
+    });
+    // An idle connection the server closes (restart, failover, admin
+    // termination) is reported here. Without a listener node-postgres
+    // re-throws it and the whole server process crashes; the pool already
+    // discards the broken client and opens a new one on the next query.
+    pool.on("error", (error: Error & { code?: string }) => {
+      console.error(
+        "Idle database connection lost",
+        error.code ?? error.message,
+      );
+    });
+    globalDb.accountPool = pool;
+  }
+  return globalDb.accountPool;
 }
 /** Closes the shared pool; the next `database()` call opens a new one. */
 export async function closeDatabase() {
