@@ -10,14 +10,14 @@ type RowResult = {
   /** What the row describes: a SKU (products) or a vehicle (reference). */
   sku?: string;
   key?: string;
-  action: "create" | "update" | "unchanged" | "error";
+  action: "create" | "update" | "unchanged" | "remove" | "error";
   errors: string[];
 };
 type Report = {
   applied: boolean;
   error?: string;
   rows: RowResult[];
-  summary: Record<RowResult["action"], number>;
+  summary: Partial<Record<RowResult["action"], number>>;
 };
 
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -46,6 +46,7 @@ export default function CsvImport({
     create: text("Нов", "New"),
     update: text("Промяна", "Update"),
     unchanged: text("Без промяна", "Unchanged"),
+    remove: text("Премахване", "Removal"),
     error: text("Грешка", "Error"),
   };
 
@@ -150,6 +151,7 @@ export default function CsvImport({
                     "Check passed — you can import. ",
                   )}
             {(Object.keys(labels) as RowResult["action"][])
+              .filter((action) => report.summary[action] !== undefined)
               .map((action) => `${labels[action]}: ${report.summary[action]}`)
               .join(" · ")}
           </p>

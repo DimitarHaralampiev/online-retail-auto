@@ -12,11 +12,16 @@ import { requestLocale } from "../../../../lib/i18n/server";
 import SiteHeader from "../../../../components/site-header";
 import SiteFooter from "../../../../components/site-footer";
 import ProductAdminForm from "../../../../components/product-admin-form";
+import ProductFitments from "../../../../components/product-fitments";
+import { listAdminFitments } from "../../../../lib/admin-fitments";
 
 const ACTIONS: Record<string, [string, string]> = {
   "product.create": ["Създаден", "Created"],
   "product.update": ["Редактиран", "Edited"],
   "product.status": ["Смяна на статус", "Status change"],
+  "fitment.add": ["Добавена съвместимост", "Fitment added"],
+  "fitment.update": ["Променена съвместимост", "Fitment changed"],
+  "fitment.remove": ["Премахната съвместимост", "Fitment removed"],
 };
 
 export default async function EditProductPage({
@@ -46,10 +51,11 @@ export default async function EditProductPage({
     const parsedSku = rawSku === undefined ? null : skuSchema.safeParse(rawSku);
     if (parsedSku && !parsedSku.success) notFound();
     const sku = parsedSku?.data;
-    const [product, categories, history] = await Promise.all([
+    const [product, categories, history, fitments] = await Promise.all([
       sku ? getAdminProduct(database(), sku) : null,
       listAdminCategories(database()),
       sku ? productHistory(database(), sku) : [],
+      sku ? listAdminFitments(database(), sku) : [],
     ]);
     if (sku && !product) notFound();
     if (product) title = product.name.bg;
@@ -68,6 +74,21 @@ export default async function EditProductPage({
           product={product}
           categories={categories}
         />
+        {product &&
+          (product.universalFit ? (
+            <p className="checkout-panel">
+              {text(
+                "Продуктът е отбелязан като универсален — подходящ за всеки автомобил.",
+                "The product is marked universal — it fits every vehicle.",
+              )}
+            </p>
+          ) : (
+            <ProductFitments
+              key={product.sku}
+              sku={product.sku}
+              initial={fitments}
+            />
+          ))}
         {product && (
           <section className="checkout-panel">
             <h2>{text("История на промените", "Change history")}</h2>

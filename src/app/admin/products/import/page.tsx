@@ -47,8 +47,8 @@ export default async function ProductImportPage() {
                 </li>
                 <li>
                   {text(
-                    "category е адресът на категорията (напр. parts-consumables); price е в евро с ДДС; vat е процент; status е draft, published или archived.",
-                    "category is the category address (e.g. parts-consumables); price is in euros incl. VAT; vat is a percentage; status is draft, published or archived.",
+                    "universal_fit е yes/no (подходящ за всеки автомобил). category е адресът на категорията (напр. parts-consumables); price е в евро с ДДС; vat е процент; status е draft, published или archived.",
+                    "universal_fit is yes/no (fits every vehicle). category is the category address (e.g. parts-consumables); price is in euros incl. VAT; vat is a percentage; status is draft, published or archived.",
                   )}
                 </li>
                 <li>

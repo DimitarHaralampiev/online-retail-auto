@@ -293,3 +293,15 @@ test("only one import runs at a time", async () => {
     holder.release();
   }
 });
+
+test("universal_fit marks products that fit every vehicle", async () => {
+  const report = await run("sku;universal_fit\nIMP-1;yes\nIMP-2;maybe\n");
+  assert.equal(report.rows[0].action, "update");
+  assert.match(report.rows[1].errors[0], /universal_fit е yes или no/);
+  const applied = await run("sku;universal_fit\nIMP-1;да\n", true);
+  assert.equal(applied.applied, true);
+  assert.equal((await getAdminProduct(db().pool, "IMP-1"))!.universalFit, true);
+  // An empty cell keeps the flag.
+  await run("sku;universal_fit;price\nIMP-1;;12.00\n", true);
+  assert.equal((await getAdminProduct(db().pool, "IMP-1"))!.universalFit, true);
+});

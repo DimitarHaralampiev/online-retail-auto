@@ -51,6 +51,7 @@ export const IMPORT_COLUMNS = [
   "price",
   "vat",
   "weight_grams",
+  "universal_fit",
   "image_path",
   "status",
   "stock",
@@ -145,6 +146,16 @@ async function processRow(
     parseWholeNumber,
     "Теглото трябва да е цяло число грамове.",
   );
+  const universalText = cell("universal_fit").toLowerCase();
+  const universal = !universalText
+    ? undefined
+    : ["yes", "да", "true", "1"].includes(universalText)
+      ? true
+      : ["no", "не", "false", "0"].includes(universalText)
+        ? false
+        : (() => {
+            throw new RowError("universal_fit е yes или no.");
+          })();
   const stock = number(
     cell("stock"),
     parseWholeNumber,
@@ -193,6 +204,7 @@ async function processRow(
     vatBps: vatBps ?? existing?.vatBps ?? 2000,
     imagePath: cell("image_path") || existing?.imagePath || null,
     weightGrams: weight ?? existing?.weightGrams ?? null,
+    universalFit: universal ?? existing?.universalFit ?? false,
   });
 
   let product: AdminProduct;
