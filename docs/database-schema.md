@@ -2,7 +2,7 @@
 
 Apply migrations with `npm run db:migrate`. Each SQL file runs in its own transaction and is repeatable. Monetary values ending in `_cents` use integer minor units; `_bps` values use basis points.
 
-Accounts, verification, orders and notification queues retain their existing workflows. Warehouse receipts remain the active invoice stock ledger. Migrations 007–008 add schema foundations for suppliers, normalized lines, payments, shipments, promotions, replenishment and analytics. Creating these tables does not enable live payment collection, shipment labels or automatic promotion execution. Product publishing goes through admin product management (`src/lib/admin-products.ts`, migration 012): every change writes `admin_audit_log`, price changes write `product_price_history`, and `content_version` guards concurrent edits (stock movements do not bump it). Analytics uses trusted aggregates and product full-text retrieval; product media uses the active `product_media` table from migration 009. `product_images` is reserved for a future object-storage adapter.
+Accounts, verification, orders and notification queues retain their existing workflows. Warehouse receipts remain the active invoice stock ledger. Migrations 007–008 add schema foundations for suppliers, normalized lines, payments, shipments, promotions, replenishment and analytics. Creating these tables does not enable live payment collection, shipment labels or automatic promotion execution. Product publishing goes through admin product management (`src/lib/admin-products.ts`, migration 012): every change writes `admin_audit_log`, price changes write `product_price_history`, and `content_version` guards concurrent edits (stock movements do not bump it). Analytics uses trusted aggregates and product full-text retrieval; product media uses `product_media` (migration 009), whose bytes live in the row or in object storage (019).
 
 The inventory below contains schema metadata only, with no customer or business records.
 
@@ -577,21 +577,6 @@ Constraints:
 - `PRIMARY KEY (id)`
 - `UNIQUE (slug)`
 
-## product_images
-
-| Column      | Type    | Nullable | Default     |
-| ----------- | ------- | -------- | ----------- |
-| id          | uuid    | NO       | —           |
-| sku         | text    | NO       | —           |
-| storage_key | text    | NO       | —           |
-| alt_text    | jsonb   | NO       | '{}'::jsonb |
-| sort_order  | integer | NO       | 0           |
-
-Constraints:
-
-- `PRIMARY KEY (id)`
-- `FOREIGN KEY (sku) REFERENCES warehouse_products(sku) ON DELETE CASCADE`
-
 ## product_media
 
 | Column      | Type                     | Nullable | Default                       |
@@ -601,7 +586,9 @@ Constraints:
 | kind        | text                     | NO       | —                             |
 | mime_type   | text                     | NO       | —                             |
 | filename    | text                     | NO       | —                             |
-| content     | bytea                    | NO       | —                             |
+| content     | bytea                    | YES      | —                             |
+| storage_key | text                     | YES      | —                             |
+| byte_size   | integer                  | NO       | —                             |
 | alt_text    | jsonb                    | NO       | '{"bg": "", "en": ""}'::jsonb |
 | sort_order  | integer                  | NO       | 0                             |
 | is_primary  | boolean                  | NO       | false                         |
@@ -611,6 +598,8 @@ Constraints:
 Constraints:
 
 - `CHECK (((NOT is_primary) OR (kind = 'image'::text)))`
+- `product_media_stored_once CHECK ((content IS NULL) <> (storage_key IS NULL))`
+- `product_media_byte_size CHECK (byte_size BETWEEN 12 AND 52428800)`
 - `CHECK (((octet_length(content) >= 12) AND (octet_length(content) <= 52428800)))`
 - `CHECK ((kind = ANY (ARRAY['image'::text, 'video'::text])))`
 - `CHECK ((mime_type = ANY (ARRAY['image/jpeg'::text, 'image/png'::text, 'image/webp'::text, 'video/mp4'::text, 'video/webm'::text])))`

@@ -10,10 +10,14 @@ import {
   MAX_PRODUCT_FILES,
   MAX_PRODUCT_BYTES,
 } from "../../../../../lib/product-media-rules";
+import {
+  discardStoredMedia,
+  storeMedia,
+} from "../../../../../lib/media-storage";
 export const runtime = "nodejs";
 const skuSchema = z.string().trim().min(1).max(120);
 const selectColumns =
-  "id,sku,kind,mime_type,filename,alt_text,sort_order,is_primary,octet_length(content) AS bytes";
+  "id,sku,kind,mime_type,filename,alt_text,sort_order,is_primary,byte_size AS bytes";
 export async function GET(request: Request) {
   try {
     if (!(await currentCustomer())?.isAdmin)
@@ -69,6 +73,11 @@ export async function POST(request: Request) {
     if (!(file instanceof File)) throw Error("Липсва файл.");
     const bytes = Buffer.from(await file.arrayBuffer());
     const kind = inspectProductMedia(bytes, file.type);
+    // Store the bytes before the transaction: an upload to object storage
+    // must not hold the product row lock that checkout needs.
+    const id = randomUUID();
+    const stored = await storeMedia(sku, id, bytes, file.type);
+    let saved = false;
     const client = await database().connect();
     try {
       await client.query("BEGIN");
@@ -78,7 +87,7 @@ export async function POST(request: Request) {
       );
       if (!product.rowCount) throw Error("Непознат продукт.");
       const counts = await client.query(
-        "SELECT count(*)::int AS count,coalesce(sum(octet_length(content)),0)::text AS bytes,coalesce(max(sort_order),-1) AS last FROM product_media WHERE sku=$1",
+        "SELECT count(*)::int AS count,coalesce(sum(byte_size),0)::text AS bytes,coalesce(max(sort_order),-1) AS last FROM product_media WHERE sku=$1",
         [sku],
       );
       if (
@@ -95,26 +104,30 @@ export async function POST(request: Request) {
           )
         ).rowCount;
       await client.query(
-        "INSERT INTO product_media(id,sku,kind,mime_type,filename,content,sort_order,is_primary,uploaded_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+        "INSERT INTO product_media(id,sku,kind,mime_type,filename,content,storage_key,byte_size,sort_order,is_primary,uploaded_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
         [
-          randomUUID(),
+          id,
           sku,
           kind,
           file.type,
           mediaFilename(file.name),
-          bytes,
+          stored.content,
+          stored.storageKey,
+          bytes.length,
           counts.rows[0].last + 1,
           primary,
           admin.id,
         ],
       );
       await client.query("COMMIT");
+      saved = true;
       return json({ saved: true }, 201);
     } catch (e) {
       await client.query("ROLLBACK");
       throw e;
     } finally {
       client.release();
+      if (!saved) await discardStoredMedia(stored.storageKey);
     }
   } catch (e) {
     return invoiceError(e);
@@ -145,7 +158,7 @@ export async function PATCH(request: Request) {
         [data.sku],
       );
       const result = await client.query(
-        "SELECT id,kind,sort_order,is_primary FROM product_media WHERE id=$1 AND sku=$2",
+        "SELECT id,kind,sort_order,is_primary,storage_key FROM product_media WHERE id=$1 AND sku=$2",
         [data.id, data.sku],
       );
       const item = result.rows[0];
@@ -193,6 +206,8 @@ export async function PATCH(request: Request) {
         }
       }
       await client.query("COMMIT");
+      // The row is gone: remove its object from storage (best effort).
+      if (data.action === "remove") await discardStoredMedia(item.storage_key);
       return json({ saved: true });
     } catch (e) {
       await client.query("ROLLBACK");

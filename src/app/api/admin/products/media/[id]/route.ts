@@ -1,6 +1,7 @@
 import { currentCustomer, database } from "../../../../../../lib/accounts";
 import { json } from "../../../../../../lib/order-http";
 import { parseMediaRange } from "../../../../../../lib/product-media-rules";
+import { readMedia } from "../../../../../../lib/media-storage";
 import { z } from "zod";
 export const runtime = "nodejs";
 export async function GET(
@@ -12,12 +13,14 @@ export async function GET(
   const parsed = z.uuid().safeParse((await params).id);
   if (!parsed.success) return new Response(null, { status: 404 });
   const result = await database().query(
-    "SELECT content,mime_type FROM product_media WHERE id=$1",
+    "SELECT content,storage_key,mime_type FROM product_media WHERE id=$1",
     [parsed.data],
   );
   if (!result.rowCount) return new Response(null, { status: 404 });
   const file = result.rows[0];
-  const bytes: Buffer = file.content;
+  const stored = await readMedia(file);
+  if (!stored) return new Response(null, { status: 404 });
+  const bytes = Buffer.from(stored);
   const headers = {
     "Content-Type": file.mime_type,
     "Cache-Control": "private, no-store",
