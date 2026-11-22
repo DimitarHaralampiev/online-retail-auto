@@ -7,6 +7,7 @@ import CategoryMenu from "./category-menu";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Icon from "./icon";
+import SearchAutocomplete from "./search-autocomplete";
 import { useCart } from "./cart-provider";
 import { useCatalog } from "./catalog-provider";
 
@@ -157,24 +158,7 @@ export default function SiteHeader() {
                   </Link>
                 ))}
               </nav>
-              <form
-                className="shop-search"
-                action="/catalog"
-                method="get"
-                role="search"
-                aria-label="Търсене в магазина"
-              >
-                <input
-                  type="search"
-                  name="q"
-                  maxLength={120}
-                  aria-label="Търсене в магазина"
-                  placeholder="Потърси продукт или код…"
-                />
-                <button type="submit" aria-label="Търси в каталога">
-                  <Icon name="search" />
-                </button>
-              </form>
+              <SearchAutocomplete />
             </div>
           </div>
         </>

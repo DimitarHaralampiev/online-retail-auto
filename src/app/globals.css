@@ -4178,3 +4178,59 @@ select {
 .car-list small {
   color: #5b6358;
 }
+
+/* Header search suggestions (combobox listbox) */
+.shop-search {
+  position: relative;
+}
+.search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  background: var(--paper);
+  border: 1px solid #c8ccbf;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+  max-height: min(70vh, 480px);
+  overflow-y: auto;
+}
+.search-suggestions[hidden] {
+  display: none;
+}
+.search-suggestions-title {
+  padding: 8px 12px 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5b6358;
+}
+.search-suggestion {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  cursor: pointer;
+  min-height: 44px;
+  justify-content: center;
+}
+.search-suggestion small {
+  color: #5b6358;
+}
+.search-suggestion[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--ink);
+}
+.search-suggestion[aria-selected="true"] small {
+  color: var(--ink);
+}
+.search-suggestion-all {
+  border-top: 1px solid #e3e5dc;
+  font-weight: 600;
+}
+@media (max-width: 800px) {
+  /* The search form spans the toolbar here, so the list does too. */
+  .search-suggestions {
+    max-height: 60vh;
+  }
+}
