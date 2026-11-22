@@ -417,6 +417,27 @@ Constraints:
 - `FOREIGN KEY (invoice_id) REFERENCES supplier_invoices(id)`
 - `PRIMARY KEY (id)`
 
+## legal_pages
+
+Business-supplied legal texts (migration 021); empty text = not published.
+
+| Column     | Type                     | Nullable | Default  |
+| ---------- | ------------------------ | -------- | -------- |
+| slug       | text                     | NO       | —        |
+| content_bg | text                     | NO       | ''::text |
+| content_en | text                     | NO       | ''::text |
+| version    | integer                  | NO       | 1        |
+| updated_by | uuid                     | YES      | —        |
+| updated_at | timestamp with time zone | NO       | now()    |
+
+Constraints:
+
+- `PRIMARY KEY (slug)`
+- `CHECK (slug IN ('terms','privacy','delivery','returns','cookies'))`
+- `CHECK ((length(content_bg) <= 100000))`
+- `CHECK ((length(content_en) <= 100000))`
+- `FOREIGN KEY (updated_by) REFERENCES customers(id) ON DELETE SET NULL`
+
 ## order_email_outbox
 
 | Column          | Type                     | Nullable | Default |
@@ -518,6 +539,26 @@ Constraints:
 - `CHECK ((status = ANY (ARRAY['received'::text, 'confirmed'::text, 'preparing'::text, 'ready'::text, 'handed_to_courier'::text, 'cancelled'::text])))`
 - `UNIQUE (stripe_session_id)`
 - `CHECK ((subtotal_cents > 0))`
+
+## password_resets
+
+One pending password reset per customer (migration 020).
+
+| Column            | Type                     | Nullable | Default |
+| ----------------- | ------------------------ | -------- | ------- |
+| customer_id       | uuid                     | NO       | —       |
+| token_hash        | text                     | NO       | —       |
+| expires_at        | timestamp with time zone | NO       | —       |
+| sent_at           | timestamp with time zone | NO       | —       |
+| window_started_at | timestamp with time zone | NO       | —       |
+| send_count        | integer                  | NO       | —       |
+
+Constraints:
+
+- `PRIMARY KEY (customer_id)`
+- `UNIQUE (token_hash)`
+- `FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE`
+- `CHECK ((send_count > 0))`
 
 ## payment_events
 

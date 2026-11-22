@@ -5,6 +5,7 @@ import type { MetadataRoute } from "next";
 import { database } from "../lib/accounts";
 import { makesWithCounts, modelsOfMake } from "../lib/car-pages";
 import { catalog, catalogSource } from "../lib/catalog-server";
+import { getLegalPage, LEGAL_SLUGS } from "../lib/legal";
 import { siteUrl } from "../lib/seo";
 import { localizedEntries } from "../lib/sitemap";
 
@@ -27,6 +28,21 @@ async function carPaths(): Promise<string[]> {
   }
 }
 
+/** Legal pages with published (non-empty) text. */
+async function legalPaths(): Promise<string[]> {
+  if (!process.env.DATABASE_URL) return [];
+  try {
+    const pages = await Promise.all(
+      LEGAL_SLUGS.map((slug) => getLegalPage(database(), slug)),
+    );
+    return pages
+      .filter((page) => page.contentBg.trim())
+      .map((page) => `/legal/${page.slug}`);
+  } catch {
+    return [];
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();
   const taxonomy = await catalog().taxonomy();
@@ -38,6 +54,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         `/catalog?category=${encodeURIComponent(category.id)}&subcategory=${encodeURIComponent(sub.id)}`,
       );
   }
-  paths.push(...(await carPaths()));
+  paths.push(...(await carPaths()), ...(await legalPaths()));
   return paths.flatMap((path) => localizedEntries(base, path));
 }

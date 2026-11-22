@@ -56,6 +56,14 @@ export default async function AdminPage() {
               </p>
               <span className="text-link">Отвори поръчките →</span>
             </Link>
+            <Link href="/admin/legal" className="checkout-panel">
+              <h2>Правни страници</h2>
+              <p>
+                Текстове от търговеца: общи условия, поверителност, доставка,
+                връщане и бисквитки.
+              </p>
+              <span className="text-link">Отвори правните страници →</span>
+            </Link>
             <Link href="/admin/vehicles" className="checkout-panel">
               <h2>Автомобили</h2>
               <p>

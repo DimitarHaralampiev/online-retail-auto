@@ -4257,3 +4257,26 @@ select {
 .catalog-facet-count {
   color: #5b6358;
 }
+
+/* Legal pages */
+.legal-text {
+  max-width: 72ch;
+  line-height: 1.65;
+}
+.legal-text h2 {
+  margin-top: 1.6em;
+}
+.legal-text h3 {
+  margin-top: 1.2em;
+}
+.legal-text ul,
+.legal-text ol {
+  padding-left: 1.4em;
+}
+.legal-links {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}

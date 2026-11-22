@@ -2,8 +2,14 @@ import Localize from "./localize";
 import Link from "next/link";
 import { Brand } from "./site-header";
 import Icon from "./icon";
+import { companyDetails, LEGAL_SLUGS, LEGAL_TITLES } from "../lib/legal-shared";
 
 export default function SiteFooter() {
+  // Configured trader details only (COMPANY_* settings).
+  const company = companyDetails()
+    .filter((f) => ["Търговец", "ЕИК"].includes(f.label[0]))
+    .map((f) => (f.label[0] === "ЕИК" ? `ЕИК ${f.value}` : f.value))
+    .join(" · ");
   return (
     <Localize>
       {
@@ -29,6 +35,14 @@ export default function SiteFooter() {
                 Промоции <Icon name="arrow" />
               </Link>
             </div>
+            <nav className="footer-links" aria-label="Информация за пазаруване">
+              <span className="eyebrow">ИНФОРМАЦИЯ</span>
+              {LEGAL_SLUGS.map((slug) => (
+                <Link key={slug} href={`/legal/${slug}`}>
+                  {LEGAL_TITLES[slug][0]}
+                </Link>
+              ))}
+            </nav>
             <div className="footer-note">
               <span className="eyebrow">СЛЕДВАЩАТА СТЪПКА</span>
               <p>Подготвяме магазин със собствена наличност в България.</p>
@@ -38,6 +52,7 @@ export default function SiteFooter() {
             </div>
           </div>
           <div className="site-width footer-bottom">
+            {company && <span>{company}</span>}
             <span>
               © {new Date().getFullYear()} AUTO/SHOP · Временна визуална
               идентичност
