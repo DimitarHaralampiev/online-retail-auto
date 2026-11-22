@@ -176,3 +176,67 @@ export async function productFitments(
   );
   return result.rows;
 }
+
+/**
+ * How each product relates to the selected vehicle (ADR 0002):
+ * - "fits": verified for this vehicle (same rule as the catalog filter);
+ * - "universal": fits every vehicle;
+ * - "check": verified for this generation, but only for some engines or
+ *   years and the shopper's choice does not settle it.
+ * Products with no verified data for the generation get no status: the
+ * storefront makes no claim about them.
+ */
+export type FitStatus = "fits" | "universal" | "check";
+
+export async function fitStatuses(
+  db: Queryable,
+  skus: readonly string[],
+  selection: {
+    generationId: string;
+    engineId: string | null;
+    year: number | null;
+  },
+): Promise<Record<string, FitStatus>> {
+  if (!skus.length) return {};
+  const result = await db.query<{ sku: string; status: FitStatus }>(
+    `SELECT p.sku,
+            CASE
+              WHEN p.universal_fit THEN 'universal'
+              WHEN bool_or(f.generation_id IS NOT NULL
+                     AND (f.engine_id IS NULL OR f.engine_id = $3::uuid)
+                     AND (f.year_from IS NULL OR f.year_from <= $4::int)
+                     AND (f.year_to IS NULL OR f.year_to >= $4::int))
+                THEN 'fits'
+              WHEN bool_or(f.generation_id IS NOT NULL
+                     AND (f.engine_id IS NULL OR $3::uuid IS NULL OR f.engine_id = $3::uuid)
+                     AND ($4::int IS NULL
+                          OR ((f.year_from IS NULL OR f.year_from <= $4::int)
+                              AND (f.year_to IS NULL OR f.year_to >= $4::int))))
+                THEN 'check'
+            END AS status
+     FROM warehouse_products p
+     LEFT JOIN product_vehicle_fitments f
+       ON f.sku = p.sku AND f.generation_id = $2
+     WHERE p.sku = ANY($1) AND p.status = 'published'
+     GROUP BY p.sku, p.universal_fit`,
+    [[...skus], selection.generationId, selection.engineId, selection.year],
+  );
+  return Object.fromEntries(
+    result.rows.filter((row) => row.status).map((row) => [row.sku, row.status]),
+  );
+}
+
+/** What the product page shows about fitment: universal, or verified rows. */
+export async function productFitInfo(
+  db: Queryable,
+  sku: string,
+): Promise<{ universal: boolean; fitments: ProductFitment[] }> {
+  const [universal, fitments] = await Promise.all([
+    db.query<{ universal_fit: boolean }>(
+      "SELECT universal_fit FROM warehouse_products WHERE sku = $1",
+      [sku],
+    ),
+    productFitments(db, sku),
+  ]);
+  return { universal: !!universal.rows[0]?.universal_fit, fitments };
+}

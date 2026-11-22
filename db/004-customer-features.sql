@@ -21,11 +21,8 @@ CREATE TABLE IF NOT EXISTS customer_reminders (
  title text NOT NULL,last_service_date date,due_date date NOT NULL,
  notified_at timestamptz,created_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE TABLE IF NOT EXISTS product_fitments (
- sku text NOT NULL,make text NOT NULL,model text NOT NULL,engine text NOT NULL,
- year_from integer NOT NULL,year_to integer NOT NULL CHECK(year_to>=year_from),
- PRIMARY KEY(sku,make,model,engine,year_from,year_to)
-);
+-- product_fitments (free-text fitment) was replaced by the vehicle reference
+-- (014) and is dropped by 016.
 CREATE TABLE IF NOT EXISTS customer_email_outbox (
  id uuid PRIMARY KEY,customer_id uuid NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
  recipient text NOT NULL,subject text NOT NULL,body text NOT NULL,

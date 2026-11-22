@@ -122,7 +122,6 @@ export type CustomerFeatures = {
   alerts: ProductAlert[];
   vehicles: Vehicle[];
   reminders: Reminder[];
-  compatibleSkus: string[];
 };
 export const emptyFeatures = (): CustomerFeatures => ({
   preferences: defaultPreferences(),
@@ -130,27 +129,7 @@ export const emptyFeatures = (): CustomerFeatures => ({
   alerts: [],
   vehicles: [],
   reminders: [],
-  compatibleSkus: [],
 });
-export function fitmentMatches(
-  vehicle: Vehicle,
-  fitment: {
-    make: string;
-    model: string;
-    engine: string;
-    year_from: number;
-    year_to: number;
-  },
-) {
-  const key = (v: string) => v.trim().toLocaleLowerCase("bg");
-  return (
-    key(vehicle.make) === key(fitment.make) &&
-    key(vehicle.model) === key(fitment.model) &&
-    key(vehicle.engine) === key(fitment.engine) &&
-    vehicle.year >= fitment.year_from &&
-    vehicle.year <= fitment.year_to
-  );
-}
 export function prepareRepeatOrder(
   lines: { sku: string; quantity: number }[],
   products: readonly Product[],

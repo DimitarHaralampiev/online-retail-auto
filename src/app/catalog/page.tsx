@@ -4,7 +4,7 @@ import SiteFooter from "../../components/site-footer";
 import { permanentRedirect } from "next/navigation";
 import Catalog from "../../components/catalog";
 import { currentCustomer, database } from "../../lib/accounts";
-import { MAX_COMPATIBLE_SKUS } from "../../lib/catalog";
+import { fitStatuses } from "../../lib/vehicles";
 import { catalog, catalogSource } from "../../lib/catalog-server";
 import { cookies } from "next/headers";
 import VehicleSelector from "../../components/vehicle-selector";
@@ -19,7 +19,6 @@ import {
   catalogHref,
   parseCatalogUrl,
 } from "../../lib/catalog-url";
-import { getCustomerFeatures } from "../../lib/customer-features";
 import { requestLocale } from "../../lib/i18n/server";
 
 export default async function CatalogPage({
@@ -46,7 +45,6 @@ export default async function CatalogPage({
       (s) =>
         s.id === parsed.subcategory && (!category || s.parent === category.id),
     );
-  const fitment = parsed.car ? await vehicleFitment() : undefined;
   // The vehicle reference lives in PostgreSQL; the static demo has none.
   const vehicles = catalogSource() === "postgres";
   const [selected, customer] = vehicles
@@ -60,15 +58,32 @@ export default async function CatalogPage({
     ...parsed,
     category: category?.id ?? subcategory?.parent ?? "",
     subcategory: subcategory?.id ?? "",
-    car: !!fitment,
+    // "Only for my car" applies only with a resolved selection.
+    car: parsed.car && !!selected,
   };
   // An old link that named the category: send it to the one canonical URL.
   if (category && parsed.category !== category.id)
     permanentRedirect(catalogHref(state, { page: state.page }));
   const query = browseQueryFor(state, locale);
+  const vehicle = selected && {
+    generationId: selected.generationId,
+    engineId: selected.engineId,
+    year: selected.year,
+  };
   const result = query
-    ? await store.browse({ ...query, compatibleSkus: fitment })
+    ? await store.browse({
+        ...query,
+        vehicle: state.car && vehicle ? vehicle : undefined,
+      })
     : null;
+  const fit =
+    vehicle && result
+      ? await fitStatuses(
+          database(),
+          result.items.map((p) => p.sku),
+          vehicle,
+        ).catch(() => ({}))
+      : {};
   return (
     <Localize>
       {
@@ -103,7 +118,15 @@ export default async function CatalogPage({
               className="site-width catalog-section"
               aria-label="Продукти"
             >
-              <Catalog state={state} result={result} carFilter={state.car} />
+              <Catalog
+                state={state}
+                result={result}
+                carFilter={state.car}
+                vehicle={
+                  vehicles ? { label: selected?.label ?? null } : undefined
+                }
+                fit={fit}
+              />
             </section>
           </main>
           <SiteFooter />
@@ -111,25 +134,6 @@ export default async function CatalogPage({
       }
     </Localize>
   );
-}
-
-/**
- * SKUs that fit the signed-in customer's selected vehicle, or undefined when
- * the filter cannot apply (no session, no selected vehicle, too many matches
- * or a database error): the page then shows the unfiltered catalog.
- */
-async function vehicleFitment(): Promise<string[] | undefined> {
-  try {
-    const customer = await currentCustomer();
-    if (!customer) return undefined;
-    const features = await getCustomerFeatures(customer.id);
-    if (!features.vehicles.some((vehicle) => vehicle.selected))
-      return undefined;
-    if (features.compatibleSkus.length > MAX_COMPATIBLE_SKUS) return undefined;
-    return features.compatibleSkus;
-  } catch {
-    return undefined;
-  }
 }
 
 /** The visitor's selected vehicle from the cookie, or null (also on errors). */

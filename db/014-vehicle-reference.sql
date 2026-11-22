@@ -1,7 +1,7 @@
 -- Vehicle reference (make > model > generation > engine) and product fitment.
 -- Schema only: reference data comes from a verified source through the admin
 -- (never invented, never in migrations). The older free-text
--- product_fitments table stays until the storefront switches over (#33).
+-- product_fitments table was dropped in #33 (migration 016).
 CREATE TABLE IF NOT EXISTS vehicle_makes (
   id uuid PRIMARY KEY,
   slug text NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),

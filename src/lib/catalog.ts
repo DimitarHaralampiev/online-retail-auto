@@ -37,6 +37,15 @@ export type CatalogTaxonomy = CatalogCategory[];
 
 export type BrowseSort = "featured" | "price-asc" | "price-desc" | "name";
 
+/** A resolved vehicle selection (ids from the vehicle reference). */
+export type BrowseVehicle = {
+  generationId: string;
+  engineId: string | null;
+  year: number | null;
+};
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Structured catalog query; every filter is optional. */
 export type BrowseQuery = {
   /** Top-level category id (slug). */
@@ -50,8 +59,14 @@ export type BrowseQuery = {
   maxPriceCents?: number;
   available?: boolean;
   promotions?: boolean;
-  /** Restrict to these SKUs (vehicle fitment). */
+  /** Restrict to these SKUs. */
   compatibleSkus?: readonly string[];
+  /**
+   * Restrict to products verified to fit this vehicle, or universal ones
+   * (ADR 0002). Needs the vehicle reference, so only the PostgreSQL catalog
+   * applies it; the static demo has no reference data and ignores it.
+   */
+  vehicle?: BrowseVehicle;
   sort?: BrowseSort;
   /** Locale for name sorting and text matching on translated names. */
   locale?: "bg" | "en";
@@ -125,6 +140,19 @@ export function normalizeBrowseQuery(
     .trim()
     .slice(0, MAX_BROWSE_TEXT)
     .trim();
+  const vehicle = query.vehicle;
+  if (
+    vehicle &&
+    (!UUID.test(vehicle.generationId) ||
+      (vehicle.engineId !== null && !UUID.test(vehicle.engineId)) ||
+      (vehicle.year !== null &&
+        !(
+          Number.isInteger(vehicle.year) &&
+          vehicle.year >= 1950 &&
+          vehicle.year <= 2100
+        )))
+  )
+    throw new Error("vehicle must hold reference ids and a model year.");
   return {
     ...query,
     ...pageWindow(query),

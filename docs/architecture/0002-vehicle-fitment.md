@@ -51,15 +51,15 @@ for landing pages. AGENTS.md forbids invented fitment data.
 - `garage_vehicles` stays (reminders reference it). #32 adds nullable
   `generation_id`/`engine_id` (ON DELETE SET NULL); the free-text columns stay
   for display and for vehicles not mapped yet.
-- `product_fitments` is dropped in #33 **without** copying its rows: free-text
-  rows are not verified, and mapping them would invent fitment. Its reader in
-  `customer-features.ts` goes with it.
+- `product_fitments` was dropped in #33 (migration 016) **without** copying
+  its rows: free-text rows are not verified, and mapping them would invent
+  fitment. Its reader in `customer-features.ts` went with it.
 
 ## Consequences and known limits
 
 - The selector (#32) and catalog filter (#33) show real results only once
-  reference data is loaded (#91); until then the storefront keeps its current
-  behaviour.
+  reference data is loaded (#91). Fit badges (#33) never claim more than the
+  data says: no badge for products without verified data.
 - Choosing a data source is a business decision (#91): licensed catalogues
   such as TecDoc are paid; manual entry from manufacturer catalogues is free
   but slow.

@@ -347,13 +347,6 @@ async function main() {
       400,
     );
     assert.equal((await get("/api/customer", other)).data.vehicles.length, 0);
-    await db.query(
-      "INSERT INTO product_fitments(sku,make,model,engine,year_from,year_to) VALUES('DEMO-003',$1,'Model','1.6 TEST',2015,2020)",
-      [fitmentMake],
-    );
-    assert.deepEqual((await get("/api/customer", cookie)).data.compatibleSkus, [
-      "DEMO-003",
-    ]);
     await customer({ action: "select-vehicle", id: second }, cookie);
     data = await customer(
       {
@@ -1016,7 +1009,6 @@ async function main() {
     await db.query("DELETE FROM warehouse_products WHERE sku=ANY($1::text[])", [
       skus,
     ]);
-    await db.query("DELETE FROM product_fitments WHERE make=$1", [fitmentMake]);
     await db.query("DELETE FROM customers WHERE email=ANY($1::text[])", [
       emails,
     ]);
