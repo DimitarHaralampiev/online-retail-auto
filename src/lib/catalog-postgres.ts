@@ -116,12 +116,31 @@ const BROWSE_ORDER: Record<BrowseSort, string> = {
 // $12/$13/$14 vehicle generation, engine and year (ADR 0002: generation-wide
 // fitments, the chosen engine's, year-limited ones only with a known year,
 // and universal products).
-const browseSql = (sort: BrowseSort) => `WITH ${VISIBLE_CTE}
-SELECT *, count(*) OVER () AS total FROM visible
+// $15 shopper search (migration 017): an exact code, full-text words, or a
+// trigram match of the Latin-normalised query.
+const SEARCH_MATCH = `($15::text IS NULL
+  OR s.codes @> ARRAY[search_code($15)]
+  OR s.tsv @@ plainto_tsquery('simple', search_latin($15))
+  OR position(search_latin($15) IN s.document) > 0
+  OR word_similarity(search_latin($15), s.document) >= 0.45)
+  -- An exact code shows only the products with that code.
+  AND ($15::text IS NULL OR s.codes @> ARRAY[search_code($15)] OR NOT EXISTS (
+        SELECT 1 FROM visible exact
+        JOIN product_search es ON es.sku = exact.sku
+        WHERE es.codes @> ARRAY[search_code($15)]))`;
+
+// Exact codes first, then text rank, then closeness of the fuzzy match.
+const RELEVANCE_ORDER = `(s.codes @> ARRAY[search_code($15)]) DESC,
+  ts_rank(s.tsv, plainto_tsquery('simple', search_latin($15))) DESC,
+  word_similarity(search_latin($15), s.document) DESC, ${FEATURED_ORDER}`;
+
+const browseSql = (sort: BrowseSort, relevance: boolean) => `WITH ${VISIBLE_CTE}
+SELECT visible.*, count(*) OVER () AS total FROM visible
+LEFT JOIN product_search s ON s.sku = visible.sku
 WHERE ($2::text IS NULL OR top_slug = $2)
   AND ($3::text IS NULL OR (parent_name IS NOT NULL AND category_slug = $3))
   AND ($4::text IS NULL
-       OR position(lower($4) IN lower(name || ' ' || sku || ' ' || description)) > 0
+       OR position(lower($4) IN lower(name || ' ' || visible.sku || ' ' || description)) > 0
        OR ($9::text = 'en'
            AND position(lower($4) IN lower(name_en || ' ' || description_en)) > 0))
   AND ($5::int IS NULL OR pay_cents >= $5)
@@ -134,7 +153,8 @@ WHERE ($2::text IS NULL OR top_slug = $2)
           AND (f.engine_id IS NULL OR f.engine_id = $13::uuid)
           AND (f.year_from IS NULL OR f.year_from <= $14::int)
           AND (f.year_to IS NULL OR f.year_to >= $14::int)))
-ORDER BY ${BROWSE_ORDER[sort]}
+  AND ${SEARCH_MATCH}
+ORDER BY ${relevance ? RELEVANCE_ORDER : BROWSE_ORDER[sort]}
 LIMIT $10 OFFSET $11`;
 
 // Category counts computed in SQL, in display order.
@@ -210,16 +230,19 @@ export function createPostgresCatalog(
       query.vehicle?.generationId ?? null,
       query.vehicle?.engineId ?? null,
       query.vehicle?.year ?? null,
+      query.search ?? null,
     ];
+    // A search orders by relevance unless the shopper chose another order.
+    const relevance = !!query.search && sort === "featured";
     const result = await db().query<ProductRow & { total: string }>(
-      browseSql(sort),
+      browseSql(sort, relevance),
       params(pageSize, (page - 1) * pageSize),
     );
     let total = Number(result.rows[0]?.total ?? 0);
     // A page past the end has no rows to carry the total: count separately.
     if (!result.rows.length && page > 1) {
       const first = await db().query<{ total: string }>(
-        browseSql("featured"),
+        browseSql("featured", false),
         params(1, 0),
       );
       total = Number(first.rows[0]?.total ?? 0);

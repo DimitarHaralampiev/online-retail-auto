@@ -54,6 +54,14 @@ export type BrowseQuery = {
   subcategory?: string;
   /** Case-insensitive text matched against names, descriptions and SKU. */
   text?: string;
+  /**
+   * Shopper search (the catalog search box). The PostgreSQL adapter ranks by
+   * relevance and tolerates typos, Cyrillic/Latin spelling and either
+   * language, with exact product, manufacturer and EAN codes first; the
+   * static demo matches it like `text`. Results always include what `text`
+   * would match.
+   */
+  search?: string;
   /** Inclusive bounds on the price the customer pays (sale price if any). */
   minPriceCents?: number;
   maxPriceCents?: number;
@@ -153,9 +161,15 @@ export function normalizeBrowseQuery(
         )))
   )
     throw new Error("vehicle must hold reference ids and a model year.");
+  const search = query.search
+    ?.replace(/[\u0000-\u001f]/g, " ")
+    .trim()
+    .slice(0, MAX_BROWSE_TEXT)
+    .trim();
   return {
     ...query,
     ...pageWindow(query),
+    search: search || undefined,
     category: query.category || undefined,
     subcategory: query.subcategory || undefined,
     text: text || undefined,
