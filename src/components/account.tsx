@@ -95,6 +95,29 @@ export default function Account() {
       setBusy(false);
     }
   }
+  async function forgot(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const email = String(
+      new FormData(event.currentTarget).get("resetEmail") ?? "",
+    );
+    try {
+      const r = await fetch("/api/account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "forgot", email }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error);
+      setMessage(data.message);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function logout() {
     setBusy(true);
     setError("");
@@ -250,6 +273,28 @@ export default function Account() {
               </button>
             </fieldset>
           </form>
+          {!customer && mode === "login" && (
+            <form onSubmit={forgot} className="verification-resend">
+              <h3>Забравена парола?</h3>
+              <p className="note">
+                Ще изпратим линк за нова парола на имейла на профила.
+              </p>
+              <label>
+                Имейл на профила
+                <input
+                  name="resetEmail"
+                  type="email"
+                  required
+                  maxLength={254}
+                  autoComplete="email"
+                  disabled={busy}
+                />
+              </label>
+              <button type="submit" className="button" disabled={busy}>
+                Изпрати линк за нова парола
+              </button>
+            </form>
+          )}
           {!customer && (
             <form onSubmit={resend} className="verification-resend">
               <h3>Не получи писмото?</h3>
