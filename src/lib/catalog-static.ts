@@ -85,6 +85,16 @@ export function createStaticCatalog(
       const page = paginate(matches, query);
       return { ...page, items: page.items.map(out) };
     },
+    async countProducts() {
+      return products.length;
+    },
+    async listProductSkus(offset, limit) {
+      return [...products]
+        .map((p) => p.sku)
+        .sort()
+        .slice(Math.max(0, offset), Math.max(0, offset) + Math.max(0, limit))
+        .map((sku) => ({ sku, updatedAt: null }));
+    },
     // The static demo has no brand data, so there is nothing to count.
     async facets() {
       return { brands: [] };

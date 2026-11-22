@@ -232,6 +232,16 @@ export interface CatalogRepository {
   browse(query: BrowseQuery): Promise<BrowsePage>;
   /** Facet counts for the query's filters (paging and sort are ignored). */
   facets(query: BrowseQuery): Promise<CatalogFacets>;
+  /** Number of visible products (sitemaps). */
+  countProducts(): Promise<number>;
+  /**
+   * Visible products' SKUs in SKU order, `limit` from `offset`, with the time
+   * their content last changed when known (sitemaps).
+   */
+  listProductSkus(
+    offset: number,
+    limit: number,
+  ): Promise<{ sku: string; updatedAt: Date | null }[]>;
 }
 
 /**
