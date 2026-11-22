@@ -4159,3 +4159,22 @@ select {
 .fit-badge.fit-check {
   color: #7a5200;
 }
+
+/* Car landing pages */
+.car-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.car-list li {
+  border: 1px solid #c8ccbf;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.car-list small {
+  color: #5b6358;
+}

@@ -3,6 +3,7 @@
 // to two) > engine. Native selects keep it keyboard and screen-reader
 // friendly. The choice is stored by /api/vehicle-selection.
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale } from "./locale-provider";
 import { generationsInYear, modelYears } from "../lib/vehicle-years";
@@ -332,6 +333,11 @@ export default function VehicleSelector({
           {error}
         </p>
       )}
+      <p>
+        <Link href="/cars" className="text-link">
+          {text("Разгледай частите по марка →", "Browse parts by make →")}
+        </Link>
+      </p>
     </section>
   );
 }
