@@ -86,7 +86,7 @@ test("builds the browse query for a locale and rejects invalid prices", () => {
   assert.deepEqual(browseQueryFor(state, "en", 24), {
     category: undefined,
     subcategory: undefined,
-    text: "филтър",
+    search: "филтър",
     minPriceCents: 1000,
     maxPriceCents: undefined,
     available: false,

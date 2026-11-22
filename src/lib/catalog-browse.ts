@@ -31,7 +31,8 @@ export function filterProducts(
   query: BrowseQuery,
   translate: (s: string) => string = (s) => s,
 ): Product[] {
-  const q = (query.text ?? "").trim().toLocaleLowerCase();
+  // Without a search engine, a shopper search matches like `text`.
+  const q = (query.text ?? query.search ?? "").trim().toLocaleLowerCase();
   const compatible = query.compatibleSkus
     ? new Set(query.compatibleSkus)
     : null;

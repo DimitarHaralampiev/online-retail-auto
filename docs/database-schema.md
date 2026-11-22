@@ -637,6 +637,24 @@ Constraints:
 - `PRIMARY KEY (id)`
 - `FOREIGN KEY (sku) REFERENCES warehouse_products(sku)`
 
+## product_search
+
+Maintained by triggers (migration 017); not written by application code.
+
+| Column   | Type     | Nullable | Default |
+| -------- | -------- | -------- | ------- |
+| sku      | text     | NO       | —       |
+| document | text     | NO       | —       |
+| codes    | text[]   | NO       | —       |
+| tsv      | tsvector | NO       | —       |
+
+Constraints:
+
+- `PRIMARY KEY (sku)`
+- `FOREIGN KEY (sku) REFERENCES warehouse_products(sku) ON DELETE CASCADE`
+
+Indexes: GIN on `tsv`, GIN trigram (`gin_trgm_ops`) on `document`, GIN on `codes`. Functions: `search_latin(text)` (lower-case, Bulgarian Cyrillic transliterated to Latin, accents removed), `search_code(text)` (upper-case, non-alphanumerics removed), `refresh_product_search(sku)`. Triggers on `warehouse_products` (only `name`, `brand`, `manufacturer_code`, `ean`) and `product_translations` keep it current. Extensions: `pg_trgm`, `unaccent`.
+
 ## product_translations
 
 | Column         | Type                     | Nullable | Default     |

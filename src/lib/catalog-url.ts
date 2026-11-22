@@ -120,7 +120,9 @@ export function browseQueryFor(
   return {
     category: state.category || undefined,
     subcategory: state.subcategory || undefined,
-    text: state.q || undefined,
+    // The search box is a shopper search: relevance-ranked and typo-tolerant
+    // where the catalog supports it (PostgreSQL), literal otherwise.
+    search: state.q || undefined,
     minPriceCents: prices.minPriceCents,
     maxPriceCents: prices.maxPriceCents,
     available: state.available,
