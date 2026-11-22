@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { pageMetadata } from "../../lib/seo";
 import Localize from "../../components/localize";
 import SiteHeader from "../../components/site-header";
 import SiteFooter from "../../components/site-footer";
@@ -20,6 +22,52 @@ import {
   parseCatalogUrl,
 } from "../../lib/catalog-url";
 import { requestLocale } from "../../lib/i18n/server";
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  const parsed = parseCatalogUrl(await searchParams);
+  const locale = await requestLocale();
+  const en = locale === "en";
+  const taxonomy = await catalog(locale).taxonomy();
+  const category = taxonomy.find((c) => c.id === parsed.category);
+  const subcategory = category?.subcategories.find(
+    (s) => s.id === parsed.subcategory,
+  );
+  // Category pages are indexable; searches and filter combinations point
+  // to them and stay out of the index.
+  const filtered =
+    !!parsed.q ||
+    !!parsed.min ||
+    !!parsed.max ||
+    parsed.available ||
+    parsed.promotions ||
+    parsed.car ||
+    parsed.brands.length > 0 ||
+    parsed.sort !== "featured";
+  const query = new URLSearchParams();
+  if (category) query.set("category", category.id);
+  if (category && subcategory) query.set("subcategory", subcategory.id);
+  if (!filtered && parsed.page > 1) query.set("page", String(parsed.page));
+  const path = query.size ? `/catalog?${query}` : "/catalog";
+  const name = subcategory
+    ? `${subcategory.name} — ${category!.name}`
+    : (category?.name ?? (en ? "Catalog" : "Каталог"));
+  return pageMetadata({
+    locale,
+    path,
+    title:
+      parsed.page > 1 && !filtered
+        ? `${name} (${en ? "page" : "страница"} ${parsed.page})`
+        : name,
+    description: en
+      ? `${subcategory?.name ?? category?.name ?? "Car accessories, parts and car care"} in the AUTO/SHOP catalog.`
+      : `${subcategory?.name ?? category?.name ?? "Автоаксесоари, части и автокозметика"} в каталога на AUTO/SHOP.`,
+    index: !filtered,
+  });
+}
 
 export default async function CatalogPage({
   searchParams,

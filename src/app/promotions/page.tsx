@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { pageMetadata } from "../../lib/seo";
 import { requestLocale } from "../../lib/i18n/server";
 import Localize from "../../components/localize";
 import Link from "next/link";
@@ -7,6 +9,19 @@ import ProductCard from "../../components/product-card";
 import Icon from "../../components/icon";
 import { catalog } from "../../lib/catalog-server";
 import { getPromotion } from "../../lib/pricing";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await requestLocale();
+  const en = locale === "en";
+  return pageMetadata({
+    locale,
+    path: "/promotions",
+    title: en ? "Promotions" : "Промоции",
+    description: en
+      ? "Current promotions on car accessories, parts and car care."
+      : "Актуални промоции на автоаксесоари, части и автокозметика.",
+  });
+}
 
 export default async function PromotionsPage() {
   const products = (await catalog(await requestLocale()).listProducts()).filter(

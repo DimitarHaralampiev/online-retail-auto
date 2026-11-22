@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { pageMetadata } from "../../../lib/seo";
 import Localize from "../../../components/localize";
 import Image from "next/image";
 import Link from "next/link";
@@ -15,6 +17,24 @@ import { catalog, catalogSource } from "../../../lib/catalog-server";
 import { database } from "../../../lib/accounts";
 import { productFitInfo, type ProductFitment } from "../../../lib/vehicles";
 import { requestLocale } from "../../../lib/i18n/server";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ sku: string }>;
+}): Promise<Metadata> {
+  const { sku } = await params;
+  const locale = await requestLocale();
+  const product = await catalog(locale).getProduct(sku);
+  if (!product) return {};
+  return pageMetadata({
+    locale,
+    path: `/catalog/${encodeURIComponent(product.sku)}`,
+    title: product.name,
+    description: product.description || product.name,
+    image: product.image,
+  });
+}
 
 export default async function ProductPage({
   params,

@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { requestLocale } from "../lib/i18n/server";
+import { pageMetadata } from "../lib/seo";
 import Localize from "../components/localize";
 import Image from "next/image";
 import Link from "next/link";
@@ -37,6 +39,19 @@ const categories = [
     label: "ГРИЖА",
   },
 ];
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await requestLocale();
+  const en = locale === "en";
+  return pageMetadata({
+    locale,
+    path: "/",
+    title: en ? "Car accessories and parts" : "Автоаксесоари и части",
+    description: en
+      ? "Car accessories, parts and car care from our own warehouse in Bulgaria."
+      : "Автоаксесоари, части и автокозметика от собствен склад в България.",
+  });
+}
 
 export default async function Home() {
   const featured = await catalog(await requestLocale()).getProducts(
