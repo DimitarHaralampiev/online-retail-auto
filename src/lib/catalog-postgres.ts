@@ -11,6 +11,8 @@ import {
   type BrowseQuery,
   type BrowseSort,
   type CatalogRepository,
+  type BrandFacet,
+  type CatalogFacets,
   type CatalogTaxonomy,
   type Product,
 } from "./catalog";
@@ -70,6 +72,7 @@ visible AS (
          w.on_hand,
          w.reserved,
          w.universal_fit,
+         w.brand,
          c.slug AS category_slug,
          coalesce(ct.name, cte.name, c.slug) AS category_name,
          coalesce(pt.name, pte.name, parent.slug) AS parent_name,
@@ -134,9 +137,9 @@ const RELEVANCE_ORDER = `(s.codes @> ARRAY[search_code($15)]) DESC,
   ts_rank(s.tsv, plainto_tsquery('simple', search_latin($15))) DESC,
   word_similarity(search_latin($15), s.document) DESC, ${FEATURED_ORDER}`;
 
-const browseSql = (sort: BrowseSort, relevance: boolean) => `WITH ${VISIBLE_CTE}
-SELECT visible.*, count(*) OVER () AS total FROM visible
-LEFT JOIN product_search s ON s.sku = visible.sku
+// Every browse filter; `brands: false` leaves out the brand filter, for the
+// brand facet's own counts. $16 brand keys (migration 018).
+const browseFilters = ({ brands }: { brands: boolean }) => `
 WHERE ($2::text IS NULL OR top_slug = $2)
   AND ($3::text IS NULL OR (parent_name IS NOT NULL AND category_slug = $3))
   AND ($4::text IS NULL
@@ -154,7 +157,35 @@ WHERE ($2::text IS NULL OR top_slug = $2)
           AND (f.year_from IS NULL OR f.year_from <= $14::int)
           AND (f.year_to IS NULL OR f.year_to >= $14::int)))
   AND ${SEARCH_MATCH}
+  ${brands ? "AND ($16::text[] IS NULL OR brand_key(brand) = ANY($16))" : "AND $16::text[] IS NOT DISTINCT FROM $16"}`;
+
+const browseSql = (sort: BrowseSort, relevance: boolean) => `WITH ${VISIBLE_CTE}
+SELECT visible.*, count(*) OVER () AS total FROM visible
+LEFT JOIN product_search s ON s.sku = visible.sku
+${browseFilters({ brands: true })}
 ORDER BY ${relevance ? RELEVANCE_ORDER : BROWSE_ORDER[sort]}
+LIMIT $10 OFFSET $11`;
+
+// Brand counts under every other filter ($10 caps the number of brands;
+// $11 is always 0).
+const BRAND_FACETS_SQL = `WITH ${VISIBLE_CTE},
+filtered AS (
+  SELECT brand_key(brand) AS key, trim(brand) AS spelling
+  FROM visible
+  LEFT JOIN product_search s ON s.sku = visible.sku
+  ${browseFilters({ brands: false })}
+    AND brand_key(brand) <> ''
+)
+SELECT key,
+       -- The most common spelling; on a tie a title-case one ("Bosch").
+       (SELECT spelling FROM filtered named WHERE named.key = f.key
+        GROUP BY spelling
+        ORDER BY count(*) DESC, (spelling ~ '^[[:upper:]][[:lower:]]') DESC, spelling
+        LIMIT 1) AS name,
+       count(*)::int AS count
+FROM filtered f
+GROUP BY key
+ORDER BY 3 DESC, 1
 LIMIT $10 OFFSET $11`;
 
 // Category counts computed in SQL, in display order.
@@ -199,6 +230,32 @@ function toProduct(row: ProductRow, locale: Locale): Product {
  * @param locale names and descriptions are returned in this locale, falling
  *   back to Bulgarian (then the warehouse name or category slug).
  */
+/** Positional parameters of the browse and facet queries (see the SQL). */
+function browseParams(
+  query: ReturnType<typeof normalizeBrowseQuery>,
+  limit: number,
+  offset: number,
+): unknown[] {
+  return [
+    query.compatibleSkus ? [...query.compatibleSkus] : null,
+    query.category ?? null,
+    query.subcategory ?? null,
+    query.text ?? null,
+    query.minPriceCents ?? null,
+    query.maxPriceCents ?? null,
+    !!query.available,
+    !!query.promotions,
+    query.locale ?? "bg",
+    limit,
+    offset,
+    query.vehicle?.generationId ?? null,
+    query.vehicle?.engineId ?? null,
+    query.vehicle?.year ?? null,
+    query.search ?? null,
+    query.brands?.length ? [...query.brands] : null,
+  ];
+}
+
 export function createPostgresCatalog(
   db: () => Queryable,
   locale: Locale = "bg",
@@ -215,23 +272,8 @@ export function createPostgresCatalog(
     });
     const { page, pageSize } = query;
     const sort = query.sort ?? "featured";
-    const params = (limit: number, offset: number) => [
-      query.compatibleSkus ? [...query.compatibleSkus] : null,
-      query.category ?? null,
-      query.subcategory ?? null,
-      query.text ?? null,
-      query.minPriceCents ?? null,
-      query.maxPriceCents ?? null,
-      !!query.available,
-      !!query.promotions,
-      query.locale ?? "bg",
-      limit,
-      offset,
-      query.vehicle?.generationId ?? null,
-      query.vehicle?.engineId ?? null,
-      query.vehicle?.year ?? null,
-      query.search ?? null,
-    ];
+    const params = (limit: number, offset: number) =>
+      browseParams(query, limit, offset);
     // A search orders by relevance unless the shopper chose another order.
     const relevance = !!query.search && sort === "featured";
     const result = await db().query<ProductRow & { total: string }>(
@@ -256,7 +298,20 @@ export function createPostgresCatalog(
     };
   }
 
+  async function facets(input: BrowseQuery): Promise<CatalogFacets> {
+    const query = normalizeBrowseQuery({
+      ...input,
+      locale: input.locale ?? locale,
+    });
+    const result = await db().query<BrandFacet>(
+      BRAND_FACETS_SQL,
+      browseParams(query, 100, 0),
+    );
+    return { brands: result.rows };
+  }
+
   return {
+    facets,
     listProducts: () => products(null),
     async getProduct(sku) {
       return (await products([sku]))[0] ?? null;

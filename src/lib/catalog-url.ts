@@ -1,11 +1,12 @@
 // The catalog page's URL is its state: /catalog?category=…&subcategory=…&q=…
-// &min=…&max=…&available=1&promotions=1&car=1&sort=…&page=…
+// &min=…&max=…&available=1&promotions=1&car=1&brand=…&brand=…&sort=…&page=…
 // Everything a visitor can type into the URL is parsed here with Zod into a
 // safe BrowseQuery; links are built here too, so the format lives in one place.
 import { z } from "zod";
 import {
   MAX_BROWSE_TEXT,
   MAX_PAGE,
+  normalizeBrandKeys,
   type BrowseQuery,
   type BrowseSort,
 } from "./catalog";
@@ -21,6 +22,8 @@ export type CatalogUrlState = {
   available: boolean;
   promotions: boolean;
   car: boolean;
+  /** Brand facet keys, sorted; a product matches any of them. */
+  brands: string[];
   sort: BrowseSort;
   page: number;
 };
@@ -34,6 +37,7 @@ export const EMPTY_CATALOG_STATE: CatalogUrlState = {
   available: false,
   promotions: false,
   car: false,
+  brands: [],
   sort: "featured",
   page: 1,
 };
@@ -67,6 +71,14 @@ const schema = z.object({
   available: flag,
   promotions: flag,
   car: flag,
+  // Repeatable (?brand=a&brand=b); unknown or malformed keys are dropped.
+  brand: z
+    .preprocess(
+      (value) =>
+        value === undefined ? [] : Array.isArray(value) ? value : [value],
+      z.array(z.unknown()).catch([]),
+    )
+    .transform((values) => normalizeBrandKeys(values)),
   sort: z.preprocess(
     first,
     z.enum(["featured", "price-asc", "price-desc", "name"]).catch("featured"),
@@ -85,7 +97,8 @@ const schema = z.object({
 export function parseCatalogUrl(
   params: Record<string, string | string[] | undefined>,
 ): CatalogUrlState {
-  return schema.parse(params);
+  const { brand, ...rest } = schema.parse(params);
+  return { ...rest, brands: brand };
 }
 
 /** Price bounds in cents, or invalid when malformed or reversed. */
@@ -127,6 +140,7 @@ export function browseQueryFor(
     maxPriceCents: prices.maxPriceCents,
     available: state.available,
     promotions: state.promotions,
+    brands: state.brands.length ? state.brands : undefined,
     sort: state.sort,
     locale,
     page: state.page,
@@ -153,6 +167,8 @@ export function catalogHref(
   if (next.available) params.set("available", "1");
   if (next.promotions) params.set("promotions", "1");
   if (next.car) params.set("car", "1");
+  for (const brand of normalizeBrandKeys(next.brands))
+    params.append("brand", brand);
   if (next.sort !== "featured") params.set("sort", next.sort);
   if (next.page > 1) params.set("page", String(next.page));
   const query = params.toString();

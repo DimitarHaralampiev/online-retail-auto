@@ -6,7 +6,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { MAX_BROWSE_TEXT, type BrowsePage } from "../lib/catalog";
+import {
+  MAX_BROWSE_TEXT,
+  type BrandFacet,
+  type BrowsePage,
+} from "../lib/catalog";
 import {
   catalogHref,
   EMPTY_CATALOG_STATE,
@@ -26,6 +30,7 @@ export default function Catalog({
   carFilter,
   vehicle,
   fit = {},
+  brands = [],
 }: {
   state: CatalogUrlState;
   /** Null when the URL's price range is invalid. */
@@ -39,6 +44,8 @@ export default function Catalog({
   vehicle?: { label: string | null };
   /** Fit status per SKU for the chosen car (ADR 0002). */
   fit?: Record<string, FitStatus>;
+  /** Brand facet with counts under the other filters. */
+  brands?: BrandFacet[];
 }) {
   const { t, locale } = useLocale();
   const en = locale === "en";
@@ -139,16 +146,25 @@ export default function Catalog({
     !priceRange({ min: minPrice.trim(), max: maxPrice.trim() }).valid;
   const selectedSub = subcategories.find((s) => s.id === state.subcategory);
   const selectedCategory = taxonomy.find((c) => c.id === state.category);
-  const activeCount = [
-    state.category,
-    state.subcategory,
-    state.q,
-    state.min,
-    state.max,
-    state.available,
-    state.promotions,
-    carFilter,
-  ].filter(Boolean).length;
+  const activeCount =
+    [
+      state.category,
+      state.subcategory,
+      state.q,
+      state.min,
+      state.max,
+      state.available,
+      state.promotions,
+      carFilter,
+    ].filter(Boolean).length + state.brands.length;
+  const brandName = (key: string) =>
+    brands.find((b) => b.key === key)?.name ?? key;
+  const toggleBrand = (key: string, on: boolean) =>
+    navigate({
+      brands: on
+        ? [...state.brands, key]
+        : state.brands.filter((brand) => brand !== key),
+    });
   const products = result?.items ?? [];
 
   return (
@@ -323,6 +339,22 @@ export default function Catalog({
                 </label>
               )}
             </div>
+            {brands.length > 0 && (
+              <fieldset className="catalog-brand-filter">
+                <legend>{text("Марка", "Brand")}</legend>
+                {brands.map((brand) => (
+                  <label key={brand.key}>
+                    <input
+                      type="checkbox"
+                      checked={state.brands.includes(brand.key)}
+                      onChange={(e) => toggleBrand(brand.key, e.target.checked)}
+                    />
+                    {brand.name}{" "}
+                    <span className="catalog-facet-count">({brand.count})</span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
             {vehicle && (
               <div className="catalog-vehicle-note">
                 {vehicle.label ? (
@@ -437,6 +469,17 @@ export default function Catalog({
                   {text("Моят автомобил", "My vehicle")} ×
                 </button>
               )}
+              {state.brands.map((key) => (
+                <button
+                  key={key}
+                  onClick={() => toggleBrand(key, false)}
+                  aria-label={
+                    text("Премахни марка ", "Remove brand ") + brandName(key)
+                  }
+                >
+                  {brandName(key)} ×
+                </button>
+              ))}
               <button className="catalog-clear-all" onClick={reset}>
                 {text("Изчисти всички", "Clear all")}
               </button>

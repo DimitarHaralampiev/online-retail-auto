@@ -85,5 +85,9 @@ export function createStaticCatalog(
       const page = paginate(matches, query);
       return { ...page, items: page.items.map(out) };
     },
+    // The static demo has no brand data, so there is nothing to count.
+    async facets() {
+      return { brands: [] };
+    },
   };
 }

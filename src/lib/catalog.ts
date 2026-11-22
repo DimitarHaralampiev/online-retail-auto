@@ -75,6 +75,8 @@ export type BrowseQuery = {
    * applies it; the static demo has no reference data and ignores it.
    */
   vehicle?: BrowseVehicle;
+  /** Brand facet keys (brandKey); a product matches any of them. */
+  brands?: readonly string[];
   sort?: BrowseSort;
   /** Locale for name sorting and text matching on translated names. */
   locale?: "bg" | "en";
@@ -82,6 +84,29 @@ export type BrowseQuery = {
   page?: number;
   pageSize?: number;
 };
+
+export type BrandFacet = { key: string; name: string; count: number };
+
+/**
+ * Facet counts for a query. Each facet counts with every other active
+ * filter but not its own, so choosing a brand keeps the other brands'
+ * counts (disjunctive faceting).
+ */
+export type CatalogFacets = { brands: BrandFacet[] };
+
+export const MAX_BRAND_FILTERS = 20;
+const BRAND_KEY = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/** Valid, unique, sorted brand keys (at most MAX_BRAND_FILTERS). */
+export function normalizeBrandKeys(
+  keys: readonly unknown[] | undefined,
+): string[] {
+  const valid = (keys ?? []).filter(
+    (key): key is string =>
+      typeof key === "string" && key.length <= 60 && BRAND_KEY.test(key),
+  );
+  return [...new Set(valid)].sort().slice(0, MAX_BRAND_FILTERS);
+}
 
 export type BrowsePage = {
   items: Product[];
@@ -170,6 +195,7 @@ export function normalizeBrowseQuery(
     ...query,
     ...pageWindow(query),
     search: search || undefined,
+    brands: query.brands?.length ? normalizeBrandKeys(query.brands) : undefined,
     category: query.category || undefined,
     subcategory: query.subcategory || undefined,
     text: text || undefined,
@@ -204,6 +230,8 @@ export interface CatalogRepository {
   taxonomy(): Promise<CatalogTaxonomy>;
   /** One page of products matching the query, with the total match count. */
   browse(query: BrowseQuery): Promise<BrowsePage>;
+  /** Facet counts for the query's filters (paging and sort are ignored). */
+  facets(query: BrowseQuery): Promise<CatalogFacets>;
 }
 
 /**

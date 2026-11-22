@@ -70,12 +70,17 @@ export default async function CatalogPage({
     engineId: selected.engineId,
     year: selected.year,
   };
-  const result = query
-    ? await store.browse({
-        ...query,
-        vehicle: state.car && vehicle ? vehicle : undefined,
-      })
-    : null;
+  const filtered = query && {
+    ...query,
+    vehicle: state.car && vehicle ? vehicle : undefined,
+  };
+  const [result, facets] = filtered
+    ? await Promise.all([
+        store.browse(filtered),
+        // Facets are a convenience: the page works without them.
+        store.facets(filtered).catch(() => ({ brands: [] })),
+      ])
+    : [null, { brands: [] }];
   const fit =
     vehicle && result
       ? await fitStatuses(
@@ -126,6 +131,7 @@ export default async function CatalogPage({
                   vehicles ? { label: selected?.label ?? null } : undefined
                 }
                 fit={fit}
+                brands={facets.brands}
               />
             </section>
           </main>
