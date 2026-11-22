@@ -1,0 +1,171 @@
+import Link from "next/link";
+import { database } from "../../../lib/accounts";
+import { currentAdmin } from "../../../lib/admin-product-http";
+import { referenceTree } from "../../../lib/admin-vehicles";
+import { requestLocale } from "../../../lib/i18n/server";
+import { VEHICLE_IMPORT_COLUMNS } from "../../../lib/vehicle-import";
+import { FUELS } from "../../../lib/vehicles";
+import SiteHeader from "../../../components/site-header";
+import SiteFooter from "../../../components/site-footer";
+import CsvImport from "../../../components/csv-import";
+import VehicleVisibility from "../../../components/vehicle-visibility";
+
+export default async function AdminVehiclesPage() {
+  const en = (await requestLocale()) === "en";
+  const text = (bg: string, english: string) => (en ? english : bg);
+  const admin = await currentAdmin();
+  const tree = admin ? await referenceTree(database()) : null;
+  const status = (active: boolean) => (
+    <span
+      className={`admin-product-status ${active ? "published" : "archived"}`}
+    >
+      {active ? text("Видима", "Shown") : text("Скрита", "Hidden")}
+    </span>
+  );
+  return (
+    <>
+      <SiteHeader />
+      <main id="main-content" className="site-width inventory-page">
+        <section className="page-intro">
+          <Link href="/admin">← {text("Администрация", "Administration")}</Link>
+          <p className="eyebrow">{text("СЪВМЕСТИМОСТ", "FITMENT")}</p>
+          <h1>{text("Автомобили", "Vehicles")}</h1>
+          <p>
+            {text(
+              "Справочник на марки, модели, поколения и двигатели. Зарежда се само от проверен източник (каталог на производителя или лицензиран каталог) — никога по предположение.",
+              "Reference of makes, models, generations and engines. Load it only from a verified source (manufacturer or licensed catalogue) — never from guesses.",
+            )}
+          </p>
+        </section>
+        {!tree ? (
+          <p>
+            <Link href="/account">
+              {text(
+                "Влез с администраторски профил.",
+                "Sign in with an administrator account.",
+              )}
+            </Link>
+          </p>
+        ) : (
+          <>
+            <section className="checkout-panel">
+              <h2>{text("Импорт от CSV", "CSV import")}</h2>
+              <p>
+                <code>{VEHICLE_IMPORT_COLUMNS.join(";")}</code>
+              </p>
+              <ul>
+                <li>
+                  {text(
+                    "Един ред е един двигател на поколение (или поколение без двигатели). Задължителни: make, model, generation, year_from.",
+                    "One row is one engine of a generation (or a generation without engines). Required: make, model, generation, year_from.",
+                  )}
+                </li>
+                <li>
+                  {text(
+                    "Редът е пълният запис: празна клетка изтрива стойността (празно year_to значи „все още се произвежда“).",
+                    "A row is the full record: an empty cell clears the value (empty year_to means “still in production”).",
+                  )}
+                </li>
+                <li>
+                  {text(
+                    "Адресите (make_slug, model_slug) се изчисляват от латинските имена; задай ги при имена на кирилица. fuel е едно от: ",
+                    "Addresses (make_slug, model_slug) are derived from Latin names; set them for Cyrillic names. fuel is one of: ",
+                  )}
+                  {FUELS.join(", ")}.
+                </li>
+                <li>
+                  {text(
+                    "Нищо не се изтрива: за грешна марка или модел използвай „Скрий“.",
+                    "Nothing is deleted: use “Hide” for a wrong make or model.",
+                  )}
+                </li>
+              </ul>
+            </section>
+            <CsvImport
+              endpoint="/api/admin/vehicles/imports"
+              doneHref="/admin/vehicles"
+              doneLabel={["Обнови справочника →", "Refresh the reference →"]}
+              keyLabel={["Автомобил", "Vehicle"]}
+            />
+            <section className="checkout-panel">
+              <h2>{text("Справочник", "Reference")}</h2>
+              {tree.length === 0 ? (
+                <p>
+                  {text(
+                    "Все още няма въведени автомобили.",
+                    "No vehicles have been entered yet.",
+                  )}
+                </p>
+              ) : (
+                <div className="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th scope="col">
+                          {text("Марка / модел", "Make / model")}
+                        </th>
+                        <th scope="col">{text("Адрес", "Address")}</th>
+                        <th scope="col">{text("Поколения", "Generations")}</th>
+                        <th scope="col">{text("Двигатели", "Engines")}</th>
+                        <th scope="col">{text("Съвместимости", "Fitments")}</th>
+                        <th scope="col">{text("Статус", "Status")}</th>
+                        <th scope="col">
+                          <span className="visually-hidden">
+                            {text("Действия", "Actions")}
+                          </span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tree.flatMap((make) => [
+                        <tr key={make.id}>
+                          <th scope="row">{make.name}</th>
+                          <td>
+                            <code>{make.slug}</code>
+                          </td>
+                          <td colSpan={3}>
+                            {make.models.length} {text("модела", "models")}
+                          </td>
+                          <td>{status(make.active)}</td>
+                          <td>
+                            <VehicleVisibility
+                              kind="make"
+                              id={make.id}
+                              name={make.name}
+                              active={make.active}
+                            />
+                          </td>
+                        </tr>,
+                        ...make.models.map((model) => (
+                          <tr key={model.id}>
+                            <td>— {model.name}</td>
+                            <td>
+                              <code>{model.slug}</code>
+                            </td>
+                            <td>{model.generations}</td>
+                            <td>{model.engines}</td>
+                            <td>{model.fitments}</td>
+                            <td>{status(model.active)}</td>
+                            <td>
+                              <VehicleVisibility
+                                kind="model"
+                                id={model.id}
+                                name={`${make.name} ${model.name}`}
+                                active={model.active}
+                              />
+                            </td>
+                          </tr>
+                        )),
+                      ])}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </>
+        )}
+      </main>
+      <SiteFooter />
+    </>
+  );
+}

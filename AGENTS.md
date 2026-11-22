@@ -15,7 +15,7 @@ The `.agents/`, `.aws/`, `.codex/` and `.idea/` directories are local environmen
 - `src/lib/i18n/` — locale handling and English translations (`en.json`); Bulgarian is the source language: write UI strings in Bulgarian and add the English entry to `en.json`, keyed by the whitespace-normalised Bulgarian text.
 - `db/` — numbered SQL migrations (`NNN-name.sql`). `scripts/migrate.mjs` has no tracking table and re-applies every file in order, each in its own transaction, on every run, so each migration must be idempotent (`IF NOT EXISTS`, `ON CONFLICT`, guarded `ALTER`s) and must stay safe to re-run. Schema reference: `docs/database-schema.md`.
 - `scripts/` — operational scripts (migrations, admin grant, workers, DB-backed flow tests).
-- Vehicle fitment: `src/lib/vehicles.ts` over `vehicle_makes`/`vehicle_models`/`vehicle_generations`/`vehicle_engines` and `product_vehicle_fitments` (ADR `docs/architecture/0002-vehicle-fitment.md`). Reference and fitment data come only from a verified source, never from migrations, seeds or guesses; tests use fictional fixtures.
+- Vehicle fitment: `src/lib/vehicles.ts` over `vehicle_makes`/`vehicle_models`/`vehicle_generations`/`vehicle_engines` and `product_vehicle_fitments` (ADR `docs/architecture/0002-vehicle-fitment.md`). Reference and fitment data come only from a verified source, never from migrations, seeds or guesses; tests use fictional fixtures. Admins maintain the reference at `/admin/vehicles` (CSV import with dry run in `src/lib/vehicle-import.ts`: one row per engine of a generation, each row the full record; makes and models are hidden, never deleted).
 - `docs/` — integration notes, reference reviews and screenshots. `public/images/` — product and design images.
 
 ## Toolchain and Commands

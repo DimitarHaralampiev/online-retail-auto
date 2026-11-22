@@ -4,7 +4,7 @@ import { IMPORT_COLUMNS } from "../../../../lib/product-import";
 import { requestLocale } from "../../../../lib/i18n/server";
 import SiteHeader from "../../../../components/site-header";
 import SiteFooter from "../../../../components/site-footer";
-import ProductImport from "../../../../components/product-import";
+import CsvImport from "../../../../components/csv-import";
 
 export default async function ProductImportPage() {
   const en = (await requestLocale()) === "en";
@@ -59,7 +59,11 @@ export default async function ProductImportPage() {
                 </li>
               </ul>
             </section>
-            <ProductImport />
+            <CsvImport
+              endpoint="/api/admin/catalog/imports"
+              doneHref="/admin/products"
+              doneLabel={["Към продуктите →", "Go to products →"]}
+            />
           </>
         ) : (
           <p>
