@@ -8,7 +8,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await currentCustomer())?.isAdmin)
+  if (!(await currentCustomer(request))?.isAdmin)
     return json({ error: "Нужен е администраторски достъп." }, 403);
   const parsed = z.uuid().safeParse((await params).id);
   if (!parsed.success) return new Response(null, { status: 404 });

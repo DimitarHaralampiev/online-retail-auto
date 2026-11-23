@@ -22,7 +22,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const admin = await currentAdmin();
+    const admin = await currentAdmin(request);
     if (!admin) return forbidden();
     const parsedId = z.uuid().safeParse((await params).id);
     if (!parsedId.success)

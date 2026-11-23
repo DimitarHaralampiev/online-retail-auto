@@ -26,9 +26,9 @@ const schema = z
     trackingNumber: z.string().trim().max(80).optional(),
   })
   .strict();
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const customer = await currentCustomer();
+    const customer = await currentCustomer(request);
     if (!customer?.isAdmin)
       return json({ error: "Необходим е администраторски достъп." }, 403);
     const result = await database().query(
@@ -50,7 +50,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const data = await requestJson(request);
-    const customer = await currentCustomer();
+    const customer = await currentCustomer(request);
     if (!customer?.isAdmin)
       return json({ error: "Необходим е администраторски достъп." }, 403);
     if (data?.action === "retry-emails") {

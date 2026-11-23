@@ -27,7 +27,7 @@ const bodySchema = z.object({
 /** Check (apply: false) or import (apply: true) of product fitments. */
 export async function POST(request: Request) {
   try {
-    const admin = await currentAdmin();
+    const admin = await currentAdmin(request);
     if (!admin) return forbidden();
     const body = bodySchema.parse(
       await requestJson(request, MAX_IMPORT_BYTES * 2 + 1024),

@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { currentCustomer, database } from "../../../../../lib/accounts";
-import { json, requestJson } from "../../../../../lib/order-http";
+import {
+  json,
+  requestJson,
+  requireSameOrigin,
+} from "../../../../../lib/order-http";
 import { invoiceError } from "../../../../../lib/invoice-http";
 import {
   inspectProductMedia,
@@ -20,7 +24,7 @@ const selectColumns =
   "id,sku,kind,mime_type,filename,alt_text,sort_order,is_primary,byte_size AS bytes";
 export async function GET(request: Request) {
   try {
-    if (!(await currentCustomer())?.isAdmin)
+    if (!(await currentCustomer(request))?.isAdmin)
       return json({ error: "Нужен е администраторски достъп." }, 403);
     const sku = skuSchema.parse(new URL(request.url).searchParams.get("sku"));
     const media = await database().query(
@@ -34,15 +38,11 @@ export async function GET(request: Request) {
 }
 export async function POST(request: Request) {
   try {
-    const admin = await currentCustomer();
+    const admin = await currentCustomer(request);
     if (!admin?.isAdmin)
       return json({ error: "Нужен е администраторски достъп." }, 403);
-    const origin = new URL(request.headers.get("origin") || "about:blank");
-    if (
-      !["http:", "https:"].includes(origin.protocol) ||
-      origin.host !== request.headers.get("host")
-    )
-      throw Error("Невалиден произход на заявката.");
+    // Multipart upload: the origin check of requestJson without its JSON parsing.
+    requireSameOrigin(request);
     if (!request.headers.get("content-type")?.startsWith("multipart/form-data"))
       throw Error("Избери файл за качване.");
     const reader = request.body?.getReader();
@@ -145,7 +145,7 @@ const updateSchema = z
   .strict();
 export async function PATCH(request: Request) {
   try {
-    const admin = await currentCustomer();
+    const admin = await currentCustomer(request);
     if (!admin?.isAdmin)
       return json({ error: "Нужен е администраторски достъп." }, 403);
     const data = updateSchema.parse(await requestJson(request));

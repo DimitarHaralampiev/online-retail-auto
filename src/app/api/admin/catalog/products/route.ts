@@ -17,7 +17,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    if (!(await currentAdmin())) return forbidden();
+    if (!(await currentAdmin(request))) return forbidden();
     const params = new URL(request.url).searchParams;
     const query = listQuerySchema.parse({
       status: params.get("status") || undefined,
@@ -34,7 +34,7 @@ const createSchema = productInputSchema.extend({ sku: newSkuSchema });
 
 export async function POST(request: Request) {
   try {
-    const admin = await currentAdmin();
+    const admin = await currentAdmin(request);
     if (!admin) return forbidden();
     const { sku, ...input } = createSchema.parse(
       await requestJson(request, 65536),

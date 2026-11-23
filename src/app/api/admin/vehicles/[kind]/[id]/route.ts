@@ -25,7 +25,7 @@ export async function PUT(
   { params }: { params: Promise<{ kind: string; id: string }> },
 ) {
   try {
-    const admin = await currentAdmin();
+    const admin = await currentAdmin(request);
     if (!admin) return forbidden();
     const parsed = paramsSchema.safeParse(await params);
     if (!parsed.success) return json({ error: "Не е намерено." }, 404);

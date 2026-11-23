@@ -14,7 +14,7 @@ const schema = z
   .strict();
 export async function POST(request: Request) {
   try {
-    const admin = await currentCustomer();
+    const admin = await currentCustomer(request);
     if (!admin?.isAdmin)
       return json({ error: "Нужен е администраторски достъп." }, 403);
     const tooMany = limited(

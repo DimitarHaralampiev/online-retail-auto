@@ -19,7 +19,7 @@ export const maxDuration = 180;
 type Context = { params: Promise<{ id: string }> };
 export async function GET(request: Request, { params }: Context) {
   try {
-    if (!(await currentCustomer())?.isAdmin)
+    if (!(await currentCustomer(request))?.isAdmin)
       return json({ error: "Нужен е администраторски достъп." }, 403);
     const id = z.uuid().parse((await params).id);
     if (new URL(request.url).searchParams.get("download") === "pdf") {
@@ -51,7 +51,7 @@ export async function GET(request: Request, { params }: Context) {
 }
 export async function POST(request: Request, { params }: Context) {
   try {
-    const customer = await currentCustomer();
+    const customer = await currentCustomer(request);
     if (!customer?.isAdmin)
       return json({ error: "Нужен е администраторски достъп." }, 403);
     const id = z.uuid().parse((await params).id);

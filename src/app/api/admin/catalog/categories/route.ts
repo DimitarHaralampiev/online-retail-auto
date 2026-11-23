@@ -15,9 +15,9 @@ import { json, requestJson } from "../../../../../lib/order-http";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    if (!(await currentAdmin())) return forbidden();
+    if (!(await currentAdmin(request))) return forbidden();
     return json({ categories: await listAdminCategories(database()) });
   } catch (e) {
     return adminProductError(e);
@@ -28,7 +28,7 @@ const createSchema = categoryInputSchema.extend({ slug: categorySlugSchema });
 
 export async function POST(request: Request) {
   try {
-    const admin = await currentAdmin();
+    const admin = await currentAdmin(request);
     if (!admin) return forbidden();
     const { slug, ...input } = createSchema.parse(await requestJson(request));
     const category = await createCategory(database(), admin.id, slug, input);

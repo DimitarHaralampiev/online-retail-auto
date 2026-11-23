@@ -8,12 +8,13 @@ import { requestJson, json, orderError } from "../../../../lib/order-http";
 import { z } from "zod";
 export async function POST(request: Request) {
   try {
-    z.object({ action: z.literal("scan") })
-      .strict()
-      .parse(await requestJson(request));
-    const customer = await currentCustomer();
+    const body = await requestJson(request);
+    const customer = await currentCustomer(request);
     if (!customer?.isAdmin)
       return json({ error: "Необходим е администраторски достъп." }, 403);
+    z.object({ action: z.literal("scan") })
+      .strict()
+      .parse(body);
     const queued = await scanCustomerNotifications();
     const sent = await sendCustomerEmails();
     const { pending, failed } = await outboxCounts("customer_email_outbox");

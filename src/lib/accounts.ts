@@ -35,8 +35,25 @@ export async function closeDatabase() {
   await pool?.end();
 }
 export const sessionCookie = "auto_session";
-export async function currentCustomer(): Promise<Customer | null> {
-  const token = (await cookies()).get(sessionCookie)?.value;
+/** The session token from a request's Cookie header. */
+export function sessionToken(request: Request): string | undefined {
+  for (const part of (request.headers.get("cookie") ?? "").split(";")) {
+    const [name, ...value] = part.trim().split("=");
+    if (name === sessionCookie) return value.join("=");
+  }
+  return undefined;
+}
+/**
+ * The signed-in customer. Route handlers pass their request (the session is
+ * read from its Cookie header, which also makes handlers testable outside
+ * Next.js); server components read the request cookies.
+ */
+export async function currentCustomer(
+  request?: Request,
+): Promise<Customer | null> {
+  const token = request
+    ? sessionToken(request)
+    : (await cookies()).get(sessionCookie)?.value;
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
   const result = await database().query(
     `SELECT c.id,c.email,c.name,c.phone,c.delivery,c.is_admin AS "isAdmin" FROM customers c JOIN customer_sessions s ON s.customer_id=c.id WHERE s.token_hash=$1 AND s.expires_at>now() AND c.email_verified_at IS NOT NULL`,

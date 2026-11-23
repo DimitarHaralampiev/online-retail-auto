@@ -19,7 +19,7 @@ export async function POST(
   { params }: { params: Promise<{ sku: string }> },
 ) {
   try {
-    const admin = await currentAdmin();
+    const admin = await currentAdmin(request);
     if (!admin) return forbidden();
     const sku = skuSchema.parse((await params).sku);
     const { status, version } = statusChangeSchema.parse(

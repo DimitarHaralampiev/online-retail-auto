@@ -5,9 +5,9 @@ import {
 } from "../../../../lib/store-settings";
 import { json, requestJson } from "../../../../lib/order-http";
 import { invoiceError } from "../../../../lib/invoice-http";
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    if (!(await currentCustomer())?.isAdmin)
+    if (!(await currentCustomer(request))?.isAdmin)
       return json({ error: "Нужен е администраторски достъп." }, 403);
     return json(await deliverySettings());
   } catch (e) {
@@ -16,7 +16,7 @@ export async function GET() {
 }
 export async function POST(request: Request) {
   try {
-    const customer = await currentCustomer();
+    const customer = await currentCustomer(request);
     if (!customer?.isAdmin)
       return json({ error: "Нужен е администраторски достъп." }, 403);
     const settings = deliverySettingsSchema.parse(await requestJson(request));

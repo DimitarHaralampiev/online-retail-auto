@@ -20,7 +20,7 @@ export async function PUT(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   try {
-    const admin = await currentAdmin();
+    const admin = await currentAdmin(request);
     if (!admin) return forbidden();
     const { slug } = await params;
     if (!isLegalSlug(slug)) return json({ error: "Не е намерено." }, 404);
