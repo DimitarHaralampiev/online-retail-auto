@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   CART_STORAGE_KEY,
   normalizeCart,
@@ -25,6 +32,27 @@ type CartContextValue = {
 };
 const CartContext = createContext<CartContextValue | null>(null);
 
+const STORAGE_WARNING =
+  "Браузърът не позволява запазване на количката. Тя работи само до презареждане.";
+// Whether the browser refused cart storage (read or write), as a tiny
+// external store: the storage effects report it without setting state.
+const storageStatus = (() => {
+  let blocked = false;
+  const listeners = new Set<() => void>();
+  return {
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    blocked: () => blocked,
+    reportBlocked() {
+      if (blocked) return;
+      blocked = true;
+      listeners.forEach((listener) => listener());
+    },
+  };
+})();
+
 export default function CartProvider({
   children,
 }: {
@@ -33,7 +61,12 @@ export default function CartProvider({
   const { ensureProducts, productBySku } = useCatalog();
   const [items, setItems] = useState<CartItem[]>([]);
   const [ready, setReady] = useState(false);
-  const [storageWarning, setStorageWarning] = useState("");
+  const storageBlocked = useSyncExternalStore(
+    storageStatus.subscribe,
+    storageStatus.blocked,
+    () => false,
+  );
+  const storageWarning = storageBlocked ? STORAGE_WARNING : "";
   // Restore the stored cart once its products are loaded. If the lookup
   // fails, keep the stored items as they are rather than dropping them.
   useEffect(() => {
@@ -41,9 +74,7 @@ export default function CartProvider({
     try {
       stored = storedCartItems(localStorage.getItem(CART_STORAGE_KEY));
     } catch {
-      setStorageWarning(
-        "Браузърът не позволява запазване на количката. Тя работи само до презареждане.",
-      );
+      storageStatus.reportBlocked();
     }
     let cancelled = false;
     ensureProducts(stored.map((item) => item.sku)).then(
@@ -70,9 +101,7 @@ export default function CartProvider({
         JSON.stringify({ version: 1, items }),
       );
     } catch {
-      setStorageWarning(
-        "Браузърът не позволява запазване на количката. Тя работи само до презареждане.",
-      );
+      storageStatus.reportBlocked();
     }
   }, [items, ready]);
   // Changes load the products of the new items and of everything already in

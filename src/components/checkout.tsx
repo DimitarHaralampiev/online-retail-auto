@@ -19,10 +19,20 @@ import Icon from "./icon";
 import { useAccount } from "./account-provider";
 
 export default function Checkout() {
-  const { items, ready, storageWarning, clear, unresolved, retryProducts } =
-    useCart();
+  const { ready } = useCart();
+  const { customer, ready: accountReady } = useAccount();
+  if (!ready || !accountReady)
+    return <Localize>{<p role="status">Зареждаме количката…</p>}</Localize>;
+  // Another customer signing in or out starts the form afresh with their
+  // details and saved delivery choice.
+  return <CheckoutForm key={customer?.id ?? "guest"} />;
+}
+
+function CheckoutForm() {
+  const { items, storageWarning, clear, unresolved, retryProducts } = useCart();
   const { productBySku } = useCatalog();
-  const { customer, ready: accountReady, setCustomer } = useAccount();
+  const { customer, setCustomer } = useAccount();
+  const saved = customer?.delivery;
   const [orderConfig, setOrderConfig] = useState<{
     enabled: boolean;
     shippingCents: number | null;
@@ -39,44 +49,69 @@ export default function Checkout() {
       .catch(() => {});
   }, []);
   const [saveProfile, setSaveProfile] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
-  const [courier, setCourier] = useState<Courier>("speedy");
+  const [courier, setCourier] = useState<Courier>(saved?.courier ?? "speedy");
   const [deliveryType, setDeliveryType] = useState<"office" | "address">(
-    "office",
+    saved?.type ?? "office",
   );
-  const [city, setCity] = useState("");
-  const [officeId, setOfficeId] = useState("");
+  const [city, setCity] = useState(saved?.city ?? "");
+  const [officeId, setOfficeId] = useState(
+    saved?.type === "office" ? saved.officeId : "",
+  );
   const [officeSearch, setOfficeSearch] = useState("");
   const [payment, setPayment] = useState<"cod" | "card">("cod");
-  const [preview, setPreview] = useState<CheckoutPreview | null>(null);
+  // A preview belongs to the cart it was made for: changing the cart drops it.
+  const [previewState, setPreviewState] = useState<{
+    items: typeof items;
+    value: CheckoutPreview;
+  } | null>(null);
+  const preview = previewState?.items === items ? previewState.value : null;
+  const setPreview = (value: CheckoutPreview | null) =>
+    setPreviewState(value && { items, value });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const requestRef = useRef<AbortController | null>(null);
-  const [allOffices, setAllOffices] = useState<Office[]>([]);
-  const [officesBusy, setOfficesBusy] = useState(false);
-  const [officesError, setOfficesError] = useState("");
-  const [officesMode, setOfficesMode] = useState("live");
   const [retryOffices, setRetryOffices] = useState(0);
+  // The office list answers one request (courier + retry); until the answer
+  // for the current one arrives, the list is loading.
+  const officesRequest = `${courier}:${retryOffices}`;
+  const [officesResult, setOfficesResult] = useState<{
+    request: string;
+    offices: Office[];
+    mode: string;
+    error: string;
+  } | null>(null);
+  const officesCurrent =
+    officesResult?.request === officesRequest ? officesResult : null;
+  const allOffices = officesCurrent?.offices ?? [];
+  const officesError = officesCurrent?.error ?? "";
+  const officesMode = officesCurrent?.mode ?? "live";
+  const officesBusy = deliveryType === "office" && !officesCurrent;
   useEffect(() => {
     if (deliveryType !== "office") return;
     const controller = new AbortController();
-    setAllOffices([]);
-    setOfficesError("");
-    setOfficesBusy(true);
+    const request = `${courier}:${retryOffices}`;
     fetch(`/api/delivery/offices?courier=${courier}`, {
       signal: controller.signal,
     })
       .then(async (r) => {
         const data = await r.json();
         if (!r.ok) throw new Error(data.error);
-        setAllOffices(data.offices);
-        setOfficesMode(data.mode);
+        if (!controller.signal.aborted)
+          setOfficesResult({
+            request,
+            offices: data.offices,
+            mode: data.mode,
+            error: "",
+          });
       })
       .catch((e) => {
-        if (!controller.signal.aborted) setOfficesError(e.message);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setOfficesBusy(false);
+        if (!controller.signal.aborted)
+          setOfficesResult({
+            request,
+            offices: [],
+            mode: "live",
+            error: e.message,
+          });
       });
     return () => controller.abort();
   }, [courier, deliveryType, retryOffices]);
@@ -92,30 +127,12 @@ export default function Checkout() {
         .includes(officeSearch.trim().toLocaleLowerCase("bg")),
   );
 
+  // A changed cart (or leaving the page) cancels a running preview; its
+  // finally block then clears the busy state.
   useEffect(() => {
-    setPreview(null);
-    setBusy(false);
     requestRef.current?.abort();
     return () => requestRef.current?.abort();
   }, [items]);
-
-  useEffect(() => {
-    const form = formRef.current;
-    for (const key of ["name", "email", "phone"] as const) {
-      const field = form?.elements.namedItem(key) as HTMLInputElement | null;
-      if (field) field.value = customer?.[key] ?? "";
-    }
-    setSaveProfile(false);
-    setPreview(null);
-    requestRef.current?.abort();
-    setBusy(false);
-    const delivery = customer?.delivery;
-    setCourier(delivery?.courier ?? "speedy");
-    setDeliveryType(delivery?.type ?? "office");
-    setCity(delivery?.city ?? "");
-    setOfficeId(delivery?.type === "office" ? delivery.officeId : "");
-    setOfficeSearch("");
-  }, [customer?.id, ready, accountReady]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -228,8 +245,6 @@ export default function Checkout() {
     }
   }
 
-  if (!ready || !accountReady)
-    return <Localize>{<p role="status">Зареждаме количката…</p>}</Localize>;
   if (!items.length)
     return (
       <Localize>
@@ -264,7 +279,6 @@ export default function Checkout() {
           )}
           <div className="checkout-grid">
             <form
-              ref={formRef}
               className="checkout-form"
               onSubmit={submit}
               onChange={() => setPreview(null)}
@@ -290,6 +304,7 @@ export default function Checkout() {
                       <input
                         name="name"
                         autoComplete="name"
+                        defaultValue={customer?.name ?? ""}
                         required
                         maxLength={120}
                       />
@@ -300,6 +315,7 @@ export default function Checkout() {
                         name="email"
                         type="email"
                         autoComplete="email"
+                        defaultValue={customer?.email ?? ""}
                         required
                         maxLength={254}
                       />
@@ -310,6 +326,7 @@ export default function Checkout() {
                         name="phone"
                         type="tel"
                         autoComplete="tel"
+                        defaultValue={customer?.phone ?? ""}
                         required
                         maxLength={30}
                         placeholder="Напр. 0888 123 456"
