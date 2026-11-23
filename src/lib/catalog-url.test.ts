@@ -4,6 +4,7 @@ import {
   browseQueryFor,
   catalogHref,
   EMPTY_CATALOG_STATE,
+  parseCatalogSearch,
   parseCatalogUrl,
   priceRange,
 } from "./catalog-url";
@@ -239,5 +240,33 @@ test("brands are repeatable, validated, sorted and round-trip", () => {
   assert.equal(
     catalogHref({ ...state, page: 3 }, { brands: [] }),
     "/catalog?q=%D1%84%D0%B8%D0%BB%D1%82%D1%8A%D1%80",
+  );
+});
+
+test("a browser query string parses like the server's parameters", () => {
+  const state = parseCatalogSearch(
+    "?category=car-care&q=%D1%84&brand=valeo&brand=bosch&available=1&page=2&lang=en",
+  );
+  assert.equal(state.category, "car-care");
+  assert.equal(state.q, "ф");
+  assert.deepEqual(state.brands, ["bosch", "valeo"]);
+  assert.equal(state.available, true);
+  assert.equal(state.page, 2);
+  assert.deepEqual(parseCatalogSearch(""), EMPTY_CATALOG_STATE);
+  assert.deepEqual(parseCatalogSearch("?brand=bosch").brands, ["bosch"]);
+  // Hostile input falls back like on the server.
+  assert.deepEqual(
+    parseCatalogSearch("?sort=DROP&page=abc&available=yes"),
+    EMPTY_CATALOG_STATE,
+  );
+  // Round trip.
+  assert.equal(
+    catalogHref(state, { page: state.page }),
+    catalogHref(
+      parseCatalogSearch(
+        new URL(catalogHref(state, { page: state.page }), "http://x").search,
+      ),
+      { page: 2 },
+    ),
   );
 });

@@ -101,6 +101,19 @@ export function parseCatalogUrl(
   return { ...rest, brands: brand };
 }
 
+/** The same from a query string (`location.search`) in the browser. */
+export function parseCatalogSearch(search: string): CatalogUrlState {
+  const params = new URLSearchParams(search);
+  return parseCatalogUrl(
+    Object.fromEntries(
+      [...new Set(params.keys())].map((key) => {
+        const values = params.getAll(key);
+        return [key, values.length > 1 ? values : values[0]];
+      }),
+    ),
+  );
+}
+
 /** Price bounds in cents, or invalid when malformed or reversed. */
 export function priceRange(
   state: Pick<CatalogUrlState, "min" | "max">,
