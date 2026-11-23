@@ -180,9 +180,14 @@ Constraints:
 | created_at      | timestamp with time zone | NO       | now()   |
 | alert_id        | uuid                     | YES      | —       |
 | reminder_id     | uuid                     | YES      | —       |
+| next_attempt_at | timestamp with time zone | NO       | now()   |
+| locked_until    | timestamp with time zone | YES      | —       |
+| failed_at       | timestamp with time zone | YES      | —       |
+| last_error      | text                     | YES      | —       |
 
 Constraints:
 
+- `CHECK ((char_length(last_error) <= 500))`
 - `FOREIGN KEY (alert_id) REFERENCES customer_product_alerts(id) ON DELETE CASCADE`
 - `FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE`
 - `PRIMARY KEY (id)`
@@ -480,9 +485,14 @@ Constraints:
 | sent_at         | timestamp with time zone | YES      | —       |
 | last_attempt_at | timestamp with time zone | YES      | —       |
 | created_at      | timestamp with time zone | NO       | now()   |
+| next_attempt_at | timestamp with time zone | NO       | now()   |
+| locked_until    | timestamp with time zone | YES      | —       |
+| failed_at       | timestamp with time zone | YES      | —       |
+| last_error      | text                     | YES      | —       |
 
 Constraints:
 
+- `CHECK ((char_length(last_error) <= 500))`
 - `FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE`
 - `PRIMARY KEY (id)`
 

@@ -2,7 +2,11 @@ import { z } from "zod";
 import { currentCustomer, database } from "../../../../lib/accounts";
 import { changeOrderStatus, publicOrder } from "../../../../lib/orders";
 import { orderStatuses } from "../../../../lib/order-state";
-import { sendOrderEmails } from "../../../../lib/order-notifications";
+import {
+  orderOutbox,
+  sendOrderEmails,
+} from "../../../../lib/order-notifications";
+import { outboxCounts, requeueFailed } from "../../../../lib/email-outbox";
 import { requestJson, json, orderError } from "../../../../lib/order-http";
 const schema = z
   .object({
@@ -30,15 +34,14 @@ export async function GET() {
     const result = await database().query(
       "SELECT * FROM orders ORDER BY created_at DESC LIMIT 50",
     );
-    const pending = await database().query(
-      "SELECT count(*)::int AS count FROM order_email_outbox WHERE sent_at IS NULL",
-    );
+    const emails = await outboxCounts("order_email_outbox");
     return json({
       orders: result.rows.map((order) => ({
         ...publicOrder(order),
         contact: order.contact,
       })),
-      pendingEmails: pending.rows[0].count,
+      pendingEmails: emails.pending,
+      failedEmails: emails.failed,
     });
   } catch {
     return json({ error: "Неуспешно зареждане." }, 503);
@@ -51,7 +54,9 @@ export async function POST(request: Request) {
     if (!customer?.isAdmin)
       return json({ error: "Необходим е администраторски достъп." }, 403);
     if (data?.action === "retry-emails") {
-      return json({ sent: await sendOrderEmails() });
+      // Failed emails (dead letters) get a fresh set of attempts.
+      const requeued = await requeueFailed(orderOutbox);
+      return json({ requeued, sent: await sendOrderEmails() });
     }
     const change = schema.parse(data);
     await changeOrderStatus(

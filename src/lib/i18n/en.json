@@ -812,5 +812,7 @@
   "Линкът е невалиден или е изтекъл. Абонирай се отново.": "The link is invalid or has expired. Subscribe again.",
   "Отписа се от новините. Няма да получаваш повече имейли.": "You have unsubscribed. You will not receive any more emails.",
   "Линкът за отписване е невалиден.": "The unsubscribe link is invalid.",
-  "Потвърди съгласието си.": "Please confirm your consent."
+  "Потвърди съгласието си.": "Please confirm your consent.",
+  "Неизпратени след всички опити:": "Not sent after all attempts:",
+  "Провери SMTP настройките и адресите на получателите, после изпрати отново.": "Check the SMTP settings and the recipient addresses, then send again."
 }
