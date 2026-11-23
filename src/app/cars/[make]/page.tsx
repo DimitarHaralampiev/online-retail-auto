@@ -18,7 +18,7 @@ async function load(slug: string) {
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const make = await load((await params).make);
-  if (!make) return {};
+  if (!make) notFound();
   const locale = await requestLocale();
   const en = locale === "en";
   return pageMetadata({

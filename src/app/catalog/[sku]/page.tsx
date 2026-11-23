@@ -31,7 +31,7 @@ export async function generateMetadata({
   const { sku } = await params;
   const locale = await requestLocale();
   const product = await catalog(locale).getProduct(sku);
-  if (!product) return {};
+  if (!product) notFound();
   return pageMetadata({
     locale,
     path: `/catalog/${encodeURIComponent(product.sku)}`,

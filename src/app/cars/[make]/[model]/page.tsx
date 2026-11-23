@@ -32,7 +32,7 @@ async function load(params: Params["params"]) {
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const found = await load(params);
-  if (!found) return {};
+  if (!found) notFound();
   const { make, model } = found;
   const locale = await requestLocale();
   const en = locale === "en";
