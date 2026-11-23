@@ -112,6 +112,31 @@ export default function DeliverySettingsPanel() {
                 поръчки запазват потвърдената сума. Куриерските цени засега са
                 тестови.
               </p>
+              <label>
+                Срок за картово плащане (минути)
+                <input
+                  type="number"
+                  min="30"
+                  max="180"
+                  step="1"
+                  required
+                  disabled={busy}
+                  value={settings.cardPaymentWindowMinutes ?? 30}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      cardPaymentWindowMinutes: Math.round(
+                        Number(e.target.value),
+                      ),
+                    })
+                  }
+                />
+              </label>
+              <p className="note">
+                Толкова време неплатена картова поръчка държи наличността си,
+                след което се отказва. Важи за новите поръчки (между 30 и 180
+                минути).
+              </p>
               <button className="button" disabled={busy}>
                 {busy ? "Запазваме…" : "Запази правилото за доставка"}
               </button>

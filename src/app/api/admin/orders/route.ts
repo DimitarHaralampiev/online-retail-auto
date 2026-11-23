@@ -30,6 +30,13 @@ const schema = z
       ],
     ),
     trackingNumber: z.string().trim().max(80).optional(),
+    // Legacy handover without a stock movement; the reason is audited.
+    stockOverrideReason: z
+      .string()
+      .trim()
+      .min(5, "Опиши защо предаваш без складово движение.")
+      .max(300)
+      .optional(),
   })
   .strict();
 export async function GET(request: Request) {
@@ -72,12 +79,18 @@ export async function POST(request: Request) {
       return json({ requeued, sent: await sendOrderEmails() });
     }
     const change = schema.parse(data);
+    if (change.stockOverrideReason && change.status !== "handed_to_courier")
+      return json(
+        { error: "Изключението важи само при предаване на куриер." },
+        400,
+      );
     await changeOrderStatus(
       change.id,
       change.status,
       change.expectedStatus,
       customer.id,
       change.trackingNumber,
+      change.stockOverrideReason,
     );
     await sendOrderEmails().catch(() => {});
     return json({ updated: true });

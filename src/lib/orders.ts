@@ -105,7 +105,13 @@ export async function createOrder(value: unknown, customerId: string | null) {
       // reservation cannot oversell, and the reserved rows' prices cannot
       // change until commit. Promotions are read as of this moment (they are
       // not locked). Any failure rolls the order back.
-      await reserveStock(client, id, lines, checkout.payment);
+      await reserveStock(
+        client,
+        id,
+        lines,
+        checkout.payment,
+        config.cardPaymentWindowMinutes,
+      );
       const current = productLookup(
         await createPostgresCatalog(() => client).getProducts(
           lines.map((line) => line.sku),
@@ -141,6 +147,11 @@ export async function changeOrderStatus(
   expected: OrderStatus,
   actorId: string,
   trackingNumber?: string,
+  /**
+   * Hands over without a stock movement (legacy orders with no reservation
+   * whose goods the warehouse records no longer hold); audited with this reason.
+   */
+  stockOverrideReason?: string,
 ) {
   const client = await database().connect();
   try {
@@ -155,8 +166,28 @@ export async function changeOrderStatus(
       throw new Error("Етапът вече е променен. Обнови списъка.");
     validateTransition(order, next, trackingNumber);
     // Goods leave the warehouse on handover; a cancellation frees the stock.
-    if (next === "handed_to_courier" && catalogSource() === "postgres")
-      await consumeOrderStock(client, id, order.lines);
+    if (next === "handed_to_courier" && catalogSource() === "postgres") {
+      if (stockOverrideReason) {
+        const reserved = await client.query(
+          "SELECT 1 FROM stock_reservations WHERE order_id=$1 AND status='active' LIMIT 1",
+          [id],
+        );
+        if (reserved.rowCount)
+          throw new Error(
+            "Поръчката има запазена наличност. Предай я без изключение.",
+          );
+        await client.query(
+          `INSERT INTO admin_audit_log(id,actor_id,action,entity_type,entity_id,details)
+           VALUES ($1,$2,'order.handover_without_stock','order',$3,$4)`,
+          [
+            randomUUID(),
+            actorId,
+            id,
+            JSON.stringify({ reason: stockOverrideReason, lines: order.lines }),
+          ],
+        );
+      } else await consumeOrderStock(client, id, order.lines);
+    }
     if (next === "cancelled") await settleReservations(client, id, "released");
     const changed = await client.query<OrderRecord>(
       "UPDATE orders SET status=$1,tracking_number=$2,delivered_at=CASE WHEN $1='delivered' THEN now() ELSE delivered_at END,updated_at=now() WHERE id=$3 RETURNING *",

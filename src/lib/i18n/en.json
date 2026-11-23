@@ -821,5 +821,14 @@
   "Отбелязах като възстановено": "Mark as refunded",
   "Възстановяването не е намерено.": "Refund not found.",
   "Възстановяването вече е отбелязано. Обнови списъка.": "This refund is already marked. Refresh the list.",
-  "Бележката е до 500 знака.": "The note can be up to 500 characters."
+  "Бележката е до 500 знака.": "The note can be up to 500 characters.",
+  "Срок за картово плащане (минути)": "Card payment window (minutes)",
+  "Толкова време неплатена картова поръчка държи наличността си, след което се отказва. Важи за новите поръчки (между 30 и 180 минути).": "How long an unpaid card order holds its stock before it is cancelled. Applies to new orders (between 30 and 180 minutes).",
+  "Срокът за картово плащане е между 30 и 180 минути.": "The card payment window is between 30 and 180 minutes.",
+  "Опиши защо предаваш без складово движение.": "Describe why you hand over without a stock movement.",
+  "Изключението важи само при предаване на куриер.": "The exception applies only to a courier handover.",
+  "Поръчката има запазена наличност. Предай я без изключение.": "The order has reserved stock. Hand it over without the exception.",
+  "Предаване без складово движение (стари поръчки)": "Hand over without a stock movement (legacy orders)",
+  "Само за поръчки без запазена наличност, чиито бройки складът вече не води. Причината се записва в одита; коригирай наличността отделно.": "Only for orders without reserved stock whose items the warehouse no longer records. The reason is audited; correct the stock separately.",
+  "Причина": "Reason"
 }
