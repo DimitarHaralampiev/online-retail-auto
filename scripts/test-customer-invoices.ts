@@ -16,6 +16,7 @@ import type {
   ReviewedInvoice,
   ExtractedInvoice,
 } from "../src/lib/invoice-rules";
+import { inventoryValues, removeTestOrders } from "./test-order-cleanup";
 const root =
   process.env.TEST_APP_URL ?? process.env.APP_URL ?? "http://127.0.0.1:3008";
 if (
@@ -144,6 +145,8 @@ function mockedResponse(value: unknown, extra: unknown[] = []) {
   );
 }
 async function main() {
+  // Before the first order (see test-order-cleanup.ts).
+  const values = await inventoryValues(db);
   try {
     const cookie = await register(0);
     const other = await register(1);
@@ -983,14 +986,7 @@ async function main() {
           [ids[0]],
         );
     }
-    await db.query(
-      "DELETE FROM order_email_outbox WHERE order_id=ANY($1::uuid[])",
-      [orders],
-    );
-    await db.query("DELETE FROM order_history WHERE order_id=ANY($1::uuid[])", [
-      orders,
-    ]);
-    await db.query("DELETE FROM orders WHERE id=ANY($1::uuid[])", [orders]);
+    await removeTestOrders(db, orders, values);
     await db.query(
       "DELETE FROM invoice_market_research WHERE invoice_id=ANY($1::uuid[])",
       [invoices],

@@ -73,6 +73,9 @@ export default function AdminOrders() {
       expectedStatus: order.status,
       status: String(form.get("status")),
       trackingNumber: String(form.get("trackingNumber") ?? ""),
+      // Empty unless the admin opened the legacy handover exception.
+      stockOverrideReason:
+        String(form.get("stockOverrideReason") ?? "").trim() || undefined,
     });
   }
   async function send(body: unknown) {
@@ -211,6 +214,26 @@ export default function AdminOrders() {
                             />
                           </label>
                         </div>
+                        {next.includes("handed_to_courier") && (
+                          <details className="handover-override">
+                            <summary>
+                              Предаване без складово движение (стари поръчки)
+                            </summary>
+                            <p className="note">
+                              Само за поръчки без запазена наличност, чиито
+                              бройки складът вече не води. Причината се записва
+                              в одита; коригирай наличността отделно.
+                            </p>
+                            <label>
+                              Причина
+                              <input
+                                name="stockOverrideReason"
+                                minLength={5}
+                                maxLength={300}
+                              />
+                            </label>
+                          </details>
+                        )}
                         <button className="button" type="submit">
                           Запази етапа и уведоми клиента
                         </button>

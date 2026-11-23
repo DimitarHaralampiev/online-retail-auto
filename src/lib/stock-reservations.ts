@@ -14,6 +14,7 @@ import type { OrderRecord } from "./order-model";
 import { queueOrderEmail } from "./order-notifications";
 import { logError } from "./log";
 
+/** Default card payment window; the store setting overrides it (#80). */
 export const CARD_PAYMENT_WINDOW_MINUTES = 30;
 
 type Queryable = Pick<pg.PoolClient, "query">;
@@ -60,10 +61,11 @@ export async function reserveStock(
   orderId: string,
   lines: readonly Line[],
   paymentMethod: "cod" | "card",
+  cardWindowMinutes = CARD_PAYMENT_WINDOW_MINUTES,
 ): Promise<void> {
   const expiresAt =
     paymentMethod === "card"
-      ? `now() + interval '${CARD_PAYMENT_WINDOW_MINUTES} minutes'`
+      ? "now() + make_interval(mins => $5)"
       : "'infinity'::timestamptz";
   for (const line of [...lines].sort(bySku)) {
     const reserved = await client.query(
@@ -77,7 +79,9 @@ export async function reserveStock(
     await client.query(
       `INSERT INTO stock_reservations(id,order_id,sku,quantity,status,expires_at)
        VALUES($1,$2,$3,$4,'active',${expiresAt})`,
-      [randomUUID(), orderId, line.sku, line.quantity],
+      paymentMethod === "card"
+        ? [randomUUID(), orderId, line.sku, line.quantity, cardWindowMinutes]
+        : [randomUUID(), orderId, line.sku, line.quantity],
     );
     await movement(client, orderId, line.sku, "reserve", line.quantity);
   }

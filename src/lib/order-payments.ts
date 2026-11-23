@@ -4,8 +4,8 @@ import { database } from "./accounts";
 import { orderUrl, simulatorEnabled } from "./order-config";
 import { validPayment } from "./order-state";
 import { queueOrderEmail } from "./order-notifications";
+import { storeOrderConfig } from "./store-settings";
 import {
-  CARD_PAYMENT_WINDOW_MINUTES,
   expireUnpaidCardOrder,
   extendReservations,
   keepReservations,
@@ -92,9 +92,10 @@ export async function checkoutPayment(
       `/orders/${order.id}/payment#`,
     );
   if (order.payment_url) return order.payment_url;
+  const { cardPaymentWindowMinutes } = await storeOrderConfig();
   const session = await createSession(
     order,
-    Math.floor(Date.now() / 1000) + (CARD_PAYMENT_WINDOW_MINUTES + 1) * 60,
+    Math.floor(Date.now() / 1000) + (cardPaymentWindowMinutes + 1) * 60,
   );
   if (!session.url || session.livemode)
     throw new Error("Invalid payment session");

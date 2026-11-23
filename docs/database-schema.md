@@ -1097,16 +1097,18 @@ Constraints:
 
 ## store_delivery_settings
 
-| Column                    | Type                     | Nullable | Default |
-| ------------------------- | ------------------------ | -------- | ------- |
-| id                        | integer                  | NO       | —       |
-| free_shipping_enabled     | boolean                  | NO       | —       |
-| free_shipping_above_cents | integer                  | NO       | —       |
-| updated_at                | timestamp with time zone | NO       | now()   |
-| updated_by                | uuid                     | YES      | —       |
+| Column                      | Type                     | Nullable | Default |
+| --------------------------- | ------------------------ | -------- | ------- |
+| id                          | integer                  | NO       | —       |
+| free_shipping_enabled       | boolean                  | NO       | —       |
+| free_shipping_above_cents   | integer                  | NO       | —       |
+| updated_at                  | timestamp with time zone | NO       | now()   |
+| updated_by                  | uuid                     | YES      | —       |
+| card_payment_window_minutes | integer                  | NO       | 30      |
 
 Constraints:
 
+- `CHECK (((card_payment_window_minutes >= 30) AND (card_payment_window_minutes <= 180)))`
 - `CHECK (((free_shipping_above_cents >= 0) AND (free_shipping_above_cents <= 100000000)))`
 - `CHECK ((id = 1))`
 - `PRIMARY KEY (id)`

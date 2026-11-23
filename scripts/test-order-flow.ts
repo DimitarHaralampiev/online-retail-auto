@@ -4,6 +4,7 @@ import { randomBytes, randomUUID, createHash } from "node:crypto";
 import pg from "pg";
 import { sendOrderEmails } from "../src/lib/order-notifications";
 import { database } from "../src/lib/accounts";
+import { inventoryValues, removeTestOrders } from "./test-order-cleanup";
 const root =
   process.env.TEST_APP_URL ?? process.env.APP_URL ?? "http://127.0.0.1:3008";
 if (!["127.0.0.1", "localhost"].includes(new URL(root).hostname))
@@ -48,6 +49,9 @@ const input = {
   },
 };
 async function main() {
+  // Inventory values before the run: a handover lowers them at average cost,
+  // and the cleanup puts them back for the SKUs the test orders touched.
+  const values = await inventoryValues(pool);
   try {
     const config = await (await fetch(root + "/api/checkout/config")).json();
     assert.equal(config.paymentProvider, "simulator");
@@ -276,37 +280,11 @@ async function main() {
       "Order integration passed: concurrent deduplication, protected tracking, admin-only stages, handover number, COD, failed/successful card simulator and exactly-once queued notifications.",
     );
   } finally {
-    if (ids.length) {
-      // Undo the test orders' effect on stock (reservations and handovers
-      // write the ledger), then remove their ledger rows and the orders.
-      await pool.query(UNDO_TEST_ORDER_STOCK, [ids]);
-      await pool.query(
-        "DELETE FROM stock_movements WHERE order_id=ANY($1::uuid[])",
-        [ids],
-      );
-      await pool.query("DELETE FROM orders WHERE id=ANY($1::uuid[])", [ids]);
-    }
+    await removeTestOrders(pool, ids, values);
     await pool.query("DELETE FROM customers WHERE id=$1", [adminId]);
     await pool.end();
   }
 }
-// reserved moves by reserve - release - sale; on_hand drops by sale.
-// inventory_value_cents removed at handover is not restored (demo SKUs carry
-// no acquisition value); do not run this against SKUs received by invoice.
-const UNDO_TEST_ORDER_STOCK = `
-UPDATE warehouse_products w
-SET reserved = w.reserved - m.held, on_hand = w.on_hand + m.sold
-FROM (
-  SELECT sku,
-         sum(CASE kind WHEN 'reserve' THEN quantity
-                       WHEN 'release' THEN -quantity
-                       WHEN 'sale' THEN -quantity ELSE 0 END) AS held,
-         sum(CASE WHEN kind = 'sale' THEN quantity ELSE 0 END) AS sold
-  FROM stock_movements WHERE order_id = ANY($1::uuid[])
-  GROUP BY sku
-) m
-WHERE w.sku = m.sku`;
-
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;

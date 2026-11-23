@@ -3,7 +3,11 @@ import { randomUUID } from "node:crypto";
 import { beforeEach, test } from "node:test";
 import { seedDemoCatalog } from "../../src/lib/catalog-seed";
 import { changeOrderStatus, createOrder } from "../../src/lib/orders";
-import { recordPaymentEvent } from "../../src/lib/order-payments";
+import {
+  checkoutPayment,
+  recordPaymentEvent,
+} from "../../src/lib/order-payments";
+import type { OrderRecord } from "../../src/lib/order-model";
 import {
   keepReservations,
   releaseExpiredReservations,
@@ -432,6 +436,138 @@ test("handover without a reservation takes the stock directly, or refuses", asyn
   );
   assert.deepEqual(await stock(), { on_hand: 6, reserved: 0 });
   assert.deepEqual(await movements(legacy.id), ["sale:2"]);
+});
+
+/** A ready order with no reservation (placed before reservations existed). */
+async function legacyReadyOrder(admin: string, quantity = 2) {
+  const legacy = await createOrder(order(quantity), null);
+  await db().pool.query("DELETE FROM stock_movements WHERE order_id=$1", [
+    legacy.id,
+  ]);
+  await db().pool.query("DELETE FROM stock_reservations WHERE order_id=$1", [
+    legacy.id,
+  ]);
+  await db().pool.query(
+    "UPDATE warehouse_products SET reserved=0 WHERE sku=$1",
+    [SKU],
+  );
+  for (const [from, to] of [
+    ["received", "confirmed"],
+    ["confirmed", "preparing"],
+    ["preparing", "ready"],
+  ] as const)
+    await changeOrderStatus(legacy.id, to, from, admin);
+  return legacy.id;
+}
+
+test("an audited override hands over a legacy order the warehouse cannot cover", async () => {
+  const admin = await insertCustomer(db().pool, { isAdmin: true });
+  const id = await legacyReadyOrder(admin);
+  await db().pool.query(
+    "UPDATE warehouse_products SET on_hand=1 WHERE sku=$1",
+    [SKU],
+  );
+  await assert.rejects(
+    changeOrderStatus(id, "handed_to_courier", "ready", admin, "TRK-3"),
+    /Недостатъчна наличност за предаване/,
+  );
+  const changed = await changeOrderStatus(
+    id,
+    "handed_to_courier",
+    "ready",
+    admin,
+    "TRK-3",
+    "Изпратено от стария склад преди миграцията",
+  );
+  assert.equal(changed.status, "handed_to_courier");
+  // No stock movement: the warehouse records stay as they were.
+  assert.deepEqual(await stock(), { on_hand: 1, reserved: 0 });
+  assert.deepEqual(await movements(id), []);
+  const audit = await db().pool.query(
+    "SELECT actor_id, details FROM admin_audit_log WHERE action='order.handover_without_stock' AND entity_id=$1",
+    [id],
+  );
+  assert.equal(audit.rows.length, 1);
+  assert.equal(audit.rows[0].actor_id, admin);
+  assert.equal(
+    audit.rows[0].details.reason,
+    "Изпратено от стария склад преди миграцията",
+  );
+  assert.equal(audit.rows[0].details.lines[0].sku, SKU);
+});
+
+test("the override is refused for an order that holds reserved stock", async () => {
+  const admin = await insertCustomer(db().pool, { isAdmin: true });
+  const current = await createOrder(order(1), null);
+  for (const [from, to] of [
+    ["received", "confirmed"],
+    ["confirmed", "preparing"],
+    ["preparing", "ready"],
+  ] as const)
+    await changeOrderStatus(current.id, to, from, admin);
+  await assert.rejects(
+    changeOrderStatus(
+      current.id,
+      "handed_to_courier",
+      "ready",
+      admin,
+      "TRK-4",
+      "Без причина за изключение",
+    ),
+    /има запазена наличност/,
+  );
+  const status = await db().pool.query(
+    "SELECT status FROM orders WHERE id=$1",
+    [current.id],
+  );
+  assert.equal(status.rows[0].status, "ready");
+  assert.equal((await reservations(current.id))[0].status, "active");
+});
+
+test("the card payment window comes from the store settings", async () => {
+  await db().pool.query(
+    `INSERT INTO store_delivery_settings(id, free_shipping_enabled, free_shipping_above_cents, card_payment_window_minutes)
+     VALUES (1, true, 3000, 45)
+     ON CONFLICT (id) DO UPDATE SET card_payment_window_minutes = 45`,
+  );
+  try {
+    const card = await createOrder(order(1, "card"), null);
+    const window = await db().pool.query(
+      "SELECT round(extract(epoch FROM expires_at - now()) / 60) AS minutes FROM stock_reservations WHERE order_id=$1",
+      [card.id],
+    );
+    assert.equal(Number(window.rows[0].minutes), 45);
+    // The Stripe session lives a minute longer than the window.
+    let sessionMinutes = 0;
+    process.env.PAYMENT_PROVIDER = "stripe";
+    try {
+      const record = (
+        await db().pool.query<OrderRecord>("SELECT * FROM orders WHERE id=$1", [
+          card.id,
+        ])
+      ).rows[0];
+      await checkoutPayment(record, async (o, expiresAt) => {
+        sessionMinutes = Math.round((expiresAt - Date.now() / 1000) / 60);
+        return {
+          id: `cs_test_${o.id}`,
+          url: "https://checkout.example.test/x",
+          expires_at: expiresAt,
+          livemode: false,
+        };
+      });
+    } finally {
+      process.env.PAYMENT_PROVIDER = "simulator";
+    }
+    assert.equal(sessionMinutes, 46);
+    await assert.rejects(
+      db().pool.query(
+        "UPDATE store_delivery_settings SET card_payment_window_minutes = 20",
+      ),
+      /store_delivery_settings_card_window/,
+    );
+  } finally {
+    await db().pool.query("DELETE FROM store_delivery_settings");
+  }
 });
 
 test("shipping reduces the inventory value at average cost", async () => {
