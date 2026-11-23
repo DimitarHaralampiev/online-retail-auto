@@ -64,26 +64,6 @@ export default defineConfig([
       ],
     },
   },
-  {
-    // Legacy client components that set state synchronously in effects or
-    // write refs during render. They power cart, checkout and account flows,
-    // so they are refactored only once Playwright covers those journeys
-    // (#23); the refactor is tracked in #59.
-    // The rules stay errors for every other file, including new code.
-    name: "legacy-react-compiler-findings",
-    files: [
-      "src/components/admin-orders.tsx",
-      "src/components/cart-provider.tsx",
-      "src/components/checkout.tsx",
-      "src/components/customer-provider.tsx",
-      "src/components/my-orders.tsx",
-      "src/components/product-media-admin.tsx",
-    ],
-    rules: {
-      "react-hooks/set-state-in-effect": "warn",
-      "react-hooks/refs": "warn",
-    },
-  },
   globalIgnores([
     ".next/**",
     "out/**",

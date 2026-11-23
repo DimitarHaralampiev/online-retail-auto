@@ -44,23 +44,29 @@ export default function MyOrders({ customerId }: { customerId: string }) {
         .join(" "),
     );
   }
-  const [orders, setOrders] = useState<OrderView[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  // The last answer and the customer it belongs to: after switching
+  // accounts the previous customer's orders are never shown.
+  const [result, setResult] = useState<{
+    customerId: string;
+    orders: OrderView[];
+    error: string;
+  } | null>(null);
+  const current = result?.customerId === customerId ? result : null;
+  const loading = !current;
+  const orders = current?.orders ?? [];
+  const error = current?.error ?? "";
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
     fetch("/api/orders", { signal: controller.signal, cache: "no-store" })
       .then(async (r) => {
         const data = await r.json();
         if (!r.ok) throw new Error(data.error);
-        setOrders(data.orders);
+        if (!controller.signal.aborted)
+          setResult({ customerId, orders: data.orders, error: "" });
       })
       .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted)
+          setResult({ customerId, orders: [], error: e.message });
       });
     return () => controller.abort();
   }, [customerId]);

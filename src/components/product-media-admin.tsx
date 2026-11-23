@@ -33,11 +33,19 @@ function MediaCard({
   const en = locale === "en";
   const text = (bg: string, english: string) => (en ? english : bg);
   const [alt, setAlt] = useState(item.alt_text);
-  useEffect(() => setAlt(item.alt_text), [item.alt_text]);
+  // A reloaded list brings the saved text: start editing from it again.
+  const [savedAlt, setSavedAlt] = useState(item.alt_text);
+  if (savedAlt !== item.alt_text) {
+    setSavedAlt(item.alt_text);
+    setAlt(item.alt_text);
+  }
   return (
     <article className="media-card">
       <div className="media-preview">
         {item.kind === "image" ? (
+          // Admin-only bytes behind the session cookie: the image optimizer
+          // fetches without it, so next/image cannot serve drafts.
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={`/api/admin/products/media/${item.id}`}
             alt={alt[locale] || item.filename}
@@ -148,6 +156,15 @@ function MediaCard({
     </article>
   );
 }
+async function listMedia(sku: string, signal?: AbortSignal) {
+  const r = await fetch(
+    `/api/admin/products/media?sku=${encodeURIComponent(sku)}`,
+    { signal, cache: "no-store" },
+  );
+  const data = await r.json();
+  if (!r.ok) throw Error(data.error);
+  return data.media as Media[];
+}
 export default function ProductMediaAdmin({
   products,
   initialSku,
@@ -158,32 +175,31 @@ export default function ProductMediaAdmin({
   const { locale, t } = useLocale();
   const en = locale === "en";
   const text = (bg: string, english: string) => (en ? english : bg);
-  const [sku, setSku] = useState(initialSku || products[0]?.sku || "");
+  const firstSku = initialSku || products[0]?.sku || "";
+  const [sku, setSku] = useState(firstSku);
   const [media, setMedia] = useState<Media[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(firstSku));
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [inputKey, setInputKey] = useState(0);
-  async function list(signal?: AbortSignal) {
-    const r = await fetch(
-      `/api/admin/products/media?sku=${encodeURIComponent(sku)}`,
-      { signal, cache: "no-store" },
-    );
-    const data = await r.json();
-    if (!r.ok) throw Error(data.error);
-    return data.media as Media[];
-  }
-  useEffect(() => {
-    if (!sku) return;
-    const controller = new AbortController();
+  const list = () => listMedia(sku);
+  function selectSku(next: string) {
+    if (next === sku) return;
+    setSku(next);
+    setFiles([]);
+    setInputKey((k) => k + 1);
     setLoading(true);
     setMedia([]);
     setError("");
     setMessage("");
-    list(controller.signal)
+  }
+  useEffect(() => {
+    if (!sku) return;
+    const controller = new AbortController();
+    listMedia(sku, controller.signal)
       .then((items) => {
         if (!controller.signal.aborted) setMedia(items);
       })
@@ -302,11 +318,7 @@ export default function ProductMediaAdmin({
               key={p.sku}
               aria-pressed={sku === p.sku}
               disabled={busy}
-              onClick={() => {
-                setSku(p.sku);
-                setFiles([]);
-                setInputKey((k) => k + 1);
-              }}
+              onClick={() => selectSku(p.sku)}
             >
               <strong>{p.name}</strong>
               <span>

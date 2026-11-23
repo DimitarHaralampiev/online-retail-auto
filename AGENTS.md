@@ -24,7 +24,7 @@ Node.js 22 LTS (`.nvmrc`; minimum 20.18.1 per `engines`) and npm. Install with `
 
 - `npm run dev` — development server on http://localhost:3000.
 - `npm run format:check` / `npm run format` — Prettier.
-- `npm run lint` — ESLint (Next.js core-web-vitals + TypeScript rules, `eslint.config.mjs`). Errors fail, and `--max-warnings 16` caps the existing warnings (legacy React findings tracked in #59), so new warnings fail too; lower the cap as they are fixed.
+- `npm run lint` — ESLint (Next.js core-web-vitals + TypeScript rules, `eslint.config.mjs`). Errors and warnings both fail (`--max-warnings 0`); the React Compiler rules (`react-hooks/set-state-in-effect`, `react-hooks/refs`) apply everywhere — derive state, key a component to reset it, or use `useSyncExternalStore` for browser storage instead of setting state in effects.
 - `npm run typecheck` — TypeScript without emit.
 - `npm test` — unit tests with the Node.js test runner via `tsx`. The glob is not recursive: only top-level `src/lib/*.test.ts` files run.
 - `npm run test:integration` — PostgreSQL integration tests in `tests/integration/`. Each test file gets its own freshly migrated database (migrations applied twice to prove idempotency) that is dropped afterwards. Uses `TEST_DATABASE_URL`, or locally the server from `DATABASE_URL` in `.env.local`; non-local hosts and `host`/`hostaddr` query overrides are refused; databases left by killed runs are swept automatically. Use `setupTestDatabase()` from `tests/integration/database.ts` for new database tests.

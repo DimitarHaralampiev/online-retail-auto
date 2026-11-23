@@ -13,22 +13,41 @@ import { formatMoney } from "../lib/cart";
 type AdminOrder = OrderView & {
   contact: { name: string; email: string; phone: string };
 };
+type AdminOrdersData = {
+  orders: AdminOrder[];
+  pendingEmails: number;
+  failedEmails?: number;
+};
+async function loadAdminOrders(signal?: AbortSignal): Promise<AdminOrdersData> {
+  const r = await fetch("/api/admin/orders", { cache: "no-store", signal });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error);
+  return data;
+}
 export default function AdminOrders() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingEmails, setPendingEmails] = useState(0);
   const [failedEmails, setFailedEmails] = useState(0);
-  async function refresh() {
-    const r = await fetch("/api/admin/orders", { cache: "no-store" });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error);
+  function show(data: AdminOrdersData) {
     setOrders(data.orders);
     setPendingEmails(data.pendingEmails);
     setFailedEmails(data.failedEmails ?? 0);
   }
+  async function refresh() {
+    show(await loadAdminOrders());
+  }
   useEffect(() => {
-    refresh().catch((e) => setError(e.message));
+    const controller = new AbortController();
+    loadAdminOrders(controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) show(data);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) setError(e.message);
+      });
+    return () => controller.abort();
   }, []);
   async function change(
     event: React.FormEvent<HTMLFormElement>,
