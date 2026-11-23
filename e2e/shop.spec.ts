@@ -497,4 +497,50 @@ test.describe("language and the catalog", () => {
     await page.getByRole("button", { name: "Български" }).click();
     await expect(name).toHaveText("Въздушен филтър");
   });
+
+  const englishLookup = (url: URL) =>
+    url.pathname === "/api/catalog/products" &&
+    url.searchParams.get("locale") === "en";
+
+  test("the cart can be changed while names are still refreshing", async ({
+    page,
+  }) => {
+    await page.goto("/catalog/DEMO-003");
+    await addCurrentProductToCart(page);
+    await page.goto("/cart");
+    await expect(page.locator(".cart-quantity select")).toHaveValue("1");
+    // The refresh after the switch never answers.
+    await page.route(englishLookup, () => undefined);
+    const refreshing = page.waitForRequest((r) =>
+      englishLookup(new URL(r.url())),
+    );
+    await page.getByRole("button", { name: "English" }).click();
+    await refreshing;
+    await page.locator(".cart-quantity select").selectOption("2");
+    await expect(page.locator(".cart-quantity select")).toHaveValue("2");
+    await expect(
+      page.getByRole("link", { name: "Cart: 2 items" }),
+    ).toBeVisible();
+  });
+
+  test("a failed name refresh is retried by the next cart change", async ({
+    page,
+  }) => {
+    await page.goto("/catalog/DEMO-003");
+    await addCurrentProductToCart(page);
+    await page.goto("/cart");
+    await expect(page.locator(".cart-quantity select")).toHaveValue("1");
+    await page.route(englishLookup, (route) => route.abort());
+    const failed = page.waitForEvent("requestfailed", (r) =>
+      englishLookup(new URL(r.url())),
+    );
+    await page.getByRole("button", { name: "English" }).click();
+    await failed;
+    await page.unroute(englishLookup);
+    const retried = page.waitForResponse(
+      (r) => englishLookup(new URL(r.url())) && r.ok(),
+    );
+    await page.locator(".cart-quantity select").selectOption("2");
+    expect((await (await retried).json()).products[0].name).toBe("Air filter");
+  });
 });
