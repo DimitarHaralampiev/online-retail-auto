@@ -18,6 +18,7 @@ import { sellingPrice } from "./pricing";
 import { trackingToken, orderUrl, simulatorEnabled } from "./order-config";
 import { tokenHash } from "./password";
 import { queueOrderEmail } from "./order-notifications";
+import { returnDeadline } from "./returns";
 import {
   type OrderStatus,
   orderStatuses,
@@ -158,7 +159,7 @@ export async function changeOrderStatus(
       await consumeOrderStock(client, id, order.lines);
     if (next === "cancelled") await settleReservations(client, id, "released");
     const changed = await client.query<OrderRecord>(
-      "UPDATE orders SET status=$1,tracking_number=$2,updated_at=now() WHERE id=$3 RETURNING *",
+      "UPDATE orders SET status=$1,tracking_number=$2,delivered_at=CASE WHEN $1='delivered' THEN now() ELSE delivered_at END,updated_at=now() WHERE id=$3 RETURNING *",
       [
         next,
         next === "handed_to_courier"
@@ -206,6 +207,8 @@ export function publicOrder(order: OrderRecord) {
     destination: order.destination,
     courier: order.delivery.courier,
     trackingNumber: order.tracking_number,
+    deliveredAt: order.delivered_at ? order.delivered_at.toISOString() : null,
+    returnDeadline: returnDeadline(order)?.toISOString() ?? null,
     createdAt: order.created_at,
   };
 }

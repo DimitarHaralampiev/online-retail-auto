@@ -523,6 +523,7 @@ Constraints:
 | created_at        | timestamp with time zone | NO       | now()            |
 | updated_at        | timestamp with time zone | NO       | now()            |
 | locale            | text                     | NO       | 'bg'::text       |
+| delivered_at      | timestamp with time zone | YES      | —                |
 
 Constraints:
 
@@ -536,7 +537,7 @@ Constraints:
 - `PRIMARY KEY (id)`
 - `UNIQUE (request_key)`
 - `CHECK ((shipping_cents >= 0))`
-- `CHECK ((status = ANY (ARRAY['received'::text, 'confirmed'::text, 'preparing'::text, 'ready'::text, 'handed_to_courier'::text, 'cancelled'::text])))`
+- `CHECK ((status = ANY (ARRAY['received'::text, 'confirmed'::text, 'preparing'::text, 'ready'::text, 'handed_to_courier'::text, 'delivered'::text, 'cancelled'::text])))`
 - `UNIQUE (stripe_session_id)`
 - `CHECK ((subtotal_cents > 0))`
 
@@ -869,6 +870,51 @@ Constraints:
 - `FOREIGN KEY (payment_id) REFERENCES payments(id)`
 - `PRIMARY KEY (id)`
 - `CHECK ((status = ANY (ARRAY['requested'::text, 'pending'::text, 'succeeded'::text, 'failed'::text])))`
+
+## return_requests
+
+Returns (migration 022); 14 days from orders.delivered_at.
+
+| Column       | Type                     | Nullable | Default           |
+| ------------ | ------------------------ | -------- | ----------------- |
+| id           | uuid                     | NO       | —                 |
+| order_id     | uuid                     | NO       | —                 |
+| customer_id  | uuid                     | YES      | —                 |
+| status       | text                     | NO       | 'requested'::text |
+| reason       | text                     | NO       | ''::text          |
+| admin_note   | text                     | NO       | ''::text          |
+| created_at   | timestamp with time zone | NO       | now()             |
+| decided_at   | timestamp with time zone | YES      | —                 |
+| decided_by   | uuid                     | YES      | —                 |
+| received_at  | timestamp with time zone | YES      | —                 |
+| received_by  | uuid                     | YES      | —                 |
+| refund_cents | integer                  | YES      | —                 |
+
+Constraints:
+
+- `PRIMARY KEY (id)`
+- `FOREIGN KEY (order_id) REFERENCES orders(id)`
+- `FOREIGN KEY (customer_id), (decided_by), (received_by) REFERENCES customers(id) ON DELETE SET NULL`
+- `CHECK (status IN ('requested','approved','rejected','received'))`
+- `CHECK ((length(reason) <= 1000)), CHECK ((length(admin_note) <= 1000)), CHECK ((refund_cents >= 0))`
+- `UNIQUE (order_id) WHERE status IN ('requested','approved') (one open request per order)`
+
+## return_request_lines
+
+| Column           | Type    | Nullable | Default |
+| ---------------- | ------- | -------- | ------- |
+| request_id       | uuid    | NO       | —       |
+| line_number      | integer | NO       | —       |
+| sku              | text    | NO       | —       |
+| name             | text    | NO       | —       |
+| quantity         | integer | NO       | —       |
+| unit_price_cents | integer | NO       | —       |
+
+Constraints:
+
+- `PRIMARY KEY (request_id, line_number)`
+- `FOREIGN KEY (request_id) REFERENCES return_requests(id) ON DELETE CASCADE`
+- `CHECK ((line_number > 0)), CHECK ((quantity > 0)), CHECK ((unit_price_cents > 0))`
 
 ## shipment_events
 

@@ -27,6 +27,7 @@ export type OrderRecord = {
   stripe_session_id: string | null;
   payment_url: string | null;
   tracking_number: string | null;
+  delivered_at?: Date | null;
   created_at: Date;
   updated_at: Date;
 };

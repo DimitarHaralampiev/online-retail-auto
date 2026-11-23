@@ -12,6 +12,7 @@ import {
 } from "../lib/order-state";
 import { formatMoney } from "../lib/cart";
 import { courierLabels, type Courier } from "../lib/delivery";
+import OrderReturns from "./order-returns";
 export type OrderView = {
   id: string;
   mode: "test";
@@ -31,6 +32,8 @@ export type OrderView = {
   destination: string;
   courier: Courier;
   trackingNumber: string | null;
+  deliveredAt?: string | null;
+  returnDeadline?: string | null;
   createdAt: string;
 };
 export default function OrderTracking({ id }: { id: string }) {
@@ -150,6 +153,7 @@ export default function OrderTracking({ id }: { id: string }) {
                     магазина; поръчката остава неплатена.
                   </p>
                 ))}
+              <OrderReturns order={order} />
               <p className="note">
                 Страницата се обновява автоматично. Получаваш и имейл при всеки
                 нов етап.
