@@ -3,7 +3,7 @@
 // RETURN_DAYS after delivered_at. Admins approve or reject a request and mark
 // approved goods as received, which puts them back into stock
 // (stock_movements 'return') and records the goods value to refund
-// (refund_cents; paying it out is the refund process, #80).
+// (refund_cents) and queues the refund (src/lib/refunds.ts).
 //
 // Customers act only on their own orders (customer_id from the session).
 import { randomUUID } from "node:crypto";
@@ -14,6 +14,7 @@ import { catalogSource } from "./catalog-server";
 import type { OrderRecord } from "./order-model";
 import { queueOrderEmail } from "./order-notifications";
 import { compareSku } from "./stock-reservations";
+import { requestRefund } from "./refunds";
 
 export const RETURN_DAYS = 14;
 
@@ -375,7 +376,7 @@ async function receiveGoods(
         ],
       );
     }
-  // The goods value to refund; paying it out is the refund process (#80).
+  // The goods value to refund, queued for an admin to pay out.
   const total = lines.reduce(
     (sum, l) => sum + l.quantity * l.unit_price_cents,
     0,
@@ -384,4 +385,10 @@ async function receiveGoods(
     "UPDATE return_requests SET refund_cents = $2 WHERE id = $1",
     [requestId, total],
   );
+  await requestRefund(client, {
+    orderId: order.id,
+    returnRequestId: requestId,
+    amountCents: total,
+    reason: "return",
+  });
 }
