@@ -806,5 +806,11 @@
   "Отзиви": "Reviews",
   "Отзиви от клиенти с доставена поръчка: публикувай или отхвърли.": "Reviews from customers with a delivered order: publish or reject.",
   "Отвори отзивите →": "Open reviews →",
-  "Благодарим! Отзивът ще се появи след проверка.": "Thank you! Your review will appear after a check."
+  "Благодарим! Отзивът ще се появи след проверка.": "Thank you! Your review will appear after a check.",
+  "Изпратихме ти имейл. Потвърди абонамента от линка в него (ако вече си абониран(а), нищо не се променя).": "We have sent you an email. Confirm the subscription with the link in it (if you are already subscribed, nothing changes).",
+  "Абонаментът е потвърден. Благодарим!": "Your subscription is confirmed. Thank you!",
+  "Линкът е невалиден или е изтекъл. Абонирай се отново.": "The link is invalid or has expired. Subscribe again.",
+  "Отписа се от новините. Няма да получаваш повече имейли.": "You have unsubscribed. You will not receive any more emails.",
+  "Линкът за отписване е невалиден.": "The unsubscribe link is invalid.",
+  "Потвърди съгласието си.": "Please confirm your consent."
 }
