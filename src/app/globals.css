@@ -4340,3 +4340,22 @@ select {
   align-items: center;
   gap: 4px;
 }
+
+/* Newsletter sign-up */
+.newsletter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+}
+.newsletter-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.newsletter-form .newsletter-consent {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+}

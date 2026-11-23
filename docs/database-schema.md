@@ -438,6 +438,35 @@ Constraints:
 - `CHECK ((length(content_en) <= 100000))`
 - `FOREIGN KEY (updated_by) REFERENCES customers(id) ON DELETE SET NULL`
 
+## newsletter_subscribers
+
+Newsletter with double opt-in and consent record (migration 024).
+
+| Column                 | Type                     | Nullable | Default         |
+| ---------------------- | ------------------------ | -------- | --------------- |
+| id                     | uuid                     | NO       | —               |
+| email                  | text                     | NO       | —               |
+| status                 | text                     | NO       | 'pending'::text |
+| confirm_token_hash     | text                     | YES      | —               |
+| confirm_expires_at     | timestamp with time zone | YES      | —               |
+| unsubscribe_token_hash | text                     | NO       | —               |
+| consent_text           | text                     | NO       | —               |
+| consent_locale         | text                     | NO       | —               |
+| requested_at           | timestamp with time zone | NO       | now()           |
+| confirmed_at           | timestamp with time zone | YES      | —               |
+| unsubscribed_at        | timestamp with time zone | YES      | —               |
+| last_sent_at           | timestamp with time zone | YES      | —               |
+| window_started_at      | timestamp with time zone | NO       | now()           |
+| send_count             | integer                  | NO       | 0               |
+
+Constraints:
+
+- `PRIMARY KEY (id)`
+- `UNIQUE (email), UNIQUE (confirm_token_hash), UNIQUE (unsubscribe_token_hash)`
+- `CHECK (status IN ('pending','confirmed','unsubscribed'))`
+- `CHECK ((email = lower(email)))`
+- `CHECK (consent_locale IN ('bg','en'))`
+
 ## order_email_outbox
 
 | Column          | Type                     | Nullable | Default |

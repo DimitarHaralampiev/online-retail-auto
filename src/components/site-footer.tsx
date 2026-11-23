@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Brand } from "./site-header";
 import Icon from "./icon";
 import { ConsentSettingsButton } from "./consent-provider";
+import NewsletterForm from "./newsletter-form";
 import { companyDetails, LEGAL_SLUGS, LEGAL_TITLES } from "../lib/legal-shared";
 
 export default function SiteFooter() {
@@ -45,6 +46,7 @@ export default function SiteFooter() {
               ))}
               <ConsentSettingsButton />
             </nav>
+            <NewsletterForm />
             <div className="footer-note">
               <span className="eyebrow">СЛЕДВАЩАТА СТЪПКА</span>
               <p>Подготвяме магазин със собствена наличност в България.</p>
