@@ -56,6 +56,13 @@ export default async function AdminPage() {
               </p>
               <span className="text-link">Отвори поръчките →</span>
             </Link>
+            <Link href="/admin/reviews" className="checkout-panel">
+              <h2>Отзиви</h2>
+              <p>
+                Отзиви от клиенти с доставена поръчка: публикувай или отхвърли.
+              </p>
+              <span className="text-link">Отвори отзивите →</span>
+            </Link>
             <Link href="/admin/returns" className="checkout-panel">
               <h2>Връщания</h2>
               <p>

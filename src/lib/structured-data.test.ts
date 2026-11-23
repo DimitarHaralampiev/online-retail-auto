@@ -54,6 +54,25 @@ test("Product JSON-LD carries the paid price, currency and stock only", () => {
   assert.equal(soldOut.offers.availability, "https://schema.org/OutOfStock");
 });
 
+test("a rating appears only from published reviews", () => {
+  assert.ok(
+    !(
+      "aggregateRating" in
+      productJsonLd(product, base, { count: 0, average: null })
+    ),
+  );
+  assert.deepEqual(
+    productJsonLd(product, base, { count: 3, average: 4.33 }).aggregateRating,
+    {
+      "@type": "AggregateRating",
+      ratingValue: "4.3",
+      reviewCount: 3,
+      bestRating: 5,
+      worstRating: 1,
+    },
+  );
+});
+
 test("breadcrumbs are numbered with absolute URLs", () => {
   assert.deepEqual(
     breadcrumbJsonLd(

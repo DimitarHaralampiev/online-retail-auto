@@ -16,6 +16,8 @@ import ProductPrice from "../../../components/product-price";
 import ProductActions from "../../../components/product-actions";
 import ProductCard from "../../../components/product-card";
 import { catalog, catalogSource } from "../../../lib/catalog-server";
+import { publishedReviews } from "../../../lib/reviews";
+import ReviewForm from "../../../components/review-form";
 import { database } from "../../../lib/accounts";
 import { productFitInfo, type ProductFitment } from "../../../lib/vehicles";
 import { requestLocale } from "../../../lib/i18n/server";
@@ -61,6 +63,11 @@ export default async function ProductPage({
     const to = f.fitYearTo ?? f.yearTo;
     return `${from}–${to ?? text("днес", "today")}`;
   };
+  // Reviews belong to products in the database.
+  const reviews =
+    catalogSource() === "postgres"
+      ? await publishedReviews(product.sku).catch(() => null)
+      : null;
   const related = (await store.listProducts()).filter(
     (p) => p.sku !== sku && p.category.id === product.category.id,
   );
@@ -71,7 +78,7 @@ export default async function ProductPage({
           <SiteHeader />
           <JsonLd
             data={[
-              productJsonLd(product, siteUrl()),
+              productJsonLd(product, siteUrl(), reviews?.summary),
               breadcrumbJsonLd(
                 [
                   { name: text("Начало", "Home"), path: "/" },
@@ -267,6 +274,53 @@ export default async function ProductPage({
                 </Link>
               </details>
             </section>
+            {reviews && (
+              <section
+                className="product-reviews"
+                aria-labelledby="reviews-heading"
+              >
+                <h2 id="reviews-heading">{text("Отзиви", "Reviews")}</h2>
+                {reviews.summary.count > 0 ? (
+                  <p>
+                    <strong>{reviews.summary.average!.toFixed(1)} / 5</strong> ·{" "}
+                    {text(
+                      `${reviews.summary.count} отзива от клиенти, получили продукта`,
+                      `${reviews.summary.count} reviews from customers who received it`,
+                    )}
+                  </p>
+                ) : (
+                  <p>{text("Все още няма отзиви.", "No reviews yet.")}</p>
+                )}
+                {reviews.reviews.map((review, index) => (
+                  <article key={index} className="review">
+                    <p>
+                      <span
+                        aria-label={text(
+                          `${review.rating} от 5`,
+                          `${review.rating} of 5`,
+                        )}
+                      >
+                        {"★".repeat(review.rating)}
+                        {"☆".repeat(5 - review.rating)}
+                      </span>{" "}
+                      <strong>{review.title}</strong>
+                    </p>
+                    <p>{review.body}</p>
+                    <p className="note">
+                      {review.authorName} ·{" "}
+                      {new Date(review.createdAt).toLocaleDateString(
+                        en ? "en-GB" : "bg-BG",
+                        {
+                          timeZone: "Europe/Sofia",
+                        },
+                      )}{" "}
+                      · {text("Потвърдена покупка", "Verified purchase")}
+                    </p>
+                  </article>
+                ))}
+                <ReviewForm sku={product.sku} />
+              </section>
+            )}
             {related.length > 0 && (
               <section className="related-products">
                 <div className="section-heading">
