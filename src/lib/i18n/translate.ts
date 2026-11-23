@@ -16,7 +16,6 @@ export function translate(text: string, locale: Locale): string {
     [/^Разгледай (.+)$/, (m) => `View ${translate(m[1], locale)}`],
     [/^Илюстрация: (.+)$/, (m) => `Illustration: ${translate(m[1], locale)}`],
     [/^Любими: (.+)$/, (m) => `Favorites: ${translate(m[1], locale)}`],
-    [/^Моят автомобил: (.+)\. Смени$/, (m) => `My car: ${m[1]}. Change`],
     [/^Премахни (.+)$/, (m) => `Remove ${translate(m[1], locale)}`],
     [/^Бройки за (.+)$/, (m) => `Quantity for ${translate(m[1], locale)}`],
     [/^Пропуснати: (.+)\.$/, (m) => `Skipped: ${m[1]}.`],
