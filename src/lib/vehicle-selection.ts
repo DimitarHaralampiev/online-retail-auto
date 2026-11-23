@@ -46,7 +46,7 @@ export const selectionCookieValue = (selection: VehicleSelectionInput) =>
 
 /**
  * Resolves a selection against the active reference. Returns null when the
- * generation is unknown or hidden, the engine is not of that generation, or
+ * generation is unknown or hidden, the engine is hidden or not of it, or
  * the year is outside the generation's production years.
  */
 export async function resolveSelection(
@@ -68,8 +68,9 @@ export async function resolveSelection(
      FROM vehicle_generations g
      JOIN vehicle_models m ON m.id = g.model_id AND m.active
      JOIN vehicle_makes k ON k.id = m.make_id AND k.active
-     LEFT JOIN vehicle_engines e ON e.id = $2 AND e.generation_id = g.id
-     WHERE g.id = $1`,
+     LEFT JOIN vehicle_engines e
+       ON e.id = $2 AND e.generation_id = g.id AND e.active
+     WHERE g.id = $1 AND g.active`,
     [selection.generationId, selection.engineId],
   );
   const row = result.rows[0];

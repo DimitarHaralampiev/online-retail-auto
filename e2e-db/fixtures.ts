@@ -2,7 +2,7 @@
 // and ids in the disposable database.
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import type { BrowserContext } from "@playwright/test";
+import { test as base, expect, type BrowserContext } from "@playwright/test";
 
 export const FIXTURES_FILE = path.join(__dirname, ".fixtures.json");
 
@@ -26,3 +26,16 @@ export async function signIn(
     { name: "auto_session", value: token, url: baseURL! },
   ]);
 }
+
+/** Playwright's test, failing on any uncaught error in the page. */
+export const test = base.extend({
+  page: async ({ page }, run) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) =>
+      errors.push(`${page.url()}: ${error.message}`),
+    );
+    await run(page);
+    expect(errors).toEqual([]);
+  },
+});
+export { expect };

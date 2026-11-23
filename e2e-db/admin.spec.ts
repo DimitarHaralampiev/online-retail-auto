@@ -1,7 +1,7 @@
 // Accessibility of the admin pages with a signed-in administrator (#122).
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { expectNoSeriousViolations, expectNoSidewaysScroll } from "./axe";
-import { fixtures, signIn } from "./fixtures";
+import { expect, fixtures, signIn, test } from "./fixtures";
 
 // Each page with something only a signed-in admin sees on it, so a scan of
 // the "sign in" state can never pass for the real page.
@@ -131,6 +131,70 @@ test.describe("interactive states", () => {
     await expect(
       page.locator(".product-information-panels .product-specs"),
     ).not.toContainText("2,5 kg");
+  });
+
+  test("a car is entered by hand, from make to engine", async ({
+    page,
+  }, testInfo) => {
+    const make = `Handmake ${testInfo.project.name} ${testInfo.retry}`;
+    const dialog = page.getByRole("dialog");
+    const save = async () => {
+      await dialog.getByRole("button", { name: "Запази" }).click();
+      await expect(dialog).toBeHidden();
+    };
+    await page.goto("/admin/vehicles");
+    await page.getByRole("button", { name: "Нова марка" }).click();
+    const name = dialog.getByLabel("Марка (име)");
+    await expect(name).toBeFocused();
+    await name.fill(make);
+    await expectNoSeriousViolations(page);
+    await save();
+    await page.getByRole("button", { name: `Нов модел: ${make}` }).click();
+    await dialog.getByLabel("Модел (име)").fill("Beta");
+    await save();
+    await page.getByRole("link", { name: `Поколения: ${make} Beta` }).click();
+    await page.getByRole("button", { name: "Ново поколение" }).click();
+    await dialog.getByLabel("Поколение (име)").fill("Beta I");
+    await dialog.getByLabel("От година").fill("2012");
+    await dialog.getByLabel(/^До година/).fill("2010");
+    await dialog.getByRole("button", { name: "Запази" }).click();
+    await expect(dialog.getByRole("alert")).toHaveText(
+      "Крайната година е преди началната.",
+    );
+    await dialog.getByLabel(/^До година/).fill("");
+    await save();
+    await expect(
+      page.getByRole("heading", { name: "Beta I (2012–днес)" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Нов двигател: Beta I" }).click();
+    await dialog.getByLabel("Двигател (име)").fill("2.0 d");
+    await dialog.getByLabel("Гориво").selectOption("diesel");
+    await dialog.getByLabel("Мощност (kW)").fill("110");
+    await expectNoSeriousViolations(page);
+    await save();
+    await expect(page.getByRole("cell", { name: "110 kW" })).toBeVisible();
+    await page
+      .getByRole("button", { name: "Редактирай: Beta I 2.0 d" })
+      .click();
+    await dialog.getByLabel("Мощност (kW)").fill("103");
+    await save();
+    await expect(page.getByRole("cell", { name: "103 kW" })).toBeVisible();
+    await expectNoSeriousViolations(page);
+    await expectNoSidewaysScroll(page);
+    // Shoppers are offered it, until it is hidden.
+    const engines = async () => {
+      const response = await page.request.get("/cars");
+      return (await response.text()).includes(make);
+    };
+    expect(await engines()).toBe(true);
+    await page.goto("/admin/vehicles");
+    await page
+      .getByRole("button", { name: `Скрий ${make}`, exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: `Покажи ${make}`, exact: true }),
+    ).toBeVisible();
+    expect(await engines()).toBe(false);
   });
 
   test("a CSV check that finds errors", async ({ page }) => {

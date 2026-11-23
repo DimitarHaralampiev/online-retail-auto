@@ -9,6 +9,7 @@ import { FUELS } from "../../../lib/vehicles";
 import SiteHeader from "../../../components/site-header";
 import SiteFooter from "../../../components/site-footer";
 import CsvImport from "../../../components/csv-import";
+import VehicleForm from "../../../components/vehicle-form";
 import VehicleVisibility from "../../../components/vehicle-visibility";
 
 export default async function AdminVehiclesPage() {
@@ -76,8 +77,8 @@ export default async function AdminVehiclesPage() {
                 </li>
                 <li>
                   {text(
-                    "Нищо не се изтрива: за грешна марка или модел използвай „Скрий“.",
-                    "Nothing is deleted: use “Hide” for a wrong make or model.",
+                    "Нищо не се изтрива: за грешен запис използвай „Скрий“. Единични записи се добавят и редактират в „Справочник“ по-долу.",
+                    "Nothing is deleted: use “Hide” for a wrong entry. Add and edit single entries under “Reference” below.",
                   )}
                 </li>
               </ul>
@@ -116,6 +117,13 @@ export default async function AdminVehiclesPage() {
             />
             <section className="checkout-panel">
               <h2>{text("Справочник", "Reference")}</h2>
+              <div className="admin-product-actions">
+                <VehicleForm
+                  kind="make"
+                  label={text("Нова марка", "New make")}
+                  className="button"
+                />
+              </div>
               {tree.length === 0 ? (
                 <p>
                   {text(
@@ -154,7 +162,19 @@ export default async function AdminVehiclesPage() {
                             {make.models.length} {text("модела", "models")}
                           </td>
                           <td>{status(make.active)}</td>
-                          <td>
+                          <td className="admin-row-actions">
+                            <VehicleForm
+                              kind="model"
+                              parentId={make.id}
+                              label={text("Нов модел", "New model")}
+                              about={make.name}
+                            />
+                            <VehicleForm
+                              kind="make"
+                              label={text("Редактирай", "Edit")}
+                              about={make.name}
+                              entry={make}
+                            />
                             <VehicleVisibility
                               kind="make"
                               id={make.id}
@@ -173,7 +193,20 @@ export default async function AdminVehiclesPage() {
                             <td>{model.engines}</td>
                             <td>{model.fitments}</td>
                             <td>{status(model.active)}</td>
-                            <td>
+                            <td className="admin-row-actions">
+                              <Link
+                                className="text-link"
+                                href={`/admin/vehicles/models/${model.id}`}
+                                aria-label={`${text("Поколения", "Generations")}: ${make.name} ${model.name}`}
+                              >
+                                {text("Поколения", "Generations")}
+                              </Link>
+                              <VehicleForm
+                                kind="model"
+                                label={text("Редактирай", "Edit")}
+                                about={`${make.name} ${model.name}`}
+                                entry={model}
+                              />
                               <VehicleVisibility
                                 kind="model"
                                 id={model.id}

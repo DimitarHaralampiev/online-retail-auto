@@ -16,7 +16,7 @@ import {
 } from "./admin-fitments";
 import { AdminProductError } from "./admin-products";
 import { CsvError, parseCsv } from "./csv";
-import { slugify } from "./vehicle-import";
+import { slugify } from "./vehicle-reference";
 
 export const FITMENT_IMPORT_COLUMNS = [
   "sku",

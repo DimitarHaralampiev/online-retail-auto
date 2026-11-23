@@ -4,7 +4,8 @@ import {
   referenceTree,
   setReferenceActive,
 } from "../../src/lib/admin-vehicles";
-import { importVehicles, slugify } from "../../src/lib/vehicle-import";
+import { importVehicles } from "../../src/lib/vehicle-import";
+import { slugify } from "../../src/lib/vehicle-reference";
 import {
   listEngines,
   listGenerations,

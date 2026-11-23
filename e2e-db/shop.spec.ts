@@ -1,8 +1,8 @@
 // Storefront flows that exist only with the PostgreSQL catalog (#122): the
 // chosen car (#76, #94), brand facets (#76) and the signed-in customer.
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { expectNoSeriousViolations, expectNoSidewaysScroll } from "./axe";
-import { fixtures, signIn } from "./fixtures";
+import { expect, fixtures, signIn, test } from "./fixtures";
 
 const count = (page: Page) =>
   page.getByRole("status").filter({ hasText: "продукт" });
