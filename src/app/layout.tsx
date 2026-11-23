@@ -5,6 +5,9 @@ import "@fontsource-variable/manrope";
 import "@fontsource-variable/roboto-condensed";
 import "./globals.css";
 import CartProvider from "../components/cart-provider";
+import ConsentProvider from "../components/consent-provider";
+import { CONSENT_COOKIE, consentCategoriesInUse } from "../lib/consent";
+import { cookies } from "next/headers";
 import CatalogProvider from "../components/catalog-provider";
 import { catalog } from "../lib/catalog-server";
 import { indexable, SITE_NAME, siteUrl } from "../lib/seo";
@@ -38,13 +41,18 @@ export default async function RootLayout({
     <html lang={locale}>
       <body>
         <LocaleProvider initialLocale={locale}>
-          <CatalogProvider taxonomy={taxonomy} locale={locale}>
-            <AccountProvider>
-              <CustomerProvider>
-                <CartProvider>{children}</CartProvider>
-              </CustomerProvider>
-            </AccountProvider>
-          </CatalogProvider>
+          <ConsentProvider
+            initialConsent={(await cookies()).get(CONSENT_COOKIE)?.value}
+            categories={consentCategoriesInUse()}
+          >
+            <CatalogProvider taxonomy={taxonomy} locale={locale}>
+              <AccountProvider>
+                <CustomerProvider>
+                  <CartProvider>{children}</CartProvider>
+                </CustomerProvider>
+              </AccountProvider>
+            </CatalogProvider>
+          </ConsentProvider>
         </LocaleProvider>
       </body>
     </html>

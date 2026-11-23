@@ -2,6 +2,7 @@ import Localize from "./localize";
 import Link from "next/link";
 import { Brand } from "./site-header";
 import Icon from "./icon";
+import { ConsentSettingsButton } from "./consent-provider";
 import { companyDetails, LEGAL_SLUGS, LEGAL_TITLES } from "../lib/legal-shared";
 
 export default function SiteFooter() {
@@ -42,6 +43,7 @@ export default function SiteFooter() {
                   {LEGAL_TITLES[slug][0]}
                 </Link>
               ))}
+              <ConsentSettingsButton />
             </nav>
             <div className="footer-note">
               <span className="eyebrow">СЛЕДВАЩАТА СТЪПКА</span>
