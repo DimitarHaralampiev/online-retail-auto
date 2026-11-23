@@ -11,6 +11,7 @@ import {
   type BrowseQuery,
   type BrowseSort,
   type CatalogRepository,
+  type AttributeFacet,
   type BrandFacet,
   type CatalogFacets,
   type CatalogTaxonomy,
@@ -143,9 +144,31 @@ const RELEVANCE_ORDER = `(s.codes @> ARRAY[search_code($15)]) DESC,
   ts_rank(s.tsv, plainto_tsquery('simple', search_latin($15))) DESC,
   word_similarity(search_latin($15), s.document) DESC, ${FEATURED_ORDER}`;
 
-// Every browse filter; `brands: false` leaves out the brand filter, for the
-// brand facet's own counts. $16 brand keys (migration 018).
-const browseFilters = ({ brands }: { brands: boolean }) => `
+// The chosen attribute values ($17, {key: [value keys]}) as (key, value_key)
+// rows; keys that are not filterable (any more) are ignored (migration 028).
+const WANTED_ATTRIBUTES = `
+SELECT d.key, chosen.value_key
+FROM jsonb_each(coalesce($17::jsonb, '{}')) AS want(key, vals)
+JOIN attribute_definitions d ON d.key = want.key AND d.filterable
+CROSS JOIN LATERAL jsonb_array_elements_text(want.vals) AS chosen(value_key)`;
+
+// A product has one value per attribute, so it matches when it has as many
+// chosen values as there are chosen attributes. Uncorrelated on purpose:
+// evaluated once, not per product.
+const ATTRIBUTES_MATCH = `($17::jsonb IS NULL
+  OR NOT EXISTS (${WANTED_ATTRIBUTES})
+  OR visible.sku IN (
+    SELECT a.sku FROM product_attributes a
+    JOIN (${WANTED_ATTRIBUTES}) w ON w.key = a.key AND w.value_key = a.value_key
+    GROUP BY a.sku
+    HAVING count(*) = (SELECT count(DISTINCT k.key) FROM (${WANTED_ATTRIBUTES}) k)))`;
+
+// Every browse filter; leaving out brands or attributes is for those facets'
+// own counts. $16 brand keys (migration 018).
+const browseFilters = ({
+  brands = true,
+  attributes = true,
+}: { brands?: boolean; attributes?: boolean } = {}) => `
 WHERE ($2::text IS NULL OR top_slug = $2)
   AND ($3::text IS NULL OR (parent_name IS NOT NULL AND category_slug = $3))
   AND ($4::text IS NULL
@@ -163,12 +186,13 @@ WHERE ($2::text IS NULL OR top_slug = $2)
           AND (f.year_from IS NULL OR f.year_from <= $14::int)
           AND (f.year_to IS NULL OR f.year_to >= $14::int)))
   AND ${SEARCH_MATCH}
-  ${brands ? "AND ($16::text[] IS NULL OR brand_key(brand) = ANY($16))" : "AND $16::text[] IS NOT DISTINCT FROM $16"}`;
+  ${brands ? "AND ($16::text[] IS NULL OR brand_key(brand) = ANY($16))" : "AND $16::text[] IS NOT DISTINCT FROM $16"}
+  ${attributes ? `AND ${ATTRIBUTES_MATCH}` : "AND $17::jsonb IS NOT DISTINCT FROM $17"}`;
 
 const browseSql = (sort: BrowseSort, relevance: boolean) => `WITH ${VISIBLE_CTE}
 SELECT visible.*, count(*) OVER () AS total FROM visible
 LEFT JOIN product_search s ON s.sku = visible.sku
-${browseFilters({ brands: true })}
+${browseFilters()}
 ORDER BY ${relevance ? RELEVANCE_ORDER : BROWSE_ORDER[sort]}
 LIMIT $10 OFFSET $11`;
 
@@ -192,6 +216,59 @@ SELECT key,
 FROM filtered f
 GROUP BY key
 ORDER BY 3 DESC, 1
+LIMIT $10 OFFSET $11`;
+
+// Attribute counts: a product counts for an attribute when it matches every
+// other filter, i.e. every chosen attribute except possibly that one: of its
+// matching chosen values, take away the one for this attribute, and compare
+// with the number of chosen attributes other than this one. At most 50 values
+// per attribute, the most common ones ($10 caps all rows).
+const ATTRIBUTE_FACETS_SQL = `WITH ${VISIBLE_CTE},
+wanted AS MATERIALIZED (${WANTED_ATTRIBUTES}),
+wanted_keys AS MATERIALIZED (SELECT DISTINCT key FROM wanted),
+matched AS MATERIALIZED (
+  SELECT a.sku, count(*) AS hits FROM product_attributes a
+  JOIN wanted w ON w.key = a.key AND w.value_key = a.value_key
+  GROUP BY a.sku
+),
+base AS MATERIALIZED (
+  SELECT visible.sku
+  FROM visible
+  LEFT JOIN product_search s ON s.sku = visible.sku
+  ${browseFilters({ attributes: false })}
+),
+-- Counted per spelling first: only the few distinct ones are then sorted.
+spelled AS (
+  SELECT a.key, a.value_key, a.value, count(*) AS count
+  FROM product_attributes a
+  JOIN base ON base.sku = a.sku
+  LEFT JOIN matched m ON m.sku = a.sku
+  LEFT JOIN wanted w ON w.key = a.key AND w.value_key = a.value_key
+  LEFT JOIN wanted_keys k ON k.key = a.key
+  WHERE coalesce(m.hits, 0) - (w.key IS NOT NULL)::int
+        = (SELECT count(*) FROM wanted_keys) - (k.key IS NOT NULL)::int
+  GROUP BY a.key, a.value_key, a.value
+),
+counted AS (
+  SELECT key, value_key, sum(count)::int AS count,
+         (array_agg(value ORDER BY count DESC, value COLLATE "C"))[1] AS value
+  FROM spelled
+  GROUP BY key, value_key
+),
+ranked AS (
+  SELECT *, row_number() OVER (
+    PARTITION BY key ORDER BY count DESC, value_key) AS place
+  FROM counted
+)
+SELECT d.key,
+       CASE WHEN $9 = 'en' AND d.name_en <> '' THEN d.name_en ELSE d.name_bg END AS name,
+       d.unit, r.value_key, r.value, r.count
+FROM attribute_definitions d
+LEFT JOIN ranked r ON r.key = d.key AND r.place <= 50
+WHERE d.filterable
+  -- A chosen attribute stays listed even when nothing matches.
+  AND (r.key IS NOT NULL OR coalesce($17::jsonb, '{}') ? d.key)
+ORDER BY d.sort_order, d.key, r.place
 LIMIT $10 OFFSET $11`;
 
 // Sitemaps: visible products in SKU order ($2 offset, $3 limit).
@@ -265,6 +342,7 @@ function browseParams(
     query.vehicle?.year ?? null,
     query.search ?? null,
     query.brands?.length ? [...query.brands] : null,
+    query.attributes ? JSON.stringify(query.attributes) : null,
   ];
 }
 
@@ -315,11 +393,38 @@ export function createPostgresCatalog(
       ...input,
       locale: input.locale ?? locale,
     });
-    const result = await db().query<BrandFacet>(
-      BRAND_FACETS_SQL,
-      browseParams(query, 100, 0),
-    );
-    return { brands: result.rows };
+    const [brands, attributes] = await Promise.all([
+      db().query<BrandFacet>(BRAND_FACETS_SQL, browseParams(query, 100, 0)),
+      db().query<{
+        key: string;
+        name: string;
+        unit: string;
+        value_key: string | null;
+        value: string;
+        count: number;
+      }>(ATTRIBUTE_FACETS_SQL, browseParams(query, 2000, 0)),
+    ]);
+    const byKey = new Map<string, AttributeFacet>();
+    for (const row of attributes.rows) {
+      const facet = byKey.get(row.key) ?? {
+        key: row.key,
+        name: row.name,
+        unit: row.unit,
+        values: [],
+      };
+      byKey.set(row.key, facet);
+      if (row.value_key !== null)
+        facet.values.push({
+          key: row.value_key,
+          value: row.value,
+          count: row.count,
+        });
+    }
+    // Sizes and grades read best in their natural order (5, 10, 20).
+    const natural = new Intl.Collator("und", { numeric: true });
+    for (const facet of byKey.values())
+      facet.values.sort((a, b) => natural.compare(a.key, b.key));
+    return { brands: brands.rows, attributes: [...byKey.values()] };
   }
 
   return {

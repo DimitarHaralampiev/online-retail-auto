@@ -95,9 +95,9 @@ export function createStaticCatalog(
         .slice(Math.max(0, offset), Math.max(0, offset) + Math.max(0, limit))
         .map((sku) => ({ sku, updatedAt: null }));
     },
-    // The static demo has no brand data, so there is nothing to count.
+    // The static demo has no brands or attributes, so nothing to count.
     async facets() {
-      return { brands: [] };
+      return { brands: [], attributes: [] };
     },
   };
 }

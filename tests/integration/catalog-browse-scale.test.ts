@@ -37,6 +37,15 @@ const db = setupTestDatabase({
              selling_price_cents - 100
       FROM warehouse_products
       WHERE sku LIKE 'SYN-%' AND right(sku, 5)::int % 5 = 0 AND selling_price_cents > 600`);
+    // Eight attributes per product with 5 to 40 values each (#103).
+    await pool.query(`
+      INSERT INTO attribute_definitions(key, name_bg)
+      SELECT 'attr-' || a, 'Характеристика ' || a FROM generate_series(1, 8) AS a`);
+    await pool.query(`
+      INSERT INTO product_attributes(sku, key, value)
+      SELECT w.sku, 'attr-' || a, 'Стойност ' || (right(w.sku, 5)::int * a % (5 * a))
+      FROM warehouse_products w, generate_series(1, 8) AS a
+      WHERE w.sku LIKE 'SYN-%'`);
     await pool.query("ANALYZE");
   },
 });
@@ -117,4 +126,25 @@ test("a page past the end is empty but reports the real total", async () => {
   const page = await store().browse({ subcategory: "wipers", page: 10_000 });
   assert.deepEqual(page.items, []);
   assert.ok(page.total > 1000);
+});
+
+test("attribute filters and facets stay within budget at 10k products", async () => {
+  const chosen = {
+    "attr-2": ["стойност 2", "стойност 4"],
+    "attr-5": ["стойност 5"],
+  };
+  for (const [label, query] of [
+    ["all", {}],
+    ["in a category", { category: "parts-consumables" }],
+    ["two attributes chosen", { attributes: chosen }],
+    [
+      "attributes, brand and search",
+      { attributes: chosen, brands: ["syn"], search: "продукт" },
+    ],
+  ] as [string, BrowseQuery][]) {
+    await timed(`browse: ${label}`, () => store().browse(query));
+    await timed(`facets: ${label}`, () => store().facets(query));
+  }
+  const { attributes } = await store().facets({ attributes: chosen });
+  assert.equal(attributes.length, 8);
 });

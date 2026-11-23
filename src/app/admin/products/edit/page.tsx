@@ -8,6 +8,7 @@ import {
   skuSchema,
 } from "../../../../lib/admin-products";
 import { listAdminCategories } from "../../../../lib/admin-categories";
+import { listAttributes } from "../../../../lib/admin-attributes";
 import { requestLocale } from "../../../../lib/i18n/server";
 import SiteHeader from "../../../../components/site-header";
 import SiteFooter from "../../../../components/site-footer";
@@ -51,12 +52,14 @@ export default async function EditProductPage({
     const parsedSku = rawSku === undefined ? null : skuSchema.safeParse(rawSku);
     if (parsedSku && !parsedSku.success) notFound();
     const sku = parsedSku?.data;
-    const [product, categories, history, fitments] = await Promise.all([
-      sku ? getAdminProduct(database(), sku) : null,
-      listAdminCategories(database()),
-      sku ? productHistory(database(), sku) : [],
-      sku ? listAdminFitments(database(), sku) : [],
-    ]);
+    const [product, categories, history, fitments, attributes] =
+      await Promise.all([
+        sku ? getAdminProduct(database(), sku) : null,
+        listAdminCategories(database()),
+        sku ? productHistory(database(), sku) : [],
+        sku ? listAdminFitments(database(), sku) : [],
+        listAttributes(database()),
+      ]);
     if (sku && !product) notFound();
     if (product) title = product.name.bg;
     content = (
@@ -73,6 +76,7 @@ export default async function EditProductPage({
           key={product?.sku ?? "new"}
           product={product}
           categories={categories}
+          attributes={attributes}
         />
         {product &&
           (product.universalFit ? (

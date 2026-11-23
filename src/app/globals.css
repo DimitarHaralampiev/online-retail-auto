@@ -4089,6 +4089,11 @@ select {
   width: 100%;
   font: inherit;
 }
+.admin-product-attributes {
+  border: 1px solid var(--line);
+  padding: 14px 18px;
+  margin: 18px 0;
+}
 .admin-product-form input[type="file"] {
   width: 100%;
   min-width: 0;

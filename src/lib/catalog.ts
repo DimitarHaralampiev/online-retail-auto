@@ -6,6 +6,11 @@
 // Client components never import catalog data; they receive it from the
 // server through props or the CatalogProvider context.
 import type { Stock } from "./inventory";
+import {
+  attributeParams,
+  parseAttributeFilters,
+  type AttributeFilters,
+} from "./attributes";
 
 export type ProductSubcategory = { id: string; name: string };
 /** Top-level category; `id` is its stable slug, also used in catalog URLs. */
@@ -77,6 +82,8 @@ export type BrowseQuery = {
   vehicle?: BrowseVehicle;
   /** Brand facet keys (brandKey); a product matches any of them. */
   brands?: readonly string[];
+  /** Attribute values (#103): any of a key's values, for every key. */
+  attributes?: AttributeFilters;
   sort?: BrowseSort;
   /** Locale for name sorting and text matching on translated names. */
   locale?: "bg" | "en";
@@ -87,12 +94,25 @@ export type BrowseQuery = {
 
 export type BrandFacet = { key: string; name: string; count: number };
 
+export type AttributeFacet = {
+  key: string;
+  /** Name in the query's locale (Bulgarian when not translated). */
+  name: string;
+  unit: string;
+  /** Empty when nothing matches under the other filters. */
+  values: { key: string; value: string; count: number }[];
+};
+
 /**
  * Facet counts for a query. Each facet counts with every other active
  * filter but not its own, so choosing a brand keeps the other brands'
- * counts (disjunctive faceting).
+ * counts (disjunctive faceting). Attributes hold every filterable attribute
+ * with matching products, and the chosen ones even without any.
  */
-export type CatalogFacets = { brands: BrandFacet[] };
+export type CatalogFacets = {
+  brands: BrandFacet[];
+  attributes: AttributeFacet[];
+};
 
 export const MAX_BRAND_FILTERS = 20;
 const BRAND_KEY = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -196,6 +216,7 @@ export function normalizeBrowseQuery(
     ...pageWindow(query),
     search: search || undefined,
     brands: query.brands?.length ? normalizeBrandKeys(query.brands) : undefined,
+    attributes: normalizedAttributes(query.attributes),
     category: query.category || undefined,
     subcategory: query.subcategory || undefined,
     text: text || undefined,
@@ -204,6 +225,13 @@ export function normalizeBrowseQuery(
     sort: query.sort && SORTS.has(query.sort) ? query.sort : "featured",
     locale: query.locale === "en" ? "en" : "bg",
   };
+}
+
+function normalizedAttributes(
+  filters: AttributeFilters | undefined,
+): AttributeFilters | undefined {
+  const parsed = parseAttributeFilters(attributeParams(filters ?? {}));
+  return Object.keys(parsed).length ? parsed : undefined;
 }
 
 /** Cuts one page out of an already filtered and sorted list. */

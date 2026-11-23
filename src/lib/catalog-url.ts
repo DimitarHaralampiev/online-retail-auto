@@ -1,5 +1,6 @@
 // The catalog page's URL is its state: /catalog?category=…&subcategory=…&q=…
-// &min=…&max=…&available=1&promotions=1&car=1&brand=…&brand=…&sort=…&page=…
+// &min=…&max=…&available=1&promotions=1&car=1&brand=…&brand=…
+// &attr=<key>:<value>&attr=…&sort=…&page=…
 // Everything a visitor can type into the URL is parsed here with Zod into a
 // safe BrowseQuery; links are built here too, so the format lives in one place.
 import { z } from "zod";
@@ -10,6 +11,11 @@ import {
   type BrowseQuery,
   type BrowseSort,
 } from "./catalog";
+import {
+  attributeParams,
+  parseAttributeFilters,
+  type AttributeFilters,
+} from "./attributes";
 import { priceFilterCents } from "./catalog-browse";
 
 /** Filter state as it appears in the URL (strings, as typed by visitors). */
@@ -24,6 +30,8 @@ export type CatalogUrlState = {
   car: boolean;
   /** Brand facet keys, sorted; a product matches any of them. */
   brands: string[];
+  /** Chosen attribute values by attribute key. */
+  attributes: AttributeFilters;
   sort: BrowseSort;
   page: number;
 };
@@ -38,6 +46,7 @@ export const EMPTY_CATALOG_STATE: CatalogUrlState = {
   promotions: false,
   car: false,
   brands: [],
+  attributes: {},
   sort: "featured",
   page: 1,
 };
@@ -62,6 +71,12 @@ const flag = z
   .preprocess(first, z.string().catch(""))
   .transform((v) => v === "1");
 
+const repeated = z.preprocess(
+  (value) =>
+    value === undefined ? [] : Array.isArray(value) ? value : [value],
+  z.array(z.unknown()).catch([]),
+);
+
 const schema = z.object({
   category: text(120),
   subcategory: text(80),
@@ -72,13 +87,8 @@ const schema = z.object({
   promotions: flag,
   car: flag,
   // Repeatable (?brand=a&brand=b); unknown or malformed keys are dropped.
-  brand: z
-    .preprocess(
-      (value) =>
-        value === undefined ? [] : Array.isArray(value) ? value : [value],
-      z.array(z.unknown()).catch([]),
-    )
-    .transform((values) => normalizeBrandKeys(values)),
+  brand: repeated.transform((values) => normalizeBrandKeys(values)),
+  attr: repeated.transform((values) => parseAttributeFilters(values)),
   sort: z.preprocess(
     first,
     z.enum(["featured", "price-asc", "price-desc", "name"]).catch("featured"),
@@ -97,8 +107,8 @@ const schema = z.object({
 export function parseCatalogUrl(
   params: Record<string, string | string[] | undefined>,
 ): CatalogUrlState {
-  const { brand, ...rest } = schema.parse(params);
-  return { ...rest, brands: brand };
+  const { brand, attr, ...rest } = schema.parse(params);
+  return { ...rest, brands: brand, attributes: attr };
 }
 
 /** The same from a query string (`location.search`) in the browser. */
@@ -154,6 +164,7 @@ export function browseQueryFor(
     available: state.available,
     promotions: state.promotions,
     brands: state.brands.length ? state.brands : undefined,
+    attributes: state.attributes,
     sort: state.sort,
     locale,
     page: state.page,
@@ -182,6 +193,8 @@ export function catalogHref(
   if (next.car) params.set("car", "1");
   for (const brand of normalizeBrandKeys(next.brands))
     params.append("brand", brand);
+  for (const attribute of attributeParams(next.attributes))
+    params.append("attr", attribute);
   if (next.sort !== "featured") params.set("sort", next.sort);
   if (next.page > 1) params.set("page", String(next.page));
   const query = params.toString();

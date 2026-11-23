@@ -21,6 +21,7 @@ import ReviewForm from "../../../components/review-form";
 import { database } from "../../../lib/accounts";
 import { productFitInfo, type ProductFitment } from "../../../lib/vehicles";
 import { requestLocale } from "../../../lib/i18n/server";
+import { productSpecs } from "../../../lib/admin-attributes";
 
 export async function generateMetadata({
   params,
@@ -65,6 +66,10 @@ export default async function ProductPage({
     const to = f.fitYearTo ?? f.yearTo;
     return `${from}–${to ?? text("днес", "today")}`;
   };
+  const specs =
+    catalogSource() === "postgres"
+      ? await productSpecs(database(), product.sku, locale).catch(() => [])
+      : [];
   // Reviews belong to products in the database.
   const reviews =
     catalogSource() === "postgres"
@@ -211,6 +216,12 @@ export default async function ProductPage({
                     </dt>
                     <dd>{availableStock(product.stock)}</dd>
                   </div>
+                  {specs.map((spec) => (
+                    <div key={spec.key}>
+                      <dt>{spec.name}</dt>
+                      <dd>{spec.text}</dd>
+                    </div>
+                  ))}
                 </dl>
               </details>
               <details>

@@ -9,6 +9,10 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { rmSync, writeFileSync } from "node:fs";
 import type pg from "pg";
 import { closeDatabase } from "../src/lib/accounts";
+import {
+  attributeInputSchema,
+  createAttribute,
+} from "../src/lib/admin-attributes";
 import { saveFitment } from "../src/lib/admin-fitments";
 import { seedDemoCatalog } from "../src/lib/catalog-seed";
 import { changeOrderStatus, createOrder } from "../src/lib/orders";
@@ -120,6 +124,27 @@ async function prepare(pool: pg.Pool): Promise<Fixtures> {
        WHEN sku IN ('DEMO-003','DEMO-004') THEN 'Testbrand Two'
        ELSE 'Testbrand Three' END`,
   );
+  for (const [key, bg, en, unit] of [
+    ["test-size", "Тестов размер", "Test size", "mm"],
+    ["test-colour", "Тестов цвят", "Test colour", ""],
+  ])
+    await createAttribute(
+      pool,
+      admin,
+      key,
+      attributeInputSchema.parse({ name: { bg, en }, unit }),
+    );
+  for (const [sku, key, value] of [
+    ["DEMO-001", "test-size", "450"],
+    ["DEMO-002", "test-size", "90"],
+    ["DEMO-003", "test-size", "450"],
+    ["DEMO-001", "test-colour", "Черен"],
+    ["DEMO-003", "test-colour", "Син"],
+  ])
+    await pool.query(
+      "INSERT INTO product_attributes(sku, key, value) VALUES ($1, $2, $3)",
+      [sku, key, value],
+    );
   await importVehicles(
     pool,
     admin,
