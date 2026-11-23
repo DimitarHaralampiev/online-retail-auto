@@ -157,6 +157,14 @@ test("the full return: request, approve, receive back into stock", async () => {
   assert.equal(summary.status, "received");
   assert.equal(summary.refundCents, 1890);
   assert.equal(summary.adminNote, "Изпрати до офис.");
+  // The goods value waits in the refund queue for an admin to pay out.
+  const queued = await db().pool.query(
+    "SELECT order_id, amount_cents, reason, status FROM refunds WHERE return_request_id=$1",
+    [requestId],
+  );
+  assert.deepEqual(queued.rows, [
+    { order_id: id, amount_cents: 1890, reason: "return", status: "requested" },
+  ]);
   // Customer emails: request received, approved, goods received.
   const emails = await db().pool.query(
     "SELECT body FROM order_email_outbox WHERE order_id=$1 ORDER BY created_at",

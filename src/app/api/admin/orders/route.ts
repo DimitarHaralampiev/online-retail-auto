@@ -7,6 +7,12 @@ import {
   sendOrderEmails,
 } from "../../../../lib/order-notifications";
 import { outboxCounts, requeueFailed } from "../../../../lib/email-outbox";
+import {
+  completeRefund,
+  completeRefundSchema,
+  openRefunds,
+  RefundError,
+} from "../../../../lib/refunds";
 import { requestJson, json, orderError } from "../../../../lib/order-http";
 const schema = z
   .object({
@@ -35,6 +41,7 @@ export async function GET(request: Request) {
       "SELECT * FROM orders ORDER BY created_at DESC LIMIT 50",
     );
     const emails = await outboxCounts("order_email_outbox");
+    const refunds = await openRefunds();
     return json({
       orders: result.rows.map((order) => ({
         ...publicOrder(order),
@@ -42,6 +49,7 @@ export async function GET(request: Request) {
       })),
       pendingEmails: emails.pending,
       failedEmails: emails.failed,
+      refunds,
     });
   } catch {
     return json({ error: "Неуспешно зареждане." }, 503);
@@ -53,6 +61,11 @@ export async function POST(request: Request) {
     const customer = await currentCustomer(request);
     if (!customer?.isAdmin)
       return json({ error: "Необходим е администраторски достъп." }, 403);
+    if (data?.action === "refund-done") {
+      const { refundId, note } = completeRefundSchema.parse(data);
+      await completeRefund(customer.id, refundId, note);
+      return json({ completed: true });
+    }
     if (data?.action === "retry-emails") {
       // Failed emails (dead letters) get a fresh set of attempts.
       const requeued = await requeueFailed(orderOutbox);
@@ -69,6 +82,7 @@ export async function POST(request: Request) {
     await sendOrderEmails().catch(() => {});
     return json({ updated: true });
   } catch (e) {
+    if (e instanceof RefundError) return json({ error: e.message }, e.status);
     return orderError(e);
   }
 }

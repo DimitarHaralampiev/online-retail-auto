@@ -11,28 +11,27 @@ import {
   keepReservations,
 } from "./stock-reservations";
 import { logError } from "./log";
+import { recordPayment, requestRefund } from "./refunds";
 export function stripeClient() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key?.startsWith("sk_test_"))
     throw new Error("Configure a Stripe test key");
   return new Stripe(key, { timeout: 10000, maxNetworkRetries: 1 });
 }
-export async function checkoutPayment(order: OrderRecord) {
-  if (
-    order.payment_method !== "card" ||
-    order.payment_status === "paid" ||
-    order.status === "cancelled"
-  )
-    return null;
-  if (simulatorEnabled())
-    return orderUrl(order.id).replace(
-      `/orders/${order.id}#`,
-      `/orders/${order.id}/payment#`,
-    );
-  if (order.payment_url) return order.payment_url;
-  const sessionExpiry =
-    Math.floor(Date.now() / 1000) + (CARD_PAYMENT_WINDOW_MINUTES + 1) * 60;
-  const session = await stripeClient().checkout.sessions.create(
+/** The provider's payment session (exported shape for tests). */
+export type PaymentSession = {
+  id: string;
+  url: string | null;
+  expires_at: number;
+  livemode: boolean;
+};
+type SessionCreator = (
+  order: OrderRecord,
+  expiresAt: number,
+) => Promise<PaymentSession>;
+
+function createStripeSession(order: OrderRecord, expiresAt: number) {
+  return stripeClient().checkout.sessions.create(
     {
       mode: "payment",
       allowed_payment_method_types: ["card"],
@@ -71,22 +70,75 @@ export async function checkoutPayment(order: OrderRecord) {
       cancel_url: orderUrl(order.id),
       // Stripe's minimum lifetime; the reservation is extended past it below,
       // so a session never outlives the stock held for it.
-      expires_at: sessionExpiry,
+      expires_at: expiresAt,
     },
     { idempotencyKey: `test-order-${order.id}` },
   );
+}
+
+export async function checkoutPayment(
+  order: OrderRecord,
+  createSession: SessionCreator = createStripeSession,
+) {
+  if (
+    order.payment_method !== "card" ||
+    order.payment_status === "paid" ||
+    order.status === "cancelled"
+  )
+    return null;
+  if (simulatorEnabled())
+    return orderUrl(order.id).replace(
+      `/orders/${order.id}#`,
+      `/orders/${order.id}/payment#`,
+    );
+  if (order.payment_url) return order.payment_url;
+  const session = await createSession(
+    order,
+    Math.floor(Date.now() / 1000) + (CARD_PAYMENT_WINDOW_MINUTES + 1) * 60,
+  );
   if (!session.url || session.livemode)
     throw new Error("Invalid payment session");
-  await database().query(
-    "UPDATE orders SET stripe_session_id=COALESCE(stripe_session_id,$1),payment_url=$2 WHERE id=$3 AND (stripe_session_id IS NULL OR stripe_session_id=$1)",
-    [session.id, session.url, order.id],
-  );
-  await extendReservations(
-    database(),
-    order.id,
-    new Date((session.expires_at + 5 * 60) * 1000),
-  );
-  return session.url;
+  // Store the session and hold the stock past its lifetime under the order
+  // lock, and only while the order can still be paid: the expiry job takes
+  // the same lock before cancelling, so a session is never attached to an
+  // order that is being cancelled (that session simply expires unused).
+  const client = await database().connect();
+  try {
+    await client.query("BEGIN");
+    const current = (
+      await client.query<OrderRecord>(
+        "SELECT * FROM orders WHERE id = $1 FOR UPDATE",
+        [order.id],
+      )
+    ).rows[0];
+    if (
+      !current ||
+      current.status === "cancelled" ||
+      current.payment_status === "paid"
+    ) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    const stored = await client.query<{ payment_url: string }>(
+      `UPDATE orders SET stripe_session_id = COALESCE(stripe_session_id, $1),
+         payment_url = CASE WHEN stripe_session_id IS NULL OR stripe_session_id = $1
+           THEN $2 ELSE payment_url END
+       WHERE id = $3 RETURNING payment_url`,
+      [session.id, session.url, order.id],
+    );
+    await extendReservations(
+      client,
+      order.id,
+      new Date((session.expires_at + 5 * 60) * 1000),
+    );
+    await client.query("COMMIT");
+    return stored.rows[0].payment_url;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 export async function recordPaymentEvent(event: Stripe.Event) {
   if (event.livemode) throw new Error("Live payments are disabled");
@@ -141,9 +193,21 @@ export async function recordPaymentEvent(event: Stripe.Event) {
         "UPDATE orders SET payment_status='paid',stripe_session_id=$1,updated_at=now() WHERE id=$2",
         [session.id, id],
       );
+      const paymentId = await recordPayment(client, {
+        orderId: id,
+        provider: "stripe",
+        reference: session.id,
+        amountCents: session.amount_total ?? order.total_cents,
+      });
       if (order.status === "cancelled") {
         // Paid after the order was cancelled (its stock released): record the
-        // money truthfully, keep the order cancelled and flag a refund.
+        // money truthfully, keep the order cancelled and queue a refund.
+        await requestRefund(client, {
+          orderId: id,
+          paymentId,
+          amountCents: session.amount_total ?? order.total_cents,
+          reason: "paid_after_cancel",
+        });
         void logError(
           "Payment received for cancelled order; refund needed",
           null,

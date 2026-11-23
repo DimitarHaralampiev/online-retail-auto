@@ -813,5 +813,13 @@
   "Потвърди съгласието си.": "Please confirm your consent.",
   "Неизпратени след всички опити:": "Not sent after all attempts:",
   "Провери SMTP настройките и адресите на получателите, после изпрати отново.": "Check the SMTP settings and the recipient addresses, then send again.",
-  "Отстъпка": "Discount"
+  "Отстъпка": "Discount",
+  "За възстановяване": "To refund",
+  "Върни сумата (в Stripe или по банков път) и отбележи го тук.": "Pay the amount back (in Stripe or by bank transfer) and mark it here.",
+  "Върнати артикули": "Returned items",
+  "Платена след отказ": "Paid after cancellation",
+  "Отбелязах като възстановено": "Mark as refunded",
+  "Възстановяването не е намерено.": "Refund not found.",
+  "Възстановяването вече е отбелязано. Обнови списъка.": "This refund is already marked. Refresh the list.",
+  "Бележката е до 500 знака.": "The note can be up to 500 characters."
 }

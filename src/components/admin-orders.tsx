@@ -13,10 +13,21 @@ import { formatMoney } from "../lib/cart";
 type AdminOrder = OrderView & {
   contact: { name: string; email: string; phone: string };
 };
+type Refund = {
+  id: string;
+  orderId: string;
+  amountCents: number;
+  reason: "paid_after_cancel" | "return";
+  paidWith: string | null;
+  paymentReference: string | null;
+  email: string;
+  requestedAt: string;
+};
 type AdminOrdersData = {
   orders: AdminOrder[];
   pendingEmails: number;
   failedEmails?: number;
+  refunds?: Refund[];
 };
 async function loadAdminOrders(signal?: AbortSignal): Promise<AdminOrdersData> {
   const r = await fetch("/api/admin/orders", { cache: "no-store", signal });
@@ -30,8 +41,10 @@ export default function AdminOrders() {
   const [busy, setBusy] = useState(false);
   const [pendingEmails, setPendingEmails] = useState(0);
   const [failedEmails, setFailedEmails] = useState(0);
+  const [refunds, setRefunds] = useState<Refund[]>([]);
   function show(data: AdminOrdersData) {
     setOrders(data.orders);
+    setRefunds(data.refunds ?? []);
     setPendingEmails(data.pendingEmails);
     setFailedEmails(data.failedEmails ?? 0);
   }
@@ -110,6 +123,46 @@ export default function AdminOrders() {
           >
             Изпрати чакащите известия
           </button>
+          {refunds.length > 0 && (
+            <section
+              className="admin-refunds"
+              aria-labelledby="admin-refunds-title"
+            >
+              <h2 id="admin-refunds-title">За възстановяване</h2>
+              <p>
+                Върни сумата (в Stripe или по банков път) и отбележи го тук.
+              </p>
+              <ul>
+                {refunds.map((refund) => (
+                  <li key={refund.id}>
+                    <strong>{formatMoney(refund.amountCents)}</strong> ·{" "}
+                    <Link href={`/orders/${refund.orderId}`}>
+                      #{refund.orderId.slice(0, 8).toUpperCase()}
+                    </Link>{" "}
+                    · {refund.email} ·{" "}
+                    {refund.reason === "return"
+                      ? "Върнати артикули"
+                      : "Платена след отказ"}
+                    {refund.paymentReference && (
+                      <>
+                        {" "}
+                        · <code>{refund.paymentReference}</code>
+                      </>
+                    )}{" "}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        send({ action: "refund-done", refundId: refund.id })
+                      }
+                    >
+                      Отбелязах като възстановено
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <div className="admin-order-list">
             {orders.map((order) => {
               const next = nextOrderStatuses(order.status).filter(

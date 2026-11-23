@@ -8,6 +8,7 @@ import {
 } from "../../../../../lib/order-notifications";
 import { requestJson, json, orderError } from "../../../../../lib/order-http";
 import { keepReservations } from "../../../../../lib/stock-reservations";
+import { recordPayment } from "../../../../../lib/refunds";
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -55,7 +56,15 @@ export async function POST(
         );
         // Paid: keep the stock. A failed attempt may be retried, so the
         // reservation stays until the payment window ends.
-        if (data.outcome === "success") await keepReservations(client, id);
+        if (data.outcome === "success") {
+          await keepReservations(client, id);
+          await recordPayment(client, {
+            orderId: id,
+            provider: "simulator",
+            reference: `simulator-${id}`,
+            amountCents: order.total_cents,
+          });
+        }
         const saved = await client.query(
           "INSERT INTO payment_events(id,order_id) VALUES ($1,$2) ON CONFLICT(id) DO NOTHING RETURNING id",
           [`simulator-${id}-${data.outcome}`, id],

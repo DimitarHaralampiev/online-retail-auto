@@ -922,18 +922,32 @@ Constraints:
 | Column             | Type                     | Nullable | Default |
 | ------------------ | ------------------------ | -------- | ------- |
 | id                 | uuid                     | NO       | —       |
-| payment_id         | uuid                     | NO       | —       |
+| payment_id         | uuid                     | YES      | —       |
 | external_reference | text                     | YES      | —       |
 | amount_cents       | integer                  | NO       | —       |
 | status             | text                     | NO       | —       |
 | reason             | text                     | NO       | —       |
 | actor_id           | uuid                     | YES      | —       |
 | created_at         | timestamp with time zone | NO       | now()   |
+| order_id           | uuid                     | NO       | —       |
+| return_request_id  | uuid                     | YES      | —       |
+| completed_at       | timestamp with time zone | YES      | —       |
+| note               | text                     | YES      | —       |
+
+The refund queue (migration 026): a card payment received for a cancelled
+order (`reason` `paid_after_cancel`, with `payment_id`) or the goods value of
+a received return (`return`, with `return_request_id`). One open refund per
+payment and reason and per return (partial unique indexes).
 
 Constraints:
 
 - `FOREIGN KEY (actor_id) REFERENCES customers(id)`
 - `CHECK ((amount_cents > 0))`
+- `CHECK (((payment_id IS NOT NULL) OR (return_request_id IS NOT NULL)))`
+- `CHECK (((status = 'succeeded'::text) = (completed_at IS NOT NULL)))`
+- `CHECK ((char_length(note) <= 500))`
+- `FOREIGN KEY (order_id) REFERENCES orders(id)`
+- `FOREIGN KEY (return_request_id) REFERENCES return_requests(id)`
 - `UNIQUE (external_reference)`
 - `FOREIGN KEY (payment_id) REFERENCES payments(id)`
 - `PRIMARY KEY (id)`
