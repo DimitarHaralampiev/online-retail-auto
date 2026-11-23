@@ -44,7 +44,7 @@ export default function NewsletterForm() {
     <form className="newsletter-form" onSubmit={submit}>
       <span className="eyebrow">{text("НОВИНИ", "NEWS")}</span>
       <label>
-        {text("Имейл", "Email")}
+        {text("Имейл за новини", "Email for news")}
         <input
           type="email"
           required
