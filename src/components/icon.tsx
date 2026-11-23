@@ -7,7 +7,8 @@ type IconName =
   | "menu"
   | "close"
   | "check"
-  | "cart";
+  | "cart"
+  | "car";
 
 export default function Icon({
   name,
@@ -27,6 +28,13 @@ export default function Icon({
     arrow: (
       <>
         <path d="M5 12h14M13 6l6 6-6 6" />
+      </>
+    ),
+    car: (
+      <>
+        <path d="M4 16v-4l2-5h12l2 5v4M4 12h16M4 16h16" />
+        <circle cx="7.5" cy="17.5" r="1.5" />
+        <circle cx="16.5" cy="17.5" r="1.5" />
       </>
     ),
     search: (

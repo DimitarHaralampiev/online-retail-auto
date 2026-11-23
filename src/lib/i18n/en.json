@@ -830,5 +830,6 @@
   "Поръчката има запазена наличност. Предай я без изключение.": "The order has reserved stock. Hand it over without the exception.",
   "Предаване без складово движение (стари поръчки)": "Hand over without a stock movement (legacy orders)",
   "Само за поръчки без запазена наличност, чиито бройки складът вече не води. Причината се записва в одита; коригирай наличността отделно.": "Only for orders without reserved stock whose items the warehouse no longer records. The reason is audited; correct the stock separately.",
-  "Причина": "Reason"
+  "Причина": "Reason",
+  "Смени": "Change"
 }

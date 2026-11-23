@@ -10,14 +10,8 @@ import Catalog from "../../components/catalog";
 import { currentCustomer, database } from "../../lib/accounts";
 import { fitStatuses } from "../../lib/vehicles";
 import { catalog, catalogSource } from "../../lib/catalog-server";
-import { cookies } from "next/headers";
+import { selectedVehicle } from "../../lib/vehicle-selection-server";
 import VehicleSelector from "../../components/vehicle-selector";
-import {
-  parseSelectionCookie,
-  resolveSelection,
-  VEHICLE_COOKIE,
-  type ResolvedVehicle,
-} from "../../lib/vehicle-selection";
 import {
   browseQueryFor,
   catalogHref,
@@ -216,16 +210,4 @@ export default async function CatalogPage({
       }
     </Localize>
   );
-}
-
-/** The visitor's selected vehicle from the cookie, or null (also on errors). */
-async function selectedVehicle(): Promise<ResolvedVehicle | null> {
-  try {
-    const selection = parseSelectionCookie(
-      (await cookies()).get(VEHICLE_COOKIE)?.value,
-    );
-    return selection ? await resolveSelection(database(), selection) : null;
-  } catch {
-    return null;
-  }
 }

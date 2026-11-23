@@ -5,6 +5,8 @@ import "@fontsource-variable/manrope";
 import "@fontsource-variable/roboto-condensed";
 import "./globals.css";
 import CartProvider from "../components/cart-provider";
+import VehicleProvider from "../components/vehicle-provider";
+import { selectedVehicle } from "../lib/vehicle-selection-server";
 import ConsentProvider from "../components/consent-provider";
 import { CONSENT_COOKIE, consentCategoriesInUse } from "../lib/consent";
 import { cookies } from "next/headers";
@@ -36,7 +38,10 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const locale = await requestLocale();
-  const taxonomy = await catalog(locale).taxonomy();
+  const [taxonomy, vehicle] = await Promise.all([
+    catalog(locale).taxonomy(),
+    selectedVehicle(),
+  ]);
   return (
     <html lang={locale}>
       <body>
@@ -48,7 +53,13 @@ export default async function RootLayout({
             <CatalogProvider taxonomy={taxonomy} locale={locale}>
               <AccountProvider>
                 <CustomerProvider>
-                  <CartProvider>{children}</CartProvider>
+                  <CartProvider>
+                    <VehicleProvider
+                      vehicle={vehicle ? { label: vehicle.label } : null}
+                    >
+                      {children}
+                    </VehicleProvider>
+                  </CartProvider>
                 </CustomerProvider>
               </AccountProvider>
             </CatalogProvider>
