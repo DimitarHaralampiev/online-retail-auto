@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    if (!(await currentAdmin())) return forbidden();
+    if (!(await currentAdmin(request))) return forbidden();
     const status = new URL(request.url).searchParams.get("status");
     return json({
       reviews: await reviewsForModeration(

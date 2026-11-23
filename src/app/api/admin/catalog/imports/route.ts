@@ -30,7 +30,7 @@ const bodySchema = z.object({
 /** Dry run (apply: false) or import (apply: true) of a product CSV. */
 export async function POST(request: Request) {
   try {
-    const admin = await currentAdmin();
+    const admin = await currentAdmin(request);
     if (!admin) return forbidden();
     // JSON escaping can roughly double a CSV's size in the worst case.
     const body = bodySchema.parse(

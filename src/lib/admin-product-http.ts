@@ -7,8 +7,8 @@ import { json } from "./order-http";
 import { logError } from "./log";
 
 /** The signed-in admin, or null (the route answers 403). */
-export async function currentAdmin() {
-  const customer = await currentCustomer();
+export async function currentAdmin(request?: Request) {
+  const customer = await currentCustomer(request);
   return customer?.isAdmin ? customer : null;
 }
 

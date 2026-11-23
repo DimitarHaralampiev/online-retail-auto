@@ -17,9 +17,9 @@ export const runtime = "nodejs";
 
 type Context = { params: Promise<{ sku: string }> };
 
-export async function GET(_request: Request, { params }: Context) {
+export async function GET(request: Request, { params }: Context) {
   try {
-    if (!(await currentAdmin())) return forbidden();
+    if (!(await currentAdmin(request))) return forbidden();
     const sku = skuSchema.parse((await params).sku);
     return json({ fitments: await listAdminFitments(database(), sku) });
   } catch (e) {
@@ -29,7 +29,7 @@ export async function GET(_request: Request, { params }: Context) {
 
 export async function POST(request: Request, { params }: Context) {
   try {
-    const admin = await currentAdmin();
+    const admin = await currentAdmin(request);
     if (!admin) return forbidden();
     const sku = skuSchema.parse((await params).sku);
     const fitment = fitmentSchema.parse(await requestJson(request));

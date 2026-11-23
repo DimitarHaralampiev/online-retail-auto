@@ -3,7 +3,11 @@ import {
   defaultPricingAssumptions,
   pricingAssumptionsSchema,
 } from "../../../../lib/invoice-rules";
-import { requestJson, json } from "../../../../lib/order-http";
+import {
+  requestJson,
+  json,
+  requireSameOrigin,
+} from "../../../../lib/order-http";
 import { aiConfigured } from "../../../../lib/invoice-ai";
 import {
   uploadInvoice,
@@ -11,9 +15,9 @@ import {
 } from "../../../../lib/supplier-invoices";
 import { invoiceError } from "../../../../lib/invoice-http";
 export const runtime = "nodejs";
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    if (!(await currentCustomer())?.isAdmin)
+    if (!(await currentCustomer(request))?.isAdmin)
       return json({ error: "Нужен е администраторски достъп." }, 403);
     const [invoices, products, settings] = await Promise.all([
       database().query(
@@ -40,7 +44,7 @@ export async function GET() {
 }
 export async function POST(request: Request) {
   try {
-    const customer = await currentCustomer();
+    const customer = await currentCustomer(request);
     if (!customer?.isAdmin)
       return json({ error: "Нужен е администраторски достъп." }, 403);
     if (request.headers.get("content-type")?.includes("application/json")) {
@@ -51,15 +55,7 @@ export async function POST(request: Request) {
       );
       return json({ saved: true });
     }
-    const origin = request.headers.get("origin");
-    let validOrigin = false;
-    try {
-      const parsed = new URL(origin ?? "");
-      validOrigin =
-        ["http:", "https:"].includes(parsed.protocol) &&
-        parsed.host === request.headers.get("host");
-    } catch {}
-    if (!validOrigin) throw new Error("Невалиден произход на заявката.");
+    requireSameOrigin(request);
     if (!request.headers.get("content-type")?.startsWith("multipart/form-data"))
       throw new Error("Качи файла чрез формата за PDF.");
     const reader = request.body?.getReader();

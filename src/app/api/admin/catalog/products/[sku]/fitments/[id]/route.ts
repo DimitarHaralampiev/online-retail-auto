@@ -23,7 +23,7 @@ export async function DELETE(
   { params }: { params: Promise<{ sku: string; id: string }> },
 ) {
   try {
-    const admin = await currentAdmin();
+    const admin = await currentAdmin(request);
     if (!admin) return forbidden();
     requireSameOrigin(request);
     const { sku: rawSku, id: rawId } = await params;

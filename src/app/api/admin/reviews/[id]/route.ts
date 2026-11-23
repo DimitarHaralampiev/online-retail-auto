@@ -20,7 +20,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const admin = await currentAdmin();
+    const admin = await currentAdmin(request);
     if (!admin) return forbidden();
     const id = z.uuid().safeParse((await params).id);
     if (!id.success) return json({ error: "Отзивът не е намерен." }, 404);
