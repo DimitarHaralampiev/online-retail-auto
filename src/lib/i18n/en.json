@@ -832,5 +832,6 @@
   "Само за поръчки без запазена наличност, чиито бройки складът вече не води. Причината се записва в одита; коригирай наличността отделно.": "Only for orders without reserved stock whose items the warehouse no longer records. The reason is audited; correct the stock separately.",
   "Причина": "Reason",
   "Смени": "Change",
-  "Другите продукти в количката не се заредиха. Отвори количката и избери „Опитай отново“.": "The other products in your cart did not load. Open the cart and choose “Try again”."
+  "Другите продукти в количката не се заредиха. Отвори количката и избери „Опитай отново“.": "The other products in your cart did not load. Open the cart and choose “Try again”.",
+  "Моят автомобил:": "My car:"
 }

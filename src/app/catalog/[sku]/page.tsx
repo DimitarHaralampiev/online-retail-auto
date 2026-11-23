@@ -225,7 +225,16 @@ export default async function ProductPage({
                     )}
                   </p>
                 ) : fitInfo?.fitments.length ? (
-                  <div className="table-wrapper">
+                  // Focusable: it can scroll sideways and holds no controls.
+                  <div
+                    className="table-wrapper"
+                    role="region"
+                    aria-label={text(
+                      "Проверена съвместимост",
+                      "Verified fitment",
+                    )}
+                    tabIndex={0}
+                  >
                     <table>
                       <caption className="visually-hidden">
                         {text("Проверена съвместимост", "Verified fitment")}

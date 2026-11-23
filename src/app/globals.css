@@ -951,6 +951,9 @@ input::placeholder {
   margin: 35px 0 10px;
 }
 .table-wrapper {
+  /* Contains the visually hidden texts of wide rows, which would otherwise
+     widen the whole page on small screens. */
+  position: relative;
   overflow-x: auto;
   border: 1px solid var(--line);
   background: white;
@@ -3860,6 +3863,8 @@ select {
   margin: 44px 0;
 }
 .product-information-panels details {
+  /* A wide table scrolls in its own box instead of stretching the panel. */
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 20px 24px;
@@ -4083,6 +4088,14 @@ select {
 .admin-product-form textarea {
   width: 100%;
   font: inherit;
+}
+.admin-product-form input[type="file"] {
+  width: 100%;
+  min-width: 0;
+}
+/* Long unbroken texts (CSV column lists, codes) wrap on small screens. */
+code {
+  overflow-wrap: anywhere;
 }
 .admin-product-state {
   display: flex;

@@ -163,7 +163,13 @@ export default function CsvImport({
         )}
       </div>
       {shown.length > 0 && (
-        <div className="table-wrapper">
+        // Focusable: the table can scroll sideways and holds no controls.
+        <div
+          className="table-wrapper"
+          role="region"
+          aria-label={text("Резултат по редове", "Results by line")}
+          tabIndex={0}
+        >
           <table>
             <thead>
               <tr>

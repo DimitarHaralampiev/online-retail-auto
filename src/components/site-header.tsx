@@ -140,12 +140,10 @@ export default function SiteHeader() {
             <div className="site-width shop-toolbar-inner">
               <CategoryMenu />
               {vehicle && (
-                <Link
-                  className="header-vehicle"
-                  href="/catalog#my-car"
-                  aria-label={`Моят автомобил: ${vehicle.label}. Смени`}
-                >
+                // The visible text is part of the name (WCAG 2.5.3).
+                <Link className="header-vehicle" href="/catalog#my-car">
                   <Icon name="car" />
+                  <span className="visually-hidden">Моят автомобил:</span>
                   <span className="header-vehicle-label">{vehicle.label}</span>
                   <span className="header-vehicle-change">Смени</span>
                 </Link>

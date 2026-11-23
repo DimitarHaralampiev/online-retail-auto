@@ -158,7 +158,7 @@ export default async function AdminProductsPage({
                           <Link
                             href={`/admin/products/media?sku=${encodeURIComponent(product.sku)}`}
                             aria-label={
-                              text("Медия за ", "Media for ") + product.name
+                              text("Снимки: ", "Photos: ") + product.name
                             }
                           >
                             {text("Снимки", "Photos")}
