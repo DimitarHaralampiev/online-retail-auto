@@ -70,3 +70,29 @@ test("without ?locale= the language cookie decides; an explicit locale wins", as
     "Въздушен филтър",
   );
 });
+
+test("a database failure is a 503 without details and is not cached", async () => {
+  const original = console.error;
+  const logged: string[] = [];
+  console.error = (line: string) => logged.push(line);
+  await db().pool.query(
+    "ALTER TABLE warehouse_products RENAME TO warehouse_products_away",
+  );
+  try {
+    const response = await get("?sku=DEMO-003");
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    const body = await response.json();
+    assert.deepEqual(Object.keys(body), ["error"]);
+    assert.equal(body.error, "Каталогът временно не е достъпен.");
+    // logError writes after the response; give it a turn.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.match(logged.join("\n"), /Catalog product lookup failed/);
+  } finally {
+    await db().pool.query(
+      "ALTER TABLE warehouse_products_away RENAME TO warehouse_products",
+    );
+    console.error = original;
+  }
+  assert.equal((await get("?sku=DEMO-003")).status, 200);
+});

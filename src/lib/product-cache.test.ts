@@ -166,3 +166,50 @@ test("subscribers hear about every change", async () => {
   await tick();
   assert.equal(heard, 1);
 });
+
+test("primed products need no lookup and never replace what is cached", async () => {
+  const { calls, fetcher } = controlledFetcher();
+  const cache = createProductCache(fetcher, "bg", 50);
+  let heard = 0;
+  cache.subscribe(() => {
+    heard += 1;
+  });
+  cache.prime([product("A", "Филтър")]);
+  assert.equal(heard, 1);
+  await cache.ensure(["A"]);
+  assert.equal(calls.length, 0);
+  cache.prime([product("A", "По-стара страница")]);
+  assert.equal(cache.get("A")?.name, "Филтър");
+  assert.equal(heard, 1, "nothing changed, nobody is told");
+});
+
+test("priming a product once looked up as missing makes it known", async () => {
+  const { calls, fetcher } = controlledFetcher();
+  const cache = createProductCache(fetcher, "bg", 50);
+  const pending = cache.ensure(["NEW"]);
+  calls[0].resolve([]);
+  await pending;
+  cache.prime([product("NEW", "Нов продукт")]);
+  assert.equal(cache.get("NEW")?.name, "Нов продукт");
+});
+
+test("a lookup already running replaces a primed product with fresh data", async () => {
+  const { calls, fetcher } = controlledFetcher();
+  const cache = createProductCache(fetcher, "bg", 50);
+  const pending = cache.ensure(["A"]);
+  cache.prime([product("A", "От страницата")]);
+  calls[0].resolve([product("A", "Прясно")]);
+  await pending;
+  assert.equal(cache.get("A")?.name, "Прясно");
+});
+
+test("primed products are refreshed after a language switch", async () => {
+  const { calls, fetcher } = controlledFetcher();
+  const cache = createProductCache(fetcher, "bg", 50);
+  cache.prime([product("A", "Филтър")]);
+  cache.setLocale("en");
+  assert.deepEqual(calls[0].skus, ["A"]);
+  calls[0].resolve([product("A", "Air filter")]);
+  await tick();
+  assert.equal(cache.get("A")?.name, "Air filter");
+});
