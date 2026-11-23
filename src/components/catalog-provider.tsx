@@ -5,16 +5,16 @@
 // visit, so pages never ship the whole catalog.
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import type { CatalogTaxonomy, Product, ProductLookup } from "../lib/catalog";
 import { MAX_LOOKUP_SKUS } from "../lib/catalog-lookup";
 import type { Locale } from "../lib/i18n/locale";
+import { createProductCache } from "../lib/product-cache";
 
 type CatalogContextValue = {
   taxonomy: CatalogTaxonomy;
@@ -43,6 +43,18 @@ async function fetchProducts(
   return ((await response.json()) as { products: Product[] }).products;
 }
 
+/** The visit's product cache with the stable functions handed to consumers. */
+function createCatalogCache(locale: Locale) {
+  const cache = createProductCache(fetchProducts, locale, MAX_LOOKUP_SKUS);
+  return {
+    cache,
+    async ensureProducts(skus: readonly string[]): Promise<ProductLookup> {
+      await cache.ensure(skus);
+      return cache.get;
+    },
+  };
+}
+
 export default function CatalogProvider({
   taxonomy,
   locale,
@@ -59,96 +71,39 @@ export default function CatalogProvider({
   const [stable, setStable] = useState({ signature, taxonomy });
   if (stable.signature !== signature) setStable({ signature, taxonomy });
 
-  // null marks a SKU that was looked up but is not in the catalog. Each entry
-  // remembers its locale; after a language switch it is refreshed, and the
-  // previous names are shown until the new ones arrive.
-  type Entry = { locale: Locale; product: Product | null };
-  const [loaded, setLoaded] = useState<ReadonlyMap<string, Entry>>(
-    () => new Map(),
+  const [{ cache, ensureProducts }] = useState(() =>
+    createCatalogCache(locale),
   );
-  const known = useRef(new Map<string, Entry>());
-  const inFlight = useRef(new Map<string, Promise<void>>());
-  const currentLocale = useRef(locale);
-
-  const lookup = useCallback<ProductLookup>(
-    (sku) => known.current.get(sku)?.product ?? undefined,
-    [],
+  const version = useSyncExternalStore(
+    cache.subscribe,
+    cache.version,
+    cache.version,
   );
-
-  // Loads SKUs in the current locale. `refresh` also reloads entries held in
-  // another locale; otherwise only unknown SKUs are fetched, so cached data
-  // (price, stock) keeps the cart usable while names refresh in the
-  // background. A response for a locale that is no longer current is only
-  // stored when nothing is known yet, and then triggers a refresh, so late or
-  // out-of-order responses cannot leave the wrong language behind.
-  const load = useCallback(function load(
-    skus: readonly string[],
-    refresh: boolean,
-  ): Promise<void> {
-    const wanted = currentLocale.current;
-    const key = (sku: string) => `${wanted}:${sku}`;
-    const unique = [...new Set(skus)];
-    const missing = unique.filter((sku) => {
-      const entry = known.current.get(sku);
-      const needed = refresh ? entry?.locale !== wanted : !entry;
-      return needed && !inFlight.current.has(key(sku));
-    });
-    for (let i = 0; i < missing.length; i += MAX_LOOKUP_SKUS) {
-      const chunk = missing.slice(i, i + MAX_LOOKUP_SKUS);
-      // A failed lookup rejects (callers keep their data) and is retried the
-      // next time those SKUs are needed.
-      const request = fetchProducts(chunk, wanted).then((products) => {
-        const current = currentLocale.current;
-        const found = new Map(products.map((p) => [p.sku, p]));
-        for (const sku of chunk)
-          if (wanted === current || !known.current.has(sku))
-            known.current.set(sku, {
-              locale: wanted,
-              product: found.get(sku) ?? null,
-            });
-        setLoaded(new Map(known.current));
-        if (wanted !== current) load(chunk, true).catch(() => undefined);
-      });
-      for (const sku of chunk)
-        inFlight.current.set(
-          key(sku),
-          request.finally(() => inFlight.current.delete(key(sku))),
-        );
-    }
-    return Promise.all(
-      unique.map((sku) => inFlight.current.get(key(sku))),
-    ).then(() => undefined);
-  }, []);
-
-  const ensureProducts = useCallback(
-    async (skus: readonly string[]) => {
-      await load(skus, false);
-      return lookup;
-    },
-    [load, lookup],
-  );
-
-  // After a language switch, refresh every product loaded or being loaded.
+  useEffect(() => cache.setLocale(locale), [cache, locale]);
+  // Names that could not be refreshed offline are fetched when back online.
   useEffect(() => {
-    if (currentLocale.current === locale) return;
-    currentLocale.current = locale;
-    const pending = [...inFlight.current.keys()].map((k) =>
-      k.slice(k.indexOf(":") + 1),
-    );
-    load([...known.current.keys(), ...pending], true).catch(() => undefined);
-  }, [locale, load]);
+    window.addEventListener("online", cache.retryStale);
+    return () => window.removeEventListener("online", cache.retryStale);
+  }, [cache]);
 
   const value = useMemo(
     () => ({
       taxonomy: stable.taxonomy,
-      productBySku: (sku: string) => loaded.get(sku)?.product ?? undefined,
+      // A new function per cache version, so consumers render new data.
+      productBySku: lookupAt(cache.get, version),
       ensureProducts,
     }),
-    [stable, loaded, ensureProducts],
+    [stable, cache, version, ensureProducts],
   );
   return (
     <CatalogContext.Provider value={value}>{children}</CatalogContext.Provider>
   );
+}
+
+/** The lookup as a new function for each version of the cache. */
+function lookupAt(get: ProductLookup, version: number): ProductLookup {
+  void version;
+  return (sku) => get(sku);
 }
 
 export function useCatalog(): CatalogContextValue {
