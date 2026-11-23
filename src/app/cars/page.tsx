@@ -10,6 +10,7 @@ import SiteHeader from "../../components/site-header";
 import SiteFooter from "../../components/site-footer";
 
 export async function generateMetadata(): Promise<Metadata> {
+  if (catalogSource() !== "postgres") notFound();
   const locale = await requestLocale();
   const en = locale === "en";
   return pageMetadata({

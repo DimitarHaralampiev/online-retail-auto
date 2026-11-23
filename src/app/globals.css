@@ -4435,3 +4435,20 @@ code {
 .vehicle-form-dialog::backdrop {
   background: #161b1abf;
 }
+
+/* Not-found and error pages (#134) */
+.error-page {
+  padding: 70px 0 90px;
+  max-width: 720px;
+}
+.error-page h1 {
+  font-size: clamp(30px, 6vw, 46px);
+  margin: 8px 0 18px;
+}
+.error-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+  margin-top: 28px;
+}

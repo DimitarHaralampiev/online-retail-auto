@@ -28,7 +28,7 @@ async function load(slug: LegalSlug): Promise<LegalPage | null> {
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
-  if (!isLegalSlug(slug)) return {};
+  if (!isLegalSlug(slug)) notFound();
   const locale = await requestLocale();
   const page = await load(slug);
   const [bg, en] = LEGAL_TITLES[slug];
