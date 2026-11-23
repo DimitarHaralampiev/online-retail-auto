@@ -27,7 +27,7 @@ async function navigate(page: Page, name: string) {
 }
 
 const favoriteButton = (page: Page) =>
-  page.getByRole("button", { name: new RegExp(`любими: ${product}`) });
+  page.getByRole("button", { name: `Любими: ${product}`, exact: true });
 
 test("guest favourites survive a reload and show on the favourites page", async ({
   page,

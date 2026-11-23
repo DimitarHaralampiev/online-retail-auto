@@ -38,7 +38,6 @@
   "Бройки": "Quantity",
   "Бройки за": "Quantity for",
   "В ТВОЯ ГАРАЖ": "IN YOUR GARAGE",
-  "В любими": "Saved to favorites",
   "В момента няма предложения.": "There are no offers at the moment.",
   "В склада": "In stock",
   "ВСИЧКО НА МЯСТО.": "EVERYTHING IN ITS PLACE.",
@@ -151,7 +150,6 @@
   "Запазваме…": "Saving…",
   "Запазени продукти:": "Saved products:",
   "Запази автомобила": "Save vehicle",
-  "Запази в любими": "Save to favorites",
   "Запази данните": "Save details",
   "Запази етапа и уведоми клиента": "Save stage and notify customer",
   "Запази любимите си продукти и следи това, което ти трябва.": "Save your favorite products and keep track of what you need.",
@@ -814,5 +812,6 @@
   "Линкът за отписване е невалиден.": "The unsubscribe link is invalid.",
   "Потвърди съгласието си.": "Please confirm your consent.",
   "Неизпратени след всички опити:": "Not sent after all attempts:",
-  "Провери SMTP настройките и адресите на получателите, после изпрати отново.": "Check the SMTP settings and the recipient addresses, then send again."
+  "Провери SMTP настройките и адресите на получателите, после изпрати отново.": "Check the SMTP settings and the recipient addresses, then send again.",
+  "Отстъпка": "Discount"
 }

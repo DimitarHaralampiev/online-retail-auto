@@ -15,14 +15,7 @@ export function translate(text: string, locale: Locale): string {
     [/^Запазена доставка: (.+)\.$/, (m) => `Saved delivery: ${m[1]}.`],
     [/^Разгледай (.+)$/, (m) => `View ${translate(m[1], locale)}`],
     [/^Илюстрация: (.+)$/, (m) => `Illustration: ${translate(m[1], locale)}`],
-    [
-      /^В любими: (.+)$/,
-      (m) => `Saved to favorites: ${translate(m[1], locale)}`,
-    ],
-    [
-      /^Запази в любими: (.+)$/,
-      (m) => `Save to favorites: ${translate(m[1], locale)}`,
-    ],
+    [/^Любими: (.+)$/, (m) => `Favorites: ${translate(m[1], locale)}`],
     [/^Премахни (.+)$/, (m) => `Remove ${translate(m[1], locale)}`],
     [/^Бройки за (.+)$/, (m) => `Quantity for ${translate(m[1], locale)}`],
     [/^Пропуснати: (.+)\.$/, (m) => `Skipped: ${m[1]}.`],

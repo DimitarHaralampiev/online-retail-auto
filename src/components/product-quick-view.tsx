@@ -18,6 +18,9 @@ export default function ProductQuickView({ product }: { product: Product }) {
         ref={button}
         type="button"
         className="quick-view-trigger"
+        // Names the product: every card has one (WCAG 2.5.3: the visible
+        // label starts the name).
+        aria-label={`${en ? "Quick view" : "Бърз преглед"}: ${t(product.name)}`}
         onClick={() => dialog.current?.showModal()}
       >
         {en ? "Quick view" : "Бърз преглед"} <span aria-hidden="true">↗</span>
