@@ -1,6 +1,6 @@
-// In-memory fixed-window rate limiting for cheap public endpoints (search
-// suggestions). Per server instance: enough to stop one client from
-// hammering an instance; shared limits across instances belong to #51.
+// In-memory fixed-window rate limiting for public endpoints. Per server
+// instance: enough to stop one client from hammering an instance. Several
+// instances need a shared store before the limits hold across them.
 
 type Window = { count: number; resetAt: number };
 

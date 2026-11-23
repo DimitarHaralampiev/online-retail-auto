@@ -82,8 +82,8 @@ nothing reported them.
 
 - Handled and unhandled server errors reach Sentry with the request id
   that is in the log line and the response.
-- The workers in `scripts/` still write plain console output. They will
-  move to `log()` with the job queue (#53).
+- The background worker (ADR 0006) logs with `log()`; the single-purpose
+  scripts in `scripts/` keep plain console output for manual use.
 
 ## Browser errors and field Core Web Vitals (#117)
 

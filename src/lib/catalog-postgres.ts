@@ -1,7 +1,6 @@
 // CatalogRepository over PostgreSQL (warehouse_products, product_categories,
-// translations and promotions). Implements the current contract; the planned
-// contract evolution (category ids, per-request locale, price field names) is
-// recorded in docs/architecture/0001-catalog-repository.md.
+// translations and promotions). Contract and decisions:
+// docs/architecture/0001-catalog-repository.md.
 //
 // All reads share one `visible` CTE, so listing, lookups, browsing and
 // category counts apply exactly the same visibility and pricing rules.
