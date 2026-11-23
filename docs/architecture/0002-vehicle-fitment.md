@@ -63,9 +63,11 @@ for landing pages. AGENTS.md forbids invented fitment data.
 - Manual entry, editing and hiding at every level exist next to the CSV import
   (#91), so data can be entered from manufacturer catalogues without any
   licence.
-- Choosing a data source is a business decision (#91): licensed catalogues
-  such as TecDoc are paid; manual entry from manufacturer catalogues is free
-  but slow.
+- **Data source (decided by the business, 2026-11-23, #91):** reference and
+  fitment data are entered by hand or by CSV from manufacturer catalogues.
+  No licensed catalogue (e.g. TecDoc) is used; adopting one later is a new
+  task. Manual entry is free but slow, so the car pages and filters grow with
+  the data entered.
 - Body type and drivetrain (estate/hatchback, 4x4) are not modelled; fitments
   that depend on them go into `notes` or wait for a later extension.
 - Engines are stored per generation, so an engine shared by several
