@@ -7,6 +7,7 @@ import {
   resolveSelection,
   saveToGarage,
   selectionCookieValue,
+  vehicleFromCookie,
 } from "../../src/lib/vehicle-selection";
 import { insertCustomer, setupTestDatabase } from "./database";
 
@@ -180,4 +181,34 @@ test("the garage keeps at most ten vehicles", async () => {
     [other],
   );
   assert.equal(selected.rows[0].n, 1);
+});
+
+test("the header's vehicle comes from the cookie, never failing the page", async () => {
+  const cookie = selectionCookieValue({
+    generationId: ids["Alpha I"],
+    engineId: ids["1.6 diesel"],
+    year: 2014,
+  });
+  const vehicle = await vehicleFromCookie(db().pool, cookie);
+  assert.equal(vehicle?.label, "Testmake Alpha Alpha I, 2014, 1.6 diesel");
+  assert.equal(await vehicleFromCookie(db().pool, undefined), null);
+  assert.equal(await vehicleFromCookie(db().pool, "junk"), null);
+  // A year outside the generation, or an unknown generation: nothing shown.
+  assert.equal(
+    await vehicleFromCookie(
+      db().pool,
+      selectionCookieValue({
+        generationId: ids["Alpha I"],
+        engineId: null,
+        year: 2030,
+      }),
+    ),
+    null,
+  );
+  const broken = {
+    query: async () => {
+      throw new Error("connection lost");
+    },
+  } as unknown as Parameters<typeof vehicleFromCookie>[0];
+  assert.equal(await vehicleFromCookie(broken, cookie), null);
 });

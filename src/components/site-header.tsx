@@ -12,6 +12,7 @@ import { useCart } from "./cart-provider";
 import { useCatalog } from "./catalog-provider";
 
 import { useAccount } from "./account-provider";
+import { useSelectedVehicle } from "./vehicle-provider";
 
 export function Brand() {
   return (
@@ -40,6 +41,7 @@ export default function SiteHeader() {
   const { customer } = useAccount();
   const [open, setOpen] = useState(false);
   const { items } = useCart();
+  const vehicle = useSelectedVehicle();
   const { taxonomy } = useCatalog();
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const navigation = [
@@ -137,6 +139,17 @@ export default function SiteHeader() {
           <div className="shop-toolbar">
             <div className="site-width shop-toolbar-inner">
               <CategoryMenu />
+              {vehicle && (
+                <Link
+                  className="header-vehicle"
+                  href="/catalog#my-car"
+                  aria-label={`Моят автомобил: ${vehicle.label}. Смени`}
+                >
+                  <Icon name="car" />
+                  <span className="header-vehicle-label">{vehicle.label}</span>
+                  <span className="header-vehicle-change">Смени</span>
+                </Link>
+              )}
               <nav
                 className="quick-categories"
                 aria-label="Продуктови категории"

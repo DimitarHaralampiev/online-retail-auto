@@ -97,6 +97,24 @@ export async function resolveSelection(
   };
 }
 
+/**
+ * The vehicle a selection cookie names, resolved; null when the cookie is
+ * missing, malformed or names nothing active, and on database errors (a
+ * page never fails because of the shopper's car).
+ */
+export async function vehicleFromCookie(
+  db: Pick<pg.Pool, "query">,
+  value: string | undefined,
+): Promise<ResolvedVehicle | null> {
+  const selection = parseSelectionCookie(value);
+  if (!selection) return null;
+  try {
+    return await resolveSelection(db, selection);
+  } catch {
+    return null;
+  }
+}
+
 /** A mapped garage vehicle of this customer as a selection, or null. */
 export async function garageSelection(
   db: Pick<pg.Pool, "query">,

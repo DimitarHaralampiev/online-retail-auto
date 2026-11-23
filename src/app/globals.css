@@ -4359,3 +4359,31 @@ select {
   align-items: flex-start;
   gap: 8px;
 }
+
+/* Selected vehicle in the header (#94) */
+.header-vehicle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.header-vehicle .icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.header-vehicle-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.header-vehicle-change {
+  text-decoration: underline;
+  flex: none;
+}

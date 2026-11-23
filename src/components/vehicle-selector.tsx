@@ -184,6 +184,7 @@ export default function VehicleSelector({
 
   return (
     <section
+      id="my-car"
       className="vehicle-selector"
       aria-labelledby="vehicle-selector-title"
     >
