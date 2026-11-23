@@ -4319,3 +4319,24 @@ select {
   padding: 10px 12px;
   margin-bottom: 10px;
 }
+
+/* Product reviews */
+.product-reviews {
+  margin: 32px 0;
+}
+.product-reviews .review {
+  border-top: 1px solid #e3e5dc;
+  padding: 12px 0;
+}
+.review-stars {
+  border: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.review-stars label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

@@ -668,6 +668,35 @@ Constraints:
 - `PRIMARY KEY (id)`
 - `FOREIGN KEY (sku) REFERENCES warehouse_products(sku)`
 
+## product_reviews
+
+Verified-purchase reviews (migration 023); shown only when published.
+
+| Column       | Type                     | Nullable | Default         |
+| ------------ | ------------------------ | -------- | --------------- |
+| id           | uuid                     | NO       | —               |
+| sku          | text                     | NO       | —               |
+| customer_id  | uuid                     | YES      | —               |
+| order_id     | uuid                     | NO       | —               |
+| author_name  | text                     | NO       | —               |
+| rating       | integer                  | NO       | —               |
+| title        | text                     | NO       | ''::text        |
+| body         | text                     | NO       | —               |
+| status       | text                     | NO       | 'pending'::text |
+| created_at   | timestamp with time zone | NO       | now()           |
+| moderated_at | timestamp with time zone | YES      | —               |
+| moderated_by | uuid                     | YES      | —               |
+
+Constraints:
+
+- `PRIMARY KEY (id)`
+- `FOREIGN KEY (sku) REFERENCES warehouse_products(sku) ON DELETE CASCADE`
+- `FOREIGN KEY (order_id) REFERENCES orders(id)`
+- `FOREIGN KEY (customer_id), (moderated_by) REFERENCES customers(id) ON DELETE SET NULL`
+- `CHECK ((rating >= 1) AND (rating <= 5))`
+- `CHECK (status IN ('pending','published','rejected'))`
+- `UNIQUE (customer_id, sku) WHERE customer_id IS NOT NULL`
+
 ## product_search
 
 Maintained by triggers (migration 017); not written by application code.

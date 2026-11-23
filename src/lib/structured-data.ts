@@ -1,6 +1,7 @@
 // schema.org structured data (JSON-LD) for search engines (#42). Only facts
 // the catalog holds: name, SKU, description, image, the price the shopper
-// pays, currency and stock. No ratings, reviews, condition or other claims.
+// pays, currency and stock, and a rating only from published verified-buyer
+// reviews (#49). No invented ratings, condition or other claims.
 import type { Product } from "./catalog";
 import { availableStock } from "./inventory";
 import { sellingPrice } from "./pricing";
@@ -10,7 +11,11 @@ type Json = Record<string, unknown>;
 
 const euros = (cents: number) => (cents / 100).toFixed(2);
 
-export function productJsonLd(product: Product, base: URL): Json {
+export function productJsonLd(
+  product: Product,
+  base: URL,
+  rating?: { count: number; average: number | null },
+): Json {
   const url = new URL(`/catalog/${encodeURIComponent(product.sku)}`, base);
   return {
     "@context": "https://schema.org",
@@ -22,6 +27,17 @@ export function productJsonLd(product: Product, base: URL): Json {
     category: product.subcategory
       ? `${product.category.name} > ${product.subcategory.name}`
       : product.category.name,
+    ...(rating &&
+      rating.count > 0 &&
+      rating.average !== null && {
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: rating.average.toFixed(1),
+          reviewCount: rating.count,
+          bestRating: 5,
+          worstRating: 1,
+        },
+      }),
     offers: {
       "@type": "Offer",
       url: url.toString(),
