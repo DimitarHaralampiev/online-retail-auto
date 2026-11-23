@@ -1275,6 +1275,8 @@ Constraints:
 | power_kw        | integer                  | YES      | —        |
 | engine_code     | text                     | NO       | ''::text |
 | created_at      | timestamp with time zone | NO       | now()    |
+| active          | boolean                  | NO       | true     |
+| version         | integer                  | NO       | 1        |
 
 Constraints:
 
@@ -1296,6 +1298,8 @@ Constraints:
 | year_from  | integer                  | NO       | —       |
 | year_to    | integer                  | YES      | —       |
 | created_at | timestamp with time zone | NO       | now()   |
+| active     | boolean                  | NO       | true    |
+| version    | integer                  | NO       | 1       |
 
 Constraints:
 
@@ -1314,6 +1318,7 @@ Constraints:
 | name       | text                     | NO       | —       |
 | active     | boolean                  | NO       | true    |
 | created_at | timestamp with time zone | NO       | now()   |
+| version    | integer                  | NO       | 1       |
 
 Constraints:
 
@@ -1331,6 +1336,7 @@ Constraints:
 | name       | text                     | NO       | —       |
 | active     | boolean                  | NO       | true    |
 | created_at | timestamp with time zone | NO       | now()   |
+| version    | integer                  | NO       | 1       |
 
 Constraints:
 

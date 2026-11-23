@@ -14,6 +14,8 @@
 import { randomUUID } from "node:crypto";
 import type pg from "pg";
 import { CsvError, parseCsv } from "./csv";
+import { AdminProductError } from "./admin-products";
+import { assertFitmentYears, slugify } from "./vehicle-reference";
 import { FUELS, type Fuel } from "./vehicles";
 
 export const VEHICLE_IMPORT_COLUMNS = [
@@ -49,16 +51,6 @@ export type VehicleImportReport = {
 };
 
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
-/** "Mercedes-Benz" → "mercedes-benz", "Škoda" → "skoda"; "" when no Latin. */
-export function slugify(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 class RowError extends Error {}
 
@@ -203,7 +195,7 @@ async function applyRow(
     },
     (found) => found.name !== row.make.name,
     {
-      sql: "UPDATE vehicle_makes SET name = $2 WHERE id = $1",
+      sql: "UPDATE vehicle_makes SET name = $2, version = version + 1 WHERE id = $1",
       params: (id) => [id, row.make.name],
     },
   );
@@ -220,14 +212,15 @@ async function applyRow(
     },
     (found) => found.name !== row.model.name,
     {
-      sql: "UPDATE vehicle_models SET name = $2 WHERE id = $1",
+      sql: "UPDATE vehicle_models SET name = $2, version = version + 1 WHERE id = $1",
       params: (id) => [id, row.model.name],
     },
   );
   const g = row.generation;
+  const years: Outcome = { created: false, updated: false };
   const generationId = await upsert(
     client,
-    outcome,
+    years,
     {
       sql: "SELECT id, year_from, year_to FROM vehicle_generations WHERE model_id = $1 AND name = $2",
       params: [modelId, g.name],
@@ -238,10 +231,14 @@ async function applyRow(
     },
     (found) => found.year_from !== g.yearFrom || found.year_to !== g.yearTo,
     {
-      sql: "UPDATE vehicle_generations SET year_from = $2, year_to = $3 WHERE id = $1",
+      sql: "UPDATE vehicle_generations SET year_from = $2, year_to = $3, version = version + 1 WHERE id = $1",
       params: (id) => [id, g.yearFrom, g.yearTo],
     },
   );
+  if (years.updated)
+    await assertFitmentYears(client, generationId, g.yearFrom, g.yearTo);
+  outcome.created ||= years.created;
+  outcome.updated ||= years.updated;
   const e = row.engine;
   if (e)
     await upsert(
@@ -272,7 +269,8 @@ async function applyRow(
         found.engine_code !== e.engineCode,
       {
         sql: `UPDATE vehicle_engines SET fuel = $2, displacement_cc = $3,
-                power_kw = $4, engine_code = $5 WHERE id = $1`,
+                power_kw = $4, engine_code = $5, version = version + 1
+              WHERE id = $1`,
         params: (id) => [id, e.fuel, e.displacementCc, e.powerKw, e.engineCode],
       },
     );
@@ -411,6 +409,11 @@ export async function importVehicles(
         result.action = await applyRow(client, row);
         await client.query("RELEASE SAVEPOINT vehicle_row");
       } catch (error) {
+        if (error instanceof AdminProductError) {
+          await client.query("ROLLBACK TO SAVEPOINT vehicle_row");
+          result.errors.push(error.message);
+          continue;
+        }
         const code = (error as { code?: string }).code;
         // Constraint backstops (the row checks above should catch these).
         if (code !== "23505" && code !== "23514" && code !== "22021")

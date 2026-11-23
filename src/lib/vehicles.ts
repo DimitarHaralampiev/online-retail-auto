@@ -3,8 +3,8 @@
 // verified source; nothing here guesses compatibility.
 //
 // Ids are passed straight to SQL: callers (API routes) validate them as
-// UUIDs first. Hiding happens at make and model level (`active`); every
-// lookup below a model checks that its make and model are active.
+// UUIDs first. Every level can be hidden (`active`); a lookup shows only what
+// is active itself and under an active make, model and generation.
 import type pg from "pg";
 
 type Queryable = Pick<pg.Pool, "query">;
@@ -21,7 +21,7 @@ export const FUELS = [
 ] as const;
 export type Fuel = (typeof FUELS)[number];
 
-const ACTIVE_MODEL = `JOIN vehicle_models m ON m.id = g.model_id AND m.active
+const ACTIVE_MODEL = `JOIN vehicle_models m ON m.id = g.model_id AND m.active AND g.active
   JOIN vehicle_makes k ON k.id = m.make_id AND k.active`;
 
 export type VehicleMake = { id: string; slug: string; name: string };
@@ -112,7 +112,7 @@ export async function listEngines(
             e.power_kw AS "powerKw", e.engine_code AS "engineCode"
      FROM vehicle_engines e
      JOIN vehicle_generations g ON g.id = e.generation_id ${ACTIVE_MODEL}
-     WHERE e.generation_id = $1
+     WHERE e.generation_id = $1 AND e.active
      ORDER BY e.fuel, e.displacement_cc NULLS LAST, e.power_kw NULLS LAST, e.name`,
     [generationId],
   );
@@ -138,7 +138,8 @@ export async function compatibleSkus(
      JOIN warehouse_products p ON p.sku = f.sku AND p.status = 'published'
      JOIN vehicle_generations g ON g.id = f.generation_id ${ACTIVE_MODEL}
      WHERE f.generation_id = $1
-       AND (f.engine_id IS NULL OR f.engine_id = $2)
+       AND (f.engine_id IS NULL OR f.engine_id =
+            (SELECT id FROM vehicle_engines WHERE id = $2 AND active))
        AND (f.year_from IS NULL OR f.year_from <= $3)
        AND (f.year_to IS NULL OR f.year_to >= $3)
      UNION
@@ -165,11 +166,9 @@ export async function productFitments(
             e.name AS engine, f.year_from AS "fitYearFrom",
             f.year_to AS "fitYearTo", f.notes
      FROM product_vehicle_fitments f
-     JOIN vehicle_generations g ON g.id = f.generation_id
-     JOIN vehicle_models m ON m.id = g.model_id AND m.active
-     JOIN vehicle_makes k ON k.id = m.make_id AND k.active
+     JOIN vehicle_generations g ON g.id = f.generation_id ${ACTIVE_MODEL}
      LEFT JOIN vehicle_engines e ON e.id = f.engine_id
-     WHERE f.sku = $1
+     WHERE f.sku = $1 AND (e.id IS NULL OR e.active)
      ORDER BY k.name COLLATE "und-x-icu", m.name COLLATE "und-x-icu",
               g.year_from, e.name NULLS FIRST, f.year_from NULLS FIRST`,
     [sku],
@@ -217,6 +216,8 @@ export async function fitStatuses(
      FROM warehouse_products p
      LEFT JOIN product_vehicle_fitments f
        ON f.sku = p.sku AND f.generation_id = $2
+       AND (f.engine_id IS NULL OR EXISTS (
+         SELECT 1 FROM vehicle_engines e WHERE e.id = f.engine_id AND e.active))
      WHERE p.sku = ANY($1) AND p.status = 'published'
      GROUP BY p.sku, p.universal_fit`,
     [[...skus], selection.generationId, selection.engineId, selection.year],

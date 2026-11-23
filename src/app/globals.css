@@ -4405,3 +4405,33 @@ code {
   text-decoration: underline;
   flex: none;
 }
+
+/* Vehicle reference editor (#91) */
+.admin-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+}
+.admin-row-actions {
+  white-space: nowrap;
+}
+.admin-row-actions > * + * {
+  margin-left: 12px;
+}
+.vehicle-form-dialog {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  background: white;
+  color: var(--ink);
+  margin: auto;
+  white-space: normal;
+  text-align: left;
+}
+.vehicle-form-dialog::backdrop {
+  background: #161b1abf;
+}

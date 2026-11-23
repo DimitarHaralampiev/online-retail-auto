@@ -42,7 +42,7 @@ export type AdminFitment = FitmentInput & {
   hidden: boolean;
 };
 
-/** All fitments of a product, including those under hidden makes or models. */
+/** All fitments of a product, including those of hidden vehicles. */
 export async function listAdminFitments(
   db: Pick<pg.Pool, "query">,
   sku: string,
@@ -52,7 +52,8 @@ export async function listAdminFitments(
             f.year_from AS "yearFrom", f.year_to AS "yearTo", f.notes, f.source,
             k.name AS make, m.name AS model, g.name AS generation,
             g.year_from AS g_from, g.year_to AS g_to, e.name AS engine,
-            NOT (k.active AND m.active) AS hidden
+            NOT (k.active AND m.active AND g.active
+                 AND coalesce(e.active, true)) AS hidden
      FROM product_vehicle_fitments f
      JOIN vehicle_generations g ON g.id = f.generation_id
      JOIN vehicle_models m ON m.id = g.model_id
@@ -105,7 +106,9 @@ async function validate(
      FROM vehicle_generations g
      JOIN vehicle_models m ON m.id = g.model_id
      JOIN vehicle_makes k ON k.id = m.make_id
-     WHERE g.id = $1`,
+     WHERE g.id = $1
+     -- The years checked below stay until this fitment is saved.
+     FOR SHARE OF g`,
     [fitment.generationId],
   );
   if (!generation.rowCount) throw new AdminProductError("Непознато поколение.");

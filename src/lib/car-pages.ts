@@ -29,7 +29,9 @@ export type GenerationSummary = {
 const FITTED = `SELECT count(DISTINCT f.sku)::int
   FROM product_vehicle_fitments f
   JOIN warehouse_products p ON p.sku = f.sku AND p.status = 'published'
-  JOIN vehicle_generations g ON g.id = f.generation_id`;
+  JOIN vehicle_generations g ON g.id = f.generation_id AND g.active
+    AND (f.engine_id IS NULL OR EXISTS (
+      SELECT 1 FROM vehicle_engines e WHERE e.id = f.engine_id AND e.active))`;
 
 /** Active makes with their active model and fitted product counts. */
 export async function makesWithCounts(db: Queryable): Promise<MakeSummary[]> {
@@ -63,10 +65,10 @@ export async function modelsOfMake(
 ): Promise<ModelSummary[]> {
   const result = await db.query<ModelSummary>(
     `SELECT m.id, m.slug, m.name,
-            (SELECT min(year_from) FROM vehicle_generations WHERE model_id = m.id) AS "yearFrom",
-            (SELECT max(year_to) FROM vehicle_generations WHERE model_id = m.id) AS "yearTo",
+            (SELECT min(year_from) FROM vehicle_generations WHERE model_id = m.id AND active) AS "yearFrom",
+            (SELECT max(year_to) FROM vehicle_generations WHERE model_id = m.id AND active) AS "yearTo",
             EXISTS (SELECT 1 FROM vehicle_generations
-                    WHERE model_id = m.id AND year_to IS NULL) AS current,
+                    WHERE model_id = m.id AND year_to IS NULL AND active) AS current,
             (${FITTED} WHERE g.model_id = m.id) AS products
      FROM vehicle_models m
      WHERE m.make_id = $1 AND m.active
@@ -96,8 +98,8 @@ export async function generationsOfModel(
   const result = await db.query<GenerationSummary>(
     `SELECT g.id, g.name, g.year_from AS "yearFrom", g.year_to AS "yearTo",
             (SELECT count(*)::int FROM vehicle_engines e
-              WHERE e.generation_id = g.id) AS engines
-     FROM vehicle_generations g WHERE g.model_id = $1
+              WHERE e.generation_id = g.id AND e.active) AS engines
+     FROM vehicle_generations g WHERE g.model_id = $1 AND g.active
      ORDER BY g.year_from, g.name`,
     [modelId],
   );
@@ -115,8 +117,11 @@ export async function modelProductSkus(
      FROM (SELECT DISTINCT f.sku
            FROM product_vehicle_fitments f
            JOIN warehouse_products p ON p.sku = f.sku AND p.status = 'published'
-           JOIN vehicle_generations g ON g.id = f.generation_id
-           WHERE g.model_id = $1) fitted
+           JOIN vehicle_generations g ON g.id = f.generation_id AND g.active
+           WHERE g.model_id = $1
+             AND (f.engine_id IS NULL OR EXISTS (
+               SELECT 1 FROM vehicle_engines e
+               WHERE e.id = f.engine_id AND e.active))) fitted
      ORDER BY sku LIMIT $2`,
     [modelId, limit],
   );

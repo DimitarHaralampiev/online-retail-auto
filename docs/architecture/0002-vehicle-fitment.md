@@ -60,6 +60,9 @@ for landing pages. AGENTS.md forbids invented fitment data.
 - The selector (#32) and catalog filter (#33) show real results only once
   reference data is loaded (#91). Fit badges (#33) never claim more than the
   data says: no badge for products without verified data.
+- Manual entry, editing and hiding at every level exist next to the CSV import
+  (#91), so data can be entered from manufacturer catalogues without any
+  licence.
 - Choosing a data source is a business decision (#91): licensed catalogues
   such as TecDoc are paid; manual entry from manufacturer catalogues is free
   but slow.

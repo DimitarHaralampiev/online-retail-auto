@@ -1,5 +1,5 @@
 "use client";
-// Show/hide switch for a make or model in the vehicle reference.
+// Show/hide switch for an entry of the vehicle reference.
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "./locale-provider";
@@ -10,7 +10,7 @@ export default function VehicleVisibility({
   name,
   active,
 }: {
-  kind: "make" | "model";
+  kind: "make" | "model" | "generation" | "engine";
   id: string;
   name: string;
   active: boolean;
