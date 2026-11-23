@@ -344,6 +344,92 @@ test("pages do not ship the product catalog to the browser", async ({
   }
 });
 
+test.describe("Back and Forward in the catalog", () => {
+  const search = (page: Page) =>
+    page.getByRole("searchbox", { name: "Търсене", exact: true });
+  const sort = (page: Page) => page.getByRole("combobox", { name: "Подреди" });
+  // Longer than the typing pause, so a surviving timer would have fired.
+  const pastTheTypingPause = (page: Page) => page.waitForTimeout(700);
+
+  test("Back right after typing restores the previous filters", async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto("/catalog");
+    if (isMobile) await page.getByRole("button", { name: /^Филтри/ }).click();
+    await sort(page).selectOption("price-desc");
+    await expect(page).toHaveURL(/sort=price-desc/);
+    await search(page).fill("кърпа");
+    await page.evaluate(() => history.back());
+    await expect(page).toHaveURL(/\/catalog$/);
+    await expect(search(page)).toHaveValue("");
+    await pastTheTypingPause(page);
+    await expect(page).toHaveURL(/\/catalog$/);
+    await expect(sort(page)).toHaveValue("featured");
+    await expect(
+      page.getByRole("status").filter({ hasText: "продукт" }),
+    ).toHaveText(/^\s*6\s*продукта\s*$/);
+    // Forward returns to the sorting, without the abandoned text.
+    await page.evaluate(() => history.forward());
+    await expect(page).toHaveURL(/\/catalog\?sort=price-desc$/);
+    await expect(sort(page)).toHaveValue("price-desc");
+    await expect(search(page)).toHaveValue("");
+  });
+
+  test("Back out of the catalog right after typing stays out", async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto("/promotions");
+    await page.getByRole("link", { name: /Целият каталог/ }).click();
+    await expect(page).toHaveURL(/\/catalog$/);
+    if (isMobile) await page.getByRole("button", { name: /^Филтри/ }).click();
+    await search(page).fill("кърпа");
+    await page.evaluate(() => history.back());
+    await expect(page).toHaveURL(/\/promotions$/);
+    await pastTheTypingPause(page);
+    await expect(page).toHaveURL(/\/promotions$/);
+  });
+
+  test("a subcategory without its category fills the category in", async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto("/catalog?subcategory=washing");
+    if (isMobile) await page.getByRole("button", { name: /^Филтри/ }).click();
+    await expect(
+      page.getByRole("combobox", { name: "Категория", exact: true }),
+    ).toHaveValue("car-care");
+    await expect(
+      page.getByRole("combobox", { name: "Подкатегория" }),
+    ).toHaveValue("washing");
+    // Also when coming back to it.
+    await sort(page).selectOption("name");
+    await expect(page).toHaveURL(/sort=name/);
+    await page.evaluate(() => history.back());
+    await expect(page).toHaveURL(/\/catalog\?subcategory=washing$/);
+    await expect(
+      page.getByRole("combobox", { name: "Категория", exact: true }),
+    ).toHaveValue("car-care");
+  });
+
+  test("a choice shows at once, before the results arrive", async ({
+    page,
+    isMobile,
+  }) => {
+    await page.goto("/catalog");
+    if (isMobile) await page.getByRole("button", { name: /^Филтри/ }).click();
+    // Results never arrive.
+    await page.route(
+      (url) => url.searchParams.has("available"),
+      () => undefined,
+    );
+    const available = page.getByRole("checkbox", { name: "Само налични" });
+    await available.click();
+    await expect(available).toBeChecked();
+  });
+});
+
 test("adding a product the page already shows needs no lookup", async ({
   page,
 }) => {

@@ -14,6 +14,7 @@ import {
 import {
   catalogHref,
   EMPTY_CATALOG_STATE,
+  parseCatalogSearch,
   priceRange,
   type CatalogUrlState,
 } from "../lib/catalog-url";
@@ -73,18 +74,14 @@ export default function Catalog({
   const [typing, setTyping] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // When the URL changes from elsewhere (back/forward, links, pagination),
-  // adopt it. Responses to this component's own navigations, including
-  // intermediate ones while the visitor is still typing, are ignored.
+  // When the server applied something else than asked for (a link, or a
+  // filter it dropped), adopt it. While the visitor is typing or a navigation
+  // is running, answers may be intermediate ones: decide once that settles.
   const stateHref = catalogHref(state, { page: state.page });
   const [seenHref, setSeenHref] = useState(stateHref);
-  if (seenHref !== stateHref) {
+  if (seenHref !== stateHref && !typing && !pending) {
     setSeenHref(stateHref);
-    const external =
-      !typing &&
-      !pending &&
-      stateHref !== catalogHref(intended, { page: intended.page });
-    if (external) {
+    if (stateHref !== catalogHref(intended, { page: intended.page })) {
       setIntended(state);
       setQ(state.q);
       setMinPrice(state.min);
@@ -94,6 +91,23 @@ export default function Catalog({
   useEffect(() => {
     intendedRef.current = intended;
   }, [intended]);
+  // Back/Forward wins over typing not sent yet: drop its timer (it would
+  // replace the entry just returned to) and adopt that entry's URL at once.
+  useEffect(() => {
+    function onPopState() {
+      clearTimeout(timer.current);
+      setTyping(false);
+      if (location.pathname !== "/catalog") return;
+      const next = parseCatalogSearch(location.search);
+      intendedRef.current = next;
+      setIntended(next);
+      setQ(next.q);
+      setMinPrice(next.min);
+      setMaxPrice(next.max);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
   // Leaving the page must not fire a pending typed navigation.
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -159,12 +173,11 @@ export default function Catalog({
     ].filter(Boolean).length + state.brands.length;
   const brandName = (key: string) =>
     brands.find((b) => b.key === key)?.name ?? key;
-  const toggleBrand = (key: string, on: boolean) =>
-    navigate({
-      brands: on
-        ? [...state.brands, key]
-        : state.brands.filter((brand) => brand !== key),
-    });
+  // From the intended brands, so quick clicks all count.
+  function toggleBrand(key: string, on: boolean) {
+    const chosen = intendedRef.current.brands.filter((brand) => brand !== key);
+    navigate({ brands: on ? [...chosen, key] : chosen });
+  }
   const products = result?.items ?? [];
 
   return (
@@ -236,7 +249,7 @@ export default function Catalog({
             <label>
               {t("Категория")}
               <select
-                value={state.category}
+                value={intended.category}
                 onChange={(e) =>
                   navigate({ category: e.target.value, subcategory: "" })
                 }
@@ -252,7 +265,11 @@ export default function Catalog({
             <label>
               {text("Подкатегория", "Subcategory")}
               <select
-                value={selectedSub ? state.subcategory : ""}
+                value={
+                  subcategories.some((s) => s.id === intended.subcategory)
+                    ? intended.subcategory
+                    : ""
+                }
                 onChange={(e) => {
                   const sub = subcategories.find(
                     (s) => s.id === e.target.value,
@@ -268,7 +285,8 @@ export default function Catalog({
                 </option>
                 {subcategories
                   .filter(
-                    (s) => !state.category || s.category === state.category,
+                    (s) =>
+                      !intended.category || s.category === intended.category,
                   )
                   .map((s) => (
                     <option key={s.id} value={s.id}>
@@ -314,7 +332,7 @@ export default function Catalog({
               <label>
                 <input
                   type="checkbox"
-                  checked={state.available}
+                  checked={intended.available}
                   onChange={(e) => navigate({ available: e.target.checked })}
                 />
                 {t("Само налични")}
@@ -322,7 +340,7 @@ export default function Catalog({
               <label>
                 <input
                   type="checkbox"
-                  checked={state.promotions}
+                  checked={intended.promotions}
                   onChange={(e) => navigate({ promotions: e.target.checked })}
                 />
                 {text("Само промоции", "Only promotions")}
@@ -331,7 +349,7 @@ export default function Catalog({
                 <label>
                   <input
                     type="checkbox"
-                    checked={carFilter}
+                    checked={intended.car && !!vehicle.label}
                     disabled={!vehicle.label}
                     onChange={(e) => navigate({ car: e.target.checked })}
                   />
@@ -346,7 +364,7 @@ export default function Catalog({
                   <label key={brand.key}>
                     <input
                       type="checkbox"
-                      checked={state.brands.includes(brand.key)}
+                      checked={intended.brands.includes(brand.key)}
                       onChange={(e) => toggleBrand(brand.key, e.target.checked)}
                     />
                     {brand.name}{" "}
@@ -389,7 +407,7 @@ export default function Catalog({
               {text("Подреди", "Sort")}
               <select
                 aria-label={text("Подреди", "Sort")}
-                value={state.sort}
+                value={intended.sort}
                 onChange={(e) =>
                   navigate({ sort: e.target.value as CatalogUrlState["sort"] })
                 }
@@ -503,6 +521,7 @@ export default function Catalog({
             >
               {result.page > 1 && (
                 <Link
+                  rel="prev"
                   href={catalogHref(state, {
                     page: Math.min(result.page - 1, result.pageCount),
                   })}
@@ -510,14 +529,17 @@ export default function Catalog({
                   ← {text("Предишна", "Previous")}
                 </Link>
               )}
-              <span>
+              <span aria-current="page">
                 {text(
                   `Страница ${result.page} от ${result.pageCount}`,
                   `Page ${result.page} of ${result.pageCount}`,
                 )}
               </span>
               {result.page < result.pageCount && (
-                <Link href={catalogHref(state, { page: result.page + 1 })}>
+                <Link
+                  rel="next"
+                  href={catalogHref(state, { page: result.page + 1 })}
+                >
                   {text("Следваща", "Next")} →
                 </Link>
               )}

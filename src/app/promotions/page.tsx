@@ -107,18 +107,18 @@ export default async function PromotionsPage({ searchParams }: Props) {
                   aria-label={text("Страници", "Pages")}
                 >
                   {result.page > 1 && (
-                    <Link href={pageHref(result.page - 1)}>
+                    <Link rel="prev" href={pageHref(result.page - 1)}>
                       ← {text("Предишна", "Previous")}
                     </Link>
                   )}
-                  <span>
+                  <span aria-current="page">
                     {text(
                       `Страница ${result.page} от ${result.pageCount}`,
                       `Page ${result.page} of ${result.pageCount}`,
                     )}
                   </span>
                   {result.page < result.pageCount && (
-                    <Link href={pageHref(result.page + 1)}>
+                    <Link rel="next" href={pageHref(result.page + 1)}>
                       {text("Следваща", "Next")} →
                     </Link>
                   )}
