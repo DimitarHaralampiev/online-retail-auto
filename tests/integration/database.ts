@@ -124,6 +124,9 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     await applyMigrations(url);
     await applyMigrations(url);
     pool = new pg.Pool({ connectionString: url, max: 4 });
+    // The database is dropped WITH (FORCE) at the end of the file: an idle
+    // connection terminated then must not crash the test process.
+    pool.on("error", () => {});
   } catch (error) {
     // A broken migration must not leave a database behind, and a cleanup
     // failure must not hide the migration error.

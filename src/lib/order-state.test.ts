@@ -14,7 +14,9 @@ const cod = {
 test("orders move forward one stage and terminal stages cannot change", () => {
   assert.doesNotThrow(() => validateTransition(cod, "confirmed"));
   assert.throws(() => validateTransition(cod, "ready"));
-  assert.deepEqual(nextOrderStatuses("handed_to_courier"), []);
+  // With the courier, the only next step is delivery (no cancelling).
+  assert.deepEqual(nextOrderStatuses("handed_to_courier"), ["delivered"]);
+  assert.deepEqual(nextOrderStatuses("delivered"), []);
   assert.deepEqual(nextOrderStatuses("cancelled"), []);
   assert.throws(() =>
     validateTransition({ ...cod, status: "cancelled" }, "confirmed"),

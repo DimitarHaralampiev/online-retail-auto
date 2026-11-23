@@ -4307,3 +4307,15 @@ select {
   gap: 8px;
   align-items: center;
 }
+
+/* Returns on the order page */
+.order-returns {
+  border-top: 1px solid #e3e5dc;
+  margin-top: 18px;
+  padding-top: 12px;
+}
+.return-request {
+  border: 1px solid #e3e5dc;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}

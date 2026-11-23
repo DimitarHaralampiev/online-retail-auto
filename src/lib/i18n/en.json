@@ -797,5 +797,10 @@
   "Бисквитки": "Cookies",
   "Правни страници": "Legal pages",
   "Текстове от търговеца: общи условия, поверителност, доставка, връщане и бисквитки.": "Texts from the trader: terms, privacy, delivery, returns and cookies.",
-  "Отвори правните страници →": "Open the legal pages →"
+  "Отвори правните страници →": "Open the legal pages →",
+  "Връщания": "Returns",
+  "Заявки за връщане на доставени поръчки: одобри, откажи и върни получената стока в склада.": "Return requests for delivered orders: approve, reject and put received goods back into stock.",
+  "Отвори връщанията →": "Open returns →",
+  "Доставена": "Delivered",
+  "Получихме заявката ти за връщане. Ще те уведомим, когато я разгледаме.": "We have received your return request. We will let you know once we have reviewed it."
 }

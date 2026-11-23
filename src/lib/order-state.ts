@@ -4,6 +4,7 @@ export const orderStatuses = {
   preparing: "Подготвя се",
   ready: "Готова за изпращане",
   handed_to_courier: "Предадена на куриер",
+  delivered: "Доставена",
   cancelled: "Отказана",
 } as const;
 export type OrderStatus = keyof typeof orderStatuses;
@@ -21,7 +22,10 @@ export function nextOrderStatuses(status: OrderStatus): OrderStatus[] {
     preparing: "ready",
     ready: "handed_to_courier",
   };
-  if (status === "handed_to_courier" || status === "cancelled") return [];
+  // Delivery is confirmed by an admin until courier tracking does it (#55);
+  // goods already with the courier can no longer be cancelled here.
+  if (status === "handed_to_courier") return ["delivered"];
+  if (status === "delivered" || status === "cancelled") return [];
   return [next[status]!, "cancelled"];
 }
 export function validateTransition(
