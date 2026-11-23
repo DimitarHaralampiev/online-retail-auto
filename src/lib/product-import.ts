@@ -36,6 +36,7 @@ import {
   parseWholeNumber,
 } from "./admin-product-shared";
 import { compareSku } from "./stock-reservations";
+import { ATTRIBUTE_COLUMN } from "./attributes";
 import { CsvError, parseCsv } from "./csv";
 
 export const IMPORT_COLUMNS = [
@@ -57,6 +58,7 @@ export const IMPORT_COLUMNS = [
   "stock",
   "unit_cost",
 ] as const;
+// Besides these, one attr:<key> column per attribute (#103).
 type Column = (typeof IMPORT_COLUMNS)[number];
 
 // About 25 s per 2000 new rows (one transaction); larger catalogs are split.
@@ -120,6 +122,7 @@ async function processRow(
   batchId: string,
   values: Partial<Record<Column, string>>,
   categories: Map<string, string>,
+  attributes: Record<string, string>,
 ): Promise<RowResult["action"]> {
   const cell = (column: Column) => values[column]?.trim() ?? "";
   const sku = cell("sku");
@@ -205,6 +208,7 @@ async function processRow(
     imagePath: cell("image_path") || existing?.imagePath || null,
     weightGrams: weight ?? existing?.weightGrams ?? null,
     universalFit: universal ?? existing?.universalFit ?? false,
+    attributes: { ...existing?.attributes, ...attributes },
   });
 
   let product: AdminProduct;
@@ -292,8 +296,13 @@ export async function importProducts(
   // header columns (and the empty cells under them).
   while (table.header.length > 1 && table.header.at(-1) === "")
     table.header.pop();
+  const attributeColumns = table.header.filter((name) =>
+    name.startsWith(ATTRIBUTE_COLUMN),
+  );
   const unknown = table.header.filter(
-    (name) => !(IMPORT_COLUMNS as readonly string[]).includes(name),
+    (name) =>
+      !(IMPORT_COLUMNS as readonly string[]).includes(name) &&
+      !attributeColumns.includes(name),
   );
   if (unknown.length)
     return emptyReport(
@@ -308,12 +317,20 @@ export async function importProducts(
   const pending: {
     result: RowResult;
     values: Partial<Record<Column, string>>;
+    attributes: Record<string, string>;
   }[] = [];
   const seen = new Map<string, number>();
   for (const { line, cells } of table.rows) {
     const values: Partial<Record<Column, string>> = {};
     table.header.forEach(
       (name, i) => (values[name as Column] = cells[i] ?? ""),
+    );
+    // Empty cells keep the current value, like every other column.
+    const attributes = Object.fromEntries(
+      attributeColumns.flatMap((name) => {
+        const cell = cells[table.header.indexOf(name)]?.trim();
+        return cell ? [[name.slice(ATTRIBUTE_COLUMN.length), cell]] : [];
+      }),
     );
     const sku = values.sku?.trim() ?? "";
     const result: RowResult = { line, sku, action: "error", errors: [] };
@@ -327,7 +344,7 @@ export async function importProducts(
       result.errors.push(`Кодът се повтаря (ред ${seen.get(sku)}).`);
     else {
       seen.set(sku, line);
-      pending.push({ result, values });
+      pending.push({ result, values, attributes });
     }
   }
 
@@ -357,7 +374,23 @@ export async function importProducts(
       ).rows.map((row) => [row.slug, row.id]),
     );
     pending.sort((a, b) => compareSku(a.result.sku, b.result.sku));
-    for (const { result, values } of pending) {
+    const defined = new Set(
+      (
+        await client.query<{ key: string }>(
+          "SELECT key FROM attribute_definitions",
+        )
+      ).rows.map((row) => row.key),
+    );
+    const undefinedColumns = attributeColumns.filter(
+      (name) => !defined.has(name.slice(ATTRIBUTE_COLUMN.length)),
+    );
+    if (undefinedColumns.length) {
+      await client.query("ROLLBACK");
+      return emptyReport(
+        `Непознати характеристики: ${undefinedColumns.join(", ")}. Създай ги първо в „Характеристики“.`,
+      );
+    }
+    for (const { result, values, attributes } of pending) {
       await client.query("SAVEPOINT import_row");
       try {
         result.action = await processRow(
@@ -366,6 +399,7 @@ export async function importProducts(
           batchId,
           values,
           categories,
+          attributes,
         );
         // A check undoes every row right away, so it never holds row locks
         // that checkout or invoice posting would wait for. Rows are

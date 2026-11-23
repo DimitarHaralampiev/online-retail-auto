@@ -8,9 +8,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   MAX_BROWSE_TEXT,
+  type AttributeFacet,
   type BrandFacet,
   type BrowsePage,
 } from "../lib/catalog";
+import { attributeText, toggleAttribute } from "../lib/attributes";
 import {
   catalogHref,
   EMPTY_CATALOG_STATE,
@@ -32,6 +34,7 @@ export default function Catalog({
   vehicle,
   fit = {},
   brands = [],
+  attributes = [],
 }: {
   state: CatalogUrlState;
   /** Null when the URL's price range is invalid. */
@@ -47,6 +50,8 @@ export default function Catalog({
   fit?: Record<string, FitStatus>;
   /** Brand facet with counts under the other filters. */
   brands?: BrandFacet[];
+  /** Attribute facets with counts under the other filters (#103). */
+  attributes?: AttributeFacet[];
 }) {
   const { t, locale } = useLocale();
   const en = locale === "en";
@@ -170,7 +175,9 @@ export default function Catalog({
       state.available,
       state.promotions,
       carFilter,
-    ].filter(Boolean).length + state.brands.length;
+    ].filter(Boolean).length +
+    state.brands.length +
+    Object.values(state.attributes).flat().length;
   const brandName = (key: string) =>
     brands.find((b) => b.key === key)?.name ?? key;
   // From the intended brands, so quick clicks all count.
@@ -178,6 +185,21 @@ export default function Catalog({
     const chosen = intendedRef.current.brands.filter((brand) => brand !== key);
     navigate({ brands: on ? [...chosen, key] : chosen });
   }
+  const setAttribute = (key: string, valueKey: string, on: boolean) =>
+    navigate({
+      attributes: toggleAttribute(
+        intendedRef.current.attributes,
+        key,
+        valueKey,
+        on,
+      ),
+    });
+  // "Вискозитет: 5W-30"; the raw key and value when the facet lacks them.
+  const attributeLabel = (key: string, valueKey: string) => {
+    const facet = attributes.find((a) => a.key === key);
+    const value = facet?.values.find((v) => v.key === valueKey)?.value;
+    return `${facet?.name ?? key}: ${attributeText(value ?? valueKey, facet?.unit ?? "")}`;
+  };
   const products = result?.items ?? [];
 
   return (
@@ -373,6 +395,36 @@ export default function Catalog({
                 ))}
               </fieldset>
             )}
+            {attributes
+              .filter((attribute) => attribute.values.length > 0)
+              .map((attribute) => (
+                <fieldset key={attribute.key} className="catalog-brand-filter">
+                  <legend>{attribute.name}</legend>
+                  {attribute.values.map((value) => (
+                    <label key={value.key}>
+                      <input
+                        type="checkbox"
+                        checked={
+                          intended.attributes[attribute.key]?.includes(
+                            value.key,
+                          ) ?? false
+                        }
+                        onChange={(e) =>
+                          setAttribute(
+                            attribute.key,
+                            value.key,
+                            e.target.checked,
+                          )
+                        }
+                      />
+                      {attributeText(value.value, attribute.unit)}{" "}
+                      <span className="catalog-facet-count">
+                        ({value.count})
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
+              ))}
             {vehicle && (
               <div className="catalog-vehicle-note">
                 {vehicle.label ? (
@@ -498,6 +550,16 @@ export default function Catalog({
                   {brandName(key)} ×
                 </button>
               ))}
+              {Object.entries(state.attributes).flatMap(([key, values]) =>
+                values.map((value) => (
+                  <button
+                    key={`${key}:${value}`}
+                    onClick={() => setAttribute(key, value, false)}
+                  >
+                    {attributeLabel(key, value)} ×
+                  </button>
+                )),
+              )}
               <button className="catalog-clear-all" onClick={reset}>
                 {text("Изчисти всички", "Clear all")}
               </button>

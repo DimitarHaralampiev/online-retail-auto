@@ -25,8 +25,15 @@ export type EditableProduct = {
   imagePath: string | null;
   weightGrams: number | null;
   universalFit: boolean;
+  attributes: Record<string, string>;
   status: ProductStatus;
   version: number;
+};
+
+export type AttributeOption = {
+  key: string;
+  name: { bg: string; en: string };
+  unit: string;
 };
 
 export type CategoryOption = {
@@ -51,6 +58,7 @@ type Fields = {
   imagePath: string;
   weight: string;
   universalFit: boolean;
+  attributes: Record<string, string>;
 };
 
 const fieldsOf = (p: EditableProduct | null): Fields => ({
@@ -68,14 +76,29 @@ const fieldsOf = (p: EditableProduct | null): Fields => ({
   imagePath: p?.imagePath ?? "",
   weight: p?.weightGrams == null ? "" : String(p.weightGrams),
   universalFit: p?.universalFit ?? false,
+  attributes: p?.attributes ?? {},
 });
+
+/** Without empty values and in key order, so equal sets compare equal. */
+const withAttribute = (
+  attributes: Record<string, string>,
+  key: string,
+  value: string,
+) =>
+  Object.fromEntries(
+    Object.entries({ ...attributes, [key]: value })
+      .filter(([, v]) => v)
+      .sort(([a], [b]) => (a < b ? -1 : 1)),
+  );
 
 export default function ProductAdminForm({
   product: initial,
   categories,
+  attributes = [],
 }: {
   product: EditableProduct | null;
   categories: CategoryOption[];
+  attributes?: AttributeOption[];
 }) {
   const { locale } = useLocale();
   const text = (bg: string, en: string) => (locale === "en" ? en : bg);
@@ -86,7 +109,7 @@ export default function ProductAdminForm({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const set =
-    (key: keyof Fields) =>
+    (key: Exclude<keyof Fields, "attributes">) =>
     (
       event: React.ChangeEvent<
         HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -158,6 +181,7 @@ export default function ProductAdminForm({
       imagePath: fields.imagePath.trim() || null,
       weightGrams: weight,
       universalFit: fields.universalFit,
+      attributes: fields.attributes,
     };
     if (!product) {
       const created = await send("/api/admin/catalog/products", "POST", {
@@ -416,6 +440,36 @@ export default function ProductAdminForm({
           />
         </label>
       </div>
+      {attributes.length > 0 && (
+        <fieldset className="admin-product-attributes">
+          <legend>{text("Характеристики", "Attributes")}</legend>
+          <div className="form-grid">
+            {attributes.map((attribute) => (
+              <label key={attribute.key}>
+                {text(
+                  attribute.name.bg,
+                  attribute.name.en || attribute.name.bg,
+                ) + (attribute.unit ? ` (${attribute.unit})` : "")}
+                <input
+                  value={fields.attributes[attribute.key] ?? ""}
+                  onChange={(event) => {
+                    const { value } = event.target;
+                    setFields((current) => ({
+                      ...current,
+                      attributes: withAttribute(
+                        current.attributes,
+                        attribute.key,
+                        value,
+                      ),
+                    }));
+                  }}
+                  maxLength={100}
+                />
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
       {error && (
         <p className="error" role="alert">
           {error}

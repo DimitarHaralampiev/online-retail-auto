@@ -14,6 +14,7 @@ import type pg from "pg";
 import { z } from "zod";
 
 import type { ProductStatus } from "./admin-product-shared";
+import { isAttributeKey, MAX_ATTRIBUTE_VALUE } from "./attributes";
 
 export type { ProductStatus };
 
@@ -49,6 +50,37 @@ export const skuSchema = z
   .trim()
   .min(1, "Липсва продуктов код.")
   .max(120, "Невалиден продуктов код.");
+
+/**
+ * Attribute values by key (#103): spacing collapsed, empty values dropped
+ * (they clear the attribute), keys sorted so equal sets compare equal.
+ */
+export const attributeValuesSchema = z
+  .record(
+    z.string().refine(isAttributeKey, "Невалидна характеристика."),
+    z
+      .string()
+      .transform((value) => value.replace(/\s+/g, " ").trim())
+      .pipe(
+        z
+          .string()
+          .max(
+            MAX_ATTRIBUTE_VALUE,
+            "Стойността на характеристика е до 100 знака.",
+          )
+          .refine(
+            (value) => !/[\u0000-\u001f]/.test(value),
+            "Текстът съдържа недопустими знаци.",
+          ),
+      ),
+  )
+  .transform((values) =>
+    Object.fromEntries(
+      Object.entries(values)
+        .filter(([, value]) => value)
+        .sort(([a], [b]) => (a < b ? -1 : 1)),
+    ),
+  );
 
 const centsSchema = z
   .number()
@@ -111,6 +143,8 @@ export const productInputSchema = z
       .default(null),
     // Fits every vehicle (e.g. cleaning products); see ADR 0002.
     universalFit: z.boolean().default(false),
+    // All of the product's attribute values; left out, they stay as they are.
+    attributes: attributeValuesSchema.optional(),
   })
   .refine((input) => !input.description.en || input.name.en, {
     message: "Английското описание изисква и английско име.",
@@ -138,6 +172,7 @@ export type AdminProductSummary = {
 };
 
 export type AdminProduct = ProductInput & {
+  attributes: Record<string, string>;
   sku: string;
   status: ProductStatus;
   onHand: number;
@@ -217,10 +252,13 @@ type ProductRow = {
   name_en: string | null;
   description_bg: string | null;
   description_en: string | null;
+  attributes: Record<string, string> | null;
 };
 
 const PRODUCT_SQL = `SELECT w.*, tb.name AS name_bg, te.name AS name_en,
-    tb.description AS description_bg, te.description AS description_en
+    tb.description AS description_bg, te.description AS description_en,
+    (SELECT jsonb_object_agg(a.key, a.value) FROM product_attributes a
+     WHERE a.sku = w.sku) AS attributes
   FROM warehouse_products w
   LEFT JOIN product_translations tb ON tb.sku = w.sku AND tb.locale = 'bg'
   LEFT JOIN product_translations te ON te.sku = w.sku AND te.locale = 'en'
@@ -243,6 +281,7 @@ function toAdminProduct(row: ProductRow): AdminProduct {
     imagePath: row.image_path,
     weightGrams: row.weight_grams,
     universalFit: row.universal_fit,
+    attributes: attributeValuesSchema.parse(row.attributes ?? {}),
     status: row.status,
     onHand: row.on_hand,
     reserved: row.reserved,
@@ -368,6 +407,34 @@ async function writeTranslations(
     );
 }
 
+/** Replaces the product's attribute values. */
+async function writeAttributes(
+  client: Queryable,
+  sku: string,
+  attributes: Record<string, string>,
+) {
+  const keys = Object.keys(attributes);
+  const known = await client.query<{ key: string }>(
+    "SELECT key FROM attribute_definitions WHERE key = ANY($1::text[])",
+    [keys],
+  );
+  const missing = keys.filter((key) => !known.rows.some((r) => r.key === key));
+  if (missing.length)
+    throw new AdminProductError(
+      `Непозната характеристика: ${missing.join(", ")}.`,
+    );
+  await client.query(
+    "DELETE FROM product_attributes WHERE sku = $1 AND NOT key = ANY($2::text[])",
+    [sku, keys],
+  );
+  await client.query(
+    `INSERT INTO product_attributes(sku, key, value)
+     SELECT $1, v.key, v.value FROM unnest($2::text[], $3::text[]) AS v(key, value)
+     ON CONFLICT (sku, key) DO UPDATE SET value = EXCLUDED.value`,
+    [sku, keys, Object.values(attributes)],
+  );
+}
+
 /** Creates a draft product without stock (stock arrives through receipts). */
 export async function createProductIn(
   client: Queryable,
@@ -399,6 +466,7 @@ export async function createProductIn(
   if (!inserted.rowCount)
     throw new AdminProductError("Продукт с този код вече съществува.", 409);
   await writeTranslations(client, sku, input);
+  if (input.attributes) await writeAttributes(client, sku, input.attributes);
   if (input.priceCents !== null)
     await recordPrice(client, actorId, sku, input.priceCents);
   await audit(client, actorId, "product.create", sku, { input });
@@ -444,6 +512,7 @@ const EDITABLE: (keyof ProductInput)[] = [
   "imagePath",
   "weightGrams",
   "universalFit",
+  "attributes",
 ];
 
 /** Saves an edit made on `version`; a published product must stay publishable. */
@@ -472,7 +541,11 @@ export async function updateProductIn(
   }
   const changes: Record<string, { from: unknown; to: unknown }> = {};
   for (const field of EDITABLE)
-    if (JSON.stringify(before[field]) !== JSON.stringify(input[field]))
+    if (
+      // Attributes left out of the input stay as they are.
+      !(field === "attributes" && input.attributes === undefined) &&
+      JSON.stringify(before[field]) !== JSON.stringify(input[field])
+    )
       changes[field] = { from: before[field], to: input[field] };
   if (!Object.keys(changes).length) return before;
   await client.query(
@@ -497,6 +570,8 @@ export async function updateProductIn(
     ],
   );
   await writeTranslations(client, sku, input);
+  if (changes.attributes && input.attributes)
+    await writeAttributes(client, sku, input.attributes);
   if (changes.priceCents && input.priceCents !== null)
     await recordPrice(client, actorId, sku, input.priceCents);
   await audit(client, actorId, "product.update", sku, { changes });

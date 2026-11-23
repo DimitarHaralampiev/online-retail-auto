@@ -96,6 +96,52 @@ test("quick clicks on two brands keep both", async ({ page, isMobile }) => {
   await expect(count(page)).toHaveText(/^\s*4\s*продукта\s*$/);
 });
 
+test("attribute filters narrow, show as chips and follow the URL", async ({
+  page,
+  isMobile,
+}) => {
+  await page.goto("/catalog");
+  await openFilters(page, isMobile);
+  const size = page.getByRole("group", { name: "Тестов размер" });
+  // Natural order, with units and counts.
+  await expect(size.getByRole("checkbox")).toHaveCount(2);
+  await expect(size.locator("label")).toHaveText(["90 mm (1)", "450 mm (2)"]);
+  await size.getByRole("checkbox", { name: /^450 mm/ }).check();
+  await expect(page).toHaveURL(/attr=test-size%3A450/);
+  await expect(count(page)).toHaveText(/^\s*2\s*продукта\s*$/);
+  // The other value keeps its count (it can be added).
+  await expect(size.locator("label")).toHaveText(["90 mm (1)", "450 mm (2)"]);
+  await page
+    .getByRole("group", { name: "Тестов цвят" })
+    .getByRole("checkbox", { name: /^Син/ })
+    .check();
+  await expect(count(page)).toHaveText(/^\s*1\s*продукта\s*$/);
+  await expectNoSeriousViolations(page);
+  await expectNoSidewaysScroll(page);
+  await page.reload();
+  await expect(count(page)).toHaveText(/^\s*1\s*продукта\s*$/);
+  await page.getByRole("button", { name: "Тестов цвят: Син ×" }).click();
+  await expect(count(page)).toHaveText(/^\s*2\s*продукта\s*$/);
+  await page.evaluate(() => history.back());
+  await expect(count(page)).toHaveText(/^\s*1\s*продукта\s*$/);
+  // English names; an unknown attribute in a link is ignored.
+  await page.goto(
+    "/catalog?lang=en&attr=test-size:450&attr=gone:1&attr=constructor:1",
+  );
+  await expect(
+    page.getByRole("button", { name: "Test size: 450 mm ×" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /gone/ })).toHaveCount(0);
+  await page.goto("/catalog?lang=bg");
+});
+
+test("the product page lists its attributes", async ({ page }) => {
+  await page.goto("/catalog/DEMO-003");
+  const specs = page.locator(".product-information-panels .product-specs");
+  await expect(specs).toContainText("Тестов размер");
+  await expect(specs).toContainText("450 mm");
+});
+
 test.describe("signed in", () => {
   test.beforeEach(async ({ context, baseURL }) => {
     await signIn(context, baseURL, fixtures().customer);

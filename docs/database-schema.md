@@ -40,6 +40,31 @@ Constraints:
 - `CHECK (((days >= 1) AND (days <= 365)))`
 - `PRIMARY KEY (id)`
 
+## attribute_definitions
+
+Admin-defined product attributes (migration 028).
+
+| Column          | Type                     | Nullable | Default  |
+| --------------- | ------------------------ | -------- | -------- |
+| key             | text                     | NO       | —        |
+| name_bg         | text                     | NO       | —        |
+| name_en         | text                     | NO       | ''::text |
+| unit            | text                     | NO       | ''::text |
+| sort_order      | integer                  | NO       | 0        |
+| filterable      | boolean                  | NO       | true     |
+| content_version | integer                  | NO       | 1        |
+| created_at      | timestamp with time zone | NO       | now()    |
+| updated_at      | timestamp with time zone | NO       | now()    |
+
+Constraints:
+
+- `PRIMARY KEY (key)`
+- `CHECK (key ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND char_length(key) <= 40)`
+- `CHECK (char_length(name_bg) BETWEEN 2 AND 60)`
+- `CHECK (char_length(name_en) <= 60)`
+- `CHECK (char_length(unit) <= 20)`
+- `CHECK (sort_order BETWEEN 0 AND 10000)`
+
 ## auth_attempts
 
 | Column     | Type                     | Nullable | Default |
@@ -638,6 +663,24 @@ Constraints:
 - `CHECK ((provider = ANY (ARRAY['stripe'::text, 'simulator'::text, 'cod'::text, 'bank_transfer'::text])))`
 - `UNIQUE (provider, external_reference)`
 - `CHECK ((status = ANY (ARRAY['pending'::text, 'paid'::text, 'failed'::text, 'refunded'::text, 'part_refunded'::text, 'cancelled'::text])))`
+
+## product_attributes
+
+One value per product and attribute; `value_key` groups spellings for facets (migration 028).
+
+| Column    | Type | Nullable | Default                               |
+| --------- | ---- | -------- | ------------------------------------- |
+| sku       | text | NO       | —                                     |
+| key       | text | NO       | —                                     |
+| value     | text | NO       | —                                     |
+| value_key | text | NO       | generated: attribute_value_key(value) |
+
+Constraints:
+
+- `PRIMARY KEY (sku, key)`
+- `FOREIGN KEY (sku) REFERENCES warehouse_products(sku) ON DELETE CASCADE`
+- `FOREIGN KEY (key) REFERENCES attribute_definitions(key)`
+- `CHECK (char_length(value) BETWEEN 1 AND 100 AND btrim(value) <> '')`
 
 ## product_categories
 

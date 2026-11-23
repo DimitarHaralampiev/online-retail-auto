@@ -42,6 +42,7 @@ export async function generateMetadata({
     parsed.promotions ||
     parsed.car ||
     parsed.brands.length > 0 ||
+    Object.keys(parsed.attributes).length > 0 ||
     parsed.sort !== "featured";
   const query = new URLSearchParams();
   if (category) query.set("category", category.id);
@@ -122,9 +123,19 @@ export default async function CatalogPage({
     ? await Promise.all([
         store.browse(filtered),
         // Facets are a convenience: the page works without them.
-        store.facets(filtered).catch(() => ({ brands: [] })),
+        store.facets(filtered).catch(() => null),
       ])
-    : [null, { brands: [] }];
+    : [null, null];
+  // Attributes that no longer exist (or are not filterable) were ignored by
+  // the query: keep them out of links and chips too.
+  const applied = facets && {
+    ...state,
+    attributes: Object.fromEntries(
+      Object.entries(state.attributes).filter(([key]) =>
+        facets.attributes.some((facet) => facet.key === key),
+      ),
+    ),
+  };
   const fit =
     vehicle && result
       ? await fitStatuses(
@@ -194,14 +205,15 @@ export default async function CatalogPage({
               aria-label="Продукти"
             >
               <Catalog
-                state={state}
+                state={applied ?? state}
                 result={result}
                 carFilter={state.car}
                 vehicle={
                   vehicles ? { label: selected?.label ?? null } : undefined
                 }
                 fit={fit}
-                brands={facets.brands}
+                brands={facets?.brands}
+                attributes={facets?.attributes}
               />
             </section>
           </main>

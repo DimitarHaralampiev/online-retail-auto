@@ -29,6 +29,10 @@ const PAGES: [
     "/admin/categories",
     (p) => p.getByRole("button", { name: "Нова категория" }),
   ],
+  [
+    "/admin/attributes",
+    (p) => p.getByRole("cell", { name: "Тестов размер", exact: true }),
+  ],
   ["/admin/vehicles", (p) => p.getByText("Testmake").first()],
   ["/admin/legal", (p) => p.getByLabel("Текст на български")],
   ["/admin/returns", (p) => p.getByText("Поръчах грешен модел")],
@@ -86,6 +90,47 @@ test.describe("interactive states", () => {
       page.getByRole("heading", { name: "Нова категория" }),
     ).toBeVisible();
     await expectNoSeriousViolations(page);
+  });
+
+  test("an attribute is created, then filled in on a product", async ({
+    page,
+  }, testInfo) => {
+    // Both projects share the database: their own key and product.
+    const key = `e2e-${testInfo.project.name}-${testInfo.retry}`;
+    const sku = testInfo.project.name === "mobile" ? "DEMO-005" : "DEMO-006";
+    await page.goto("/admin/attributes");
+    await page.getByRole("button", { name: "Нова характеристика" }).click();
+    await page.getByLabel(/^Ключ/).fill(key);
+    await page.getByLabel("Име (български)").fill(`Проба ${key}`);
+    await page.getByLabel("Мерна единица (по избор)").fill("kg");
+    await expectNoSeriousViolations(page);
+    await page.getByRole("button", { name: "Запази", exact: true }).click();
+    await expect(page.getByText("Характеристиката е запазена.")).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: `Проба ${key}`, exact: true }),
+    ).toBeVisible();
+    await page.goto(`/admin/products/edit?sku=${sku}`);
+    const field = page.getByLabel(`Проба ${key} (kg)`);
+    await field.fill("2,5");
+    await page.getByRole("button", { name: "Запази промените" }).click();
+    await expect(page.getByText("Промените са запазени.")).toBeVisible();
+    await page.reload();
+    await expect(field).toHaveValue("2,5");
+    await expectNoSeriousViolations(page);
+    await expectNoSidewaysScroll(page);
+    await page.goto(`/catalog/${sku}`);
+    await expect(
+      page.locator(".product-information-panels .product-specs"),
+    ).toContainText("2,5 kg");
+    // Clearing the field removes the value.
+    await page.goto(`/admin/products/edit?sku=${sku}`);
+    await field.fill("");
+    await page.getByRole("button", { name: "Запази промените" }).click();
+    await expect(page.getByText("Промените са запазени.")).toBeVisible();
+    await page.goto(`/catalog/${sku}`);
+    await expect(
+      page.locator(".product-information-panels .product-specs"),
+    ).not.toContainText("2,5 kg");
   });
 
   test("a CSV check that finds errors", async ({ page }) => {
