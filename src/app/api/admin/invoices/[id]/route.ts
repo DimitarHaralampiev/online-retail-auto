@@ -1,3 +1,4 @@
+import { aiLimiter, limited } from "../../../../../lib/request-limits";
 import { z } from "zod";
 import { currentCustomer, database } from "../../../../../lib/accounts";
 import { json, requestJson } from "../../../../../lib/order-http";
@@ -86,6 +87,12 @@ export async function POST(request: Request, { params }: Context) {
         },
         503,
       );
+    const tooMany = limited(
+      aiLimiter,
+      customer.id,
+      "Лимитът за ИИ заявки е достигнат. Опитай след час.",
+    );
+    if (tooMany) return tooMany;
     return json(
       data.action === "extract"
         ? await parseInvoice(id, customer.id)

@@ -7,6 +7,7 @@ import {
   resetSchema,
 } from "../../../lib/password-reset";
 import { clientKey, createRateLimiter } from "../../../lib/rate-limit";
+import { authLimiter } from "../../../lib/request-limits";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
 import { ZodError } from "zod";
@@ -168,6 +169,12 @@ export async function POST(request: Request) {
     }
     if (data.action !== "login" && data.action !== "register")
       return respond({ error: "Непознато действие." }, 400);
+    // Per client, on top of the per-address lockout below.
+    if (!authLimiter.take(clientKey(request)).allowed)
+      return respond(
+        { error: "Твърде много опити. Опитай след 15 минути." },
+        429,
+      );
     const credentials = (
       data.action === "register" ? registrationSchema : credentialsSchema
     ).parse(data.credentials);
