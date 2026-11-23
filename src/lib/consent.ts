@@ -4,6 +4,8 @@
 // agreed (ConsentGate). With no non-essential service configured there is
 // nothing to ask, so no banner is shown.
 
+import { fieldVitalsEnabled } from "./client-reports";
+
 export const CONSENT_COOKIE = "auto_consent";
 /** Bump when categories change: older choices are asked again. */
 export const CONSENT_VERSION = 1;
@@ -59,14 +61,15 @@ export function serializeConsent(
 
 /**
  * Consent categories used by configured services. ANALYTICS_PROVIDER (for
- * example "plausible") turns on the analytics category; until a service is
- * configured, the list is empty and no banner appears.
+ * example "plausible") or FIELD_VITALS=1 turns on the analytics category;
+ * until a service is configured, the list is empty and no banner appears.
  */
 export function consentCategoriesInUse(
   env: Partial<Record<string, string>> = process.env,
 ): ConsentCategory[] {
   const categories: ConsentCategory[] = [];
-  if (env.ANALYTICS_PROVIDER?.trim()) categories.push("analytics");
+  if (env.ANALYTICS_PROVIDER?.trim() || fieldVitalsEnabled(env))
+    categories.push("analytics");
   if (env.MARKETING_PROVIDER?.trim()) categories.push("marketing");
   return categories;
 }
