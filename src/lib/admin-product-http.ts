@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { currentCustomer } from "./accounts";
 import { AdminProductError } from "./admin-products";
 import { json } from "./order-http";
+import { logError } from "./log";
 
 /** The signed-in admin, or null (the route answers 403). */
 export async function currentAdmin() {
@@ -53,7 +54,7 @@ export function adminProductError(error: unknown) {
   // Request-level problems from requestJson (origin, size, format).
   if (!e.code && e.message && /^[А-Я]/u.test(e.message))
     return json({ error: e.message }, 400);
-  console.error("Admin catalog service failed", e.code ?? e.message);
+  void logError("Admin catalog service failed", e);
   return json(
     { error: "Каталогът временно не е достъпен. Опитай отново." },
     503,

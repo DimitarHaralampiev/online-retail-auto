@@ -10,6 +10,7 @@ import {
   moderationSchema,
   ReviewError,
 } from "../../../../../lib/reviews";
+import { logError } from "../../../../../lib/log";
 
 export const runtime = "nodejs";
 
@@ -35,7 +36,7 @@ export async function POST(
     const e = error as { code?: string; message?: string };
     if (!e.code && e.message && /^[А-Я]/u.test(e.message))
       return json({ error: e.message }, 400);
-    console.error("Review moderation failed", e.code ?? "service error");
+    void logError("Review moderation failed", e);
     return json({ error: "Отзивите временно не са достъпни." }, 503);
   }
 }

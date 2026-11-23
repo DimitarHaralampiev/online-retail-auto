@@ -1,6 +1,7 @@
 import { json } from "../../../../lib/order-http";
 import { currentAdmin, forbidden } from "../../../../lib/admin-product-http";
 import { adminReturns, type ReturnStatus } from "../../../../lib/returns";
+import { logError } from "../../../../lib/log";
 
 export const runtime = "nodejs";
 
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
       ),
     });
   } catch (error) {
-    console.error("Admin returns failed", (error as { code?: string }).code);
+    void logError("Admin returns failed", error);
     return json({ error: "Връщанията временно не са достъпни." }, 503);
   }
 }

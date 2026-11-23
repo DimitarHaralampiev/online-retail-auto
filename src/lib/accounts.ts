@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { randomBytes } from "node:crypto";
 import { tokenHash } from "./password";
 import type { Customer } from "./account-schema";
+import { logError } from "./log";
 const globalDb = globalThis as typeof globalThis & { accountPool?: Pool };
 export function database() {
   if (!process.env.DATABASE_URL)
@@ -21,10 +22,7 @@ export function database() {
     // re-throws it and the whole server process crashes; the pool already
     // discards the broken client and opens a new one on the next query.
     pool.on("error", (error: Error & { code?: string }) => {
-      console.error(
-        "Idle database connection lost",
-        error.code ?? error.message,
-      );
+      void logError("Idle database connection lost", error);
     });
     globalDb.accountPool = pool;
   }

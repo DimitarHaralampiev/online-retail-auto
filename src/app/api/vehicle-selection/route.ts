@@ -16,6 +16,7 @@ import {
   VEHICLE_COOKIE_MAX_AGE,
   type ResolvedVehicle,
 } from "../../../lib/vehicle-selection";
+import { logError } from "../../../lib/log";
 
 export const runtime = "nodejs";
 
@@ -52,7 +53,7 @@ function failure(error: unknown) {
   const e = error as { code?: string; message?: string };
   if (!e.code && e.message && /^[А-Я]/u.test(e.message))
     return json({ error: e.message }, 400);
-  console.error("Vehicle selection failed", e.code ?? "service configuration");
+  void logError("Vehicle selection failed", e);
   return json({ error: "Изборът на автомобил временно не е достъпен." }, 503);
 }
 

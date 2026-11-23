@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { database } from "../../../lib/accounts";
 import { readMedia } from "../../../lib/media-storage";
+import { logError } from "../../../lib/log";
 
 export const runtime = "nodejs";
 
@@ -47,10 +48,7 @@ export async function GET(
       headers: { ...headers, "Content-Length": String(bytes.length) },
     });
   } catch (error) {
-    console.error(
-      "Media read failed",
-      (error as { code?: string }).code ?? (error as Error).message,
-    );
+    void logError("Media read failed", error);
     return new Response(null, {
       status: 503,
       headers: { "Cache-Control": "no-store" },

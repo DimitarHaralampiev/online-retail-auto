@@ -10,6 +10,7 @@ import {
   extendReservations,
   keepReservations,
 } from "./stock-reservations";
+import { logError } from "./log";
 export function stripeClient() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key?.startsWith("sk_test_"))
@@ -143,9 +144,10 @@ export async function recordPaymentEvent(event: Stripe.Event) {
       if (order.status === "cancelled") {
         // Paid after the order was cancelled (its stock released): record the
         // money truthfully, keep the order cancelled and flag a refund.
-        console.error(
+        void logError(
           "Payment received for cancelled order; refund needed",
-          id,
+          null,
+          { orderId: id },
         );
         await queueOrderEmail(
           client,

@@ -28,6 +28,7 @@ import {
   confirmEmail,
   mailPreviewUrl,
 } from "../../../lib/verification";
+import { logError } from "../../../lib/log";
 export const runtime = "nodejs";
 // Per client: stops one visitor from mailing many addresses or guessing
 // reset tokens (each account also has its own email limits).
@@ -138,10 +139,7 @@ export async function POST(request: Request) {
       // lookup and email happen after the response.
       after(() =>
         requestPasswordReset(email).catch((e) =>
-          console.error(
-            "Password reset email failed",
-            (e as { code?: string }).code ?? "mail or database error",
-          ),
+          logError("Password reset email failed", e),
         ),
       );
       return respond({
@@ -251,10 +249,7 @@ export async function POST(request: Request) {
   } catch (e) {
     if (e instanceof ZodError)
       return respond({ error: e.issues[0]?.message }, 400);
-    console.error(
-      "Account request failed",
-      (e as { code?: string }).code ?? "configuration or service error",
-    );
+    void logError("Account request failed", e);
     return respond(
       {
         error: "Профилите временно не са достъпни. Можеш да поръчаш като гост.",

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { logError } from "./log";
 export const json = (value: unknown, status = 200) =>
   NextResponse.json(value, {
     status,
@@ -51,7 +52,7 @@ export function orderError(error: unknown) {
   const e = error as { code?: string; message?: string };
   if (!e.code && e.message && /^[А-Я]/u.test(e.message))
     return json({ error: e.message }, 400);
-  console.error("Order service failed", e.code ?? "service configuration");
+  void logError("Order service failed", e);
   return json(
     { error: "Поръчките временно не са достъпни. Опитай отново." },
     503,

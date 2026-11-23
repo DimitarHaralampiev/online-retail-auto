@@ -10,6 +10,7 @@ import {
   listMakes,
   listModels,
 } from "../../../lib/vehicles";
+import { logError } from "../../../lib/log";
 
 export const runtime = "nodejs";
 
@@ -52,10 +53,7 @@ export async function GET(request: Request) {
       },
     );
   } catch (error) {
-    console.error(
-      "Vehicle lookup failed",
-      (error as { code?: string }).code ?? "service configuration",
-    );
+    void logError("Vehicle lookup failed", error);
     return NextResponse.json(
       { error: "Справочникът временно не е достъпен." },
       { status: 503, headers: { "Cache-Control": "no-store" } },

@@ -1,6 +1,7 @@
 import { currentAdmin, forbidden } from "../../../../lib/admin-product-http";
 import { json } from "../../../../lib/order-http";
 import { reviewsForModeration } from "../../../../lib/reviews";
+import { logError } from "../../../../lib/log";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
       ),
     });
   } catch (error) {
-    console.error("Admin reviews failed", (error as { code?: string }).code);
+    void logError("Admin reviews failed", error);
     return json({ error: "Отзивите временно не са достъпни." }, 503);
   }
 }

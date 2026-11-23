@@ -11,6 +11,7 @@ import {
   reviewSchema,
   submitReview,
 } from "../../../../../lib/reviews";
+import { logError } from "../../../../../lib/log";
 
 export const runtime = "nodejs";
 
@@ -24,7 +25,7 @@ function failure(error: unknown) {
   const e = error as { code?: string; message?: string };
   if (!e.code && e.message && /^[А-Я]/u.test(e.message))
     return json({ error: e.message }, 400);
-  console.error("Reviews failed", e.code ?? "service error");
+  void logError("Reviews failed", e);
   return json({ error: "Отзивите временно не са достъпни." }, 503);
 }
 
