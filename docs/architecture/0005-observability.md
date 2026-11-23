@@ -84,4 +84,27 @@ nothing reported them.
   that is in the log line and the response.
 - The workers in `scripts/` still write plain console output. They will
   move to `log()` with the job queue (#53).
-- Browser errors and field Core Web Vitals are tracked in #117.
+
+## Browser errors and field Core Web Vitals (#117)
+
+- **A same-origin collector** (`POST /api/client-reports`) instead of a
+  third-party script: the CSP stays `'self'` and nothing leaves the shop
+  except, with `SENTRY_DSN`, the same error reports the server sends.
+- **Errors:** `src/instrumentation-client.ts` reports uncaught errors and
+  unhandled rejections: once each, at most 5 per page load; not ones without
+  details, from extensions, or with a digest (the server reported those).
+- **Vitals:** `useReportWebVitals`, logged as `Web vital` lines. They are not
+  aggregated yet.
+- **Anyone can post to it**, so reports are validated, at most 8 KB, limited
+  to 30 per client and 600 in total per minute, scrubbed like server errors,
+  and answered without content.
+- **No identifiers:** no cookies are sent; queries and fragments (which can
+  carry searches and tokens) are dropped, ids and product codes in paths
+  become `[id]` and `[sku]`.
+
+Consent, as implemented (the business should confirm it with its lawyer):
+
+| Data   | Default                      | Consent                                             |
+| ------ | ---------------------------- | --------------------------------------------------- |
+| Errors | on; `BROWSER_ERRORS=0` stops | none: first-party, no identifiers, nothing stored   |
+| Vitals | off; `FIELD_VITALS=1` starts | analytics: shows the banner, measured after a "yes" |

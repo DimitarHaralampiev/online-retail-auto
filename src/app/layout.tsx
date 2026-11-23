@@ -7,7 +7,12 @@ import "./globals.css";
 import CartProvider from "../components/cart-provider";
 import VehicleProvider from "../components/vehicle-provider";
 import { selectedVehicle } from "../lib/vehicle-selection-server";
-import ConsentProvider from "../components/consent-provider";
+import ConsentProvider, { ConsentGate } from "../components/consent-provider";
+import FieldVitals from "../components/field-vitals";
+import {
+  browserErrorsEnabled,
+  fieldVitalsEnabled,
+} from "../lib/client-reports";
 import { CONSENT_COOKIE, consentCategoriesInUse } from "../lib/consent";
 import { cookies } from "next/headers";
 import CatalogProvider from "../components/catalog-provider";
@@ -43,13 +48,21 @@ export default async function RootLayout({
     selectedVehicle(),
   ]);
   return (
-    <html lang={locale}>
+    <html
+      lang={locale}
+      data-browser-errors={browserErrorsEnabled() ? undefined : "off"}
+    >
       <body>
         <LocaleProvider initialLocale={locale}>
           <ConsentProvider
             initialConsent={(await cookies()).get(CONSENT_COOKIE)?.value}
             categories={consentCategoriesInUse()}
           >
+            {fieldVitalsEnabled() && (
+              <ConsentGate category="analytics">
+                <FieldVitals />
+              </ConsentGate>
+            )}
             <CatalogProvider taxonomy={taxonomy} locale={locale}>
               <AccountProvider>
                 <CustomerProvider>
