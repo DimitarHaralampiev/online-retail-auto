@@ -13,6 +13,7 @@ import {
 } from "../../../lib/newsletter";
 import { json, requestJson } from "../../../lib/order-http";
 import { clientKey, createRateLimiter } from "../../../lib/rate-limit";
+import { logError } from "../../../lib/log";
 
 export const runtime = "nodejs";
 
@@ -40,10 +41,7 @@ export async function POST(request: Request) {
           : parseLocale(rawLocale);
       after(() =>
         subscribe(email, locale).catch((e) =>
-          console.error(
-            "Newsletter confirmation failed",
-            (e as { code?: string }).code ?? "mail or database error",
-          ),
+          logError("Newsletter confirmation failed", e),
         ),
       );
       return json({
@@ -85,7 +83,7 @@ export async function POST(request: Request) {
     const e = error as { code?: string; message?: string };
     if (!e.code && e.message && /^[А-Я]/u.test(e.message))
       return json({ error: e.message }, 400);
-    console.error("Newsletter request failed", e.code ?? "service error");
+    void logError("Newsletter request failed", e);
     return json({ error: "Абонаментът временно не е достъпен." }, 503);
   }
 }

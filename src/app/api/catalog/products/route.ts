@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { catalog } from "../../../../lib/catalog-server";
 import { parseLookupSkus } from "../../../../lib/catalog-lookup";
 import { localeFromCookie, parseLocale } from "../../../../lib/i18n/locale";
+import { logError } from "../../../../lib/log";
 
 // Public storefront data (published products only); prices and stock are
 // live, so responses are not cached.
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
     const products = await catalog(locale).getProducts(parsed.skus);
     return NextResponse.json({ products }, { headers });
   } catch (error) {
-    console.error("Catalog product lookup failed", error);
+    void logError("Catalog product lookup failed", error);
     return NextResponse.json(
       { error: "Каталогът временно не е достъпен." },
       { status: 503, headers },

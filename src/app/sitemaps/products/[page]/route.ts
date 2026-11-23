@@ -7,6 +7,7 @@ import {
   PRODUCTS_PER_SITEMAP,
   sitemapXml,
 } from "../../../../lib/sitemap";
+import { logError } from "../../../../lib/log";
 
 export const dynamic = "force-dynamic";
 
@@ -42,10 +43,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error(
-      "Product sitemap failed",
-      (error as { code?: string }).code ?? "service configuration",
-    );
+    void logError("Product sitemap failed", error);
     return new Response("Service unavailable", { status: 503 });
   }
 }

@@ -10,6 +10,7 @@ import {
   MIN_SUGGEST_CHARS,
   type SuggestResponse,
 } from "../../../../lib/search";
+import { logError } from "../../../../lib/log";
 
 // Generous for typing (one request per pause), tight for scripts.
 const limiter = createRateLimiter(30, 10_000);
@@ -63,10 +64,7 @@ export async function GET(request: Request) {
     };
     return NextResponse.json(body, { headers });
   } catch (error) {
-    console.error(
-      "Search suggestions failed",
-      (error as { code?: string }).code ?? "service configuration",
-    );
+    void logError("Search suggestions failed", error);
     return NextResponse.json(
       { error: "Търсенето временно не е достъпно." },
       { status: 503, headers },

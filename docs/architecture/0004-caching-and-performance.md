@@ -65,7 +65,7 @@ and mobile emulation, against the production build:
   visit), to catch dependency and bundle growth.
 
 Lab numbers on CI hardware are not field data; they catch regressions.
-Field Core Web Vitals (real users) belong to observability (#52).
+Field Core Web Vitals (real users) are tracked in #117 (see ADR 0005).
 Lighthouse CI was considered and not adopted for now: it adds a browser
 download and a second runner for checks the Playwright job already makes.
 

@@ -4,6 +4,7 @@
 // The bucket can stay private: shoppers get images through /media/<id>,
 // which a CDN in front of the shop caches (immutable per id).
 import { createS3Storage, s3ConfigFromEnv, type S3Storage } from "./s3-storage";
+import { logError } from "./log";
 
 export type MediaDriver = "database" | "s3";
 
@@ -64,6 +65,6 @@ export async function discardStoredMedia(storageKey: string | null) {
   try {
     await s3().delete(storageKey);
   } catch (error) {
-    console.error("Media object left in storage", storageKey, error);
+    void logError("Media object left in storage", error, { storageKey });
   }
 }

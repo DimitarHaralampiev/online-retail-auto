@@ -12,6 +12,7 @@ import { randomUUID } from "node:crypto";
 import type pg from "pg";
 import type { OrderRecord } from "./order-model";
 import { queueOrderEmail } from "./order-notifications";
+import { logError } from "./log";
 
 export const CARD_PAYMENT_WINDOW_MINUTES = 30;
 
@@ -244,7 +245,7 @@ export async function releaseExpiredReservations(
     } catch (error) {
       await client.query("ROLLBACK").catch(() => {});
       // One failing order must not block the others.
-      console.error("Releasing expired reservation failed", orderId, error);
+      void logError("Releasing expired reservation failed", error, { orderId });
     } finally {
       client.release();
     }

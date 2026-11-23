@@ -8,6 +8,7 @@ import {
   ReturnError,
   returnRequestSchema,
 } from "../../../../../lib/returns";
+import { logError } from "../../../../../lib/log";
 
 export const runtime = "nodejs";
 
@@ -21,7 +22,7 @@ function failure(error: unknown) {
   const e = error as { code?: string; message?: string };
   if (!e.code && e.message && /^[А-Я]/u.test(e.message))
     return json({ error: e.message }, 400);
-  console.error("Return request failed", e.code ?? "service error");
+  void logError("Return request failed", e);
   return json({ error: "Връщанията временно не са достъпни." }, 503);
 }
 
