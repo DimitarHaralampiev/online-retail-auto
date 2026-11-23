@@ -7,7 +7,7 @@ import { availableStock } from "./inventory";
 import { sellingPrice } from "./pricing";
 import { formatMoney } from "./cart";
 import { todayInSofia } from "./customer-rules";
-import { mailTransport } from "./verification";
+import { deliverOutbox, type OutboxSpec, type SendMail } from "./email-outbox";
 async function queue(
   client: PoolClient,
   customerId: string,
@@ -113,51 +113,25 @@ export async function scanCustomerNotifications(
     client.release();
   }
 }
-export async function sendCustomerEmails(limit = 20, customerId?: string) {
-  const client = await database().connect();
-  let sent = 0;
-  try {
-    for (let i = 0; i < limit; i++) {
-      await client.query("BEGIN");
-      const result = await client.query(
-        "SELECT o.* FROM customer_email_outbox o JOIN customers c ON c.id=o.customer_id LEFT JOIN customer_product_alerts a ON a.id=o.alert_id WHERE ((o.reminder_id IS NOT NULL AND c.notification_preferences->>'reminders'='true') OR (o.alert_id IS NOT NULL AND c.notification_preferences->>a.kind='true')) AND o.sent_at IS NULL AND c.email_verified_at IS NOT NULL AND ($1::uuid IS NULL OR o.customer_id=$1) AND (o.last_attempt_at IS NULL OR o.last_attempt_at<now()-interval '1 minute') ORDER BY o.created_at FOR UPDATE OF o SKIP LOCKED LIMIT 1",
-        [customerId ?? null],
-      );
-      const email = result.rows[0];
-      if (!email) {
-        await client.query("COMMIT");
-        break;
-      }
-      try {
-        await mailTransport().sendMail({
-          from:
-            process.env.SMTP_CUSTOMER_FROM ||
-            process.env.SMTP_ORDERS_FROM ||
-            process.env.SMTP_FROM,
-          replyTo: process.env.SMTP_SUPPORT_REPLY_TO || undefined,
-          to: email.recipient,
-          subject: email.subject,
-          text: email.body,
-          messageId: `<${email.id}@auto-shop.invalid>`,
-        });
-        await client.query(
-          "UPDATE customer_email_outbox SET sent_at=now(),attempts=attempts+1,last_attempt_at=now() WHERE id=$1",
-          [email.id],
-        );
-        sent++;
-      } catch {
-        await client.query(
-          "UPDATE customer_email_outbox SET attempts=attempts+1,last_attempt_at=now() WHERE id=$1",
-          [email.id],
-        );
-      }
-      await client.query("COMMIT");
-    }
-    return sent;
-  } catch (e) {
-    await client.query("ROLLBACK");
-    throw e;
-  } finally {
-    client.release();
-  }
+export const customerOutbox: OutboxSpec = {
+  table: "customer_email_outbox",
+  scope: "customer_id",
+  // Only to verified addresses, and only while the customer still wants
+  // that kind of notification.
+  join: "JOIN customers c ON c.id = o.customer_id LEFT JOIN customer_product_alerts a ON a.id = o.alert_id",
+  where:
+    "c.email_verified_at IS NOT NULL AND ((o.reminder_id IS NOT NULL AND c.notification_preferences->>'reminders' = 'true') OR (o.alert_id IS NOT NULL AND c.notification_preferences->>a.kind = 'true'))",
+  from: () =>
+    process.env.SMTP_CUSTOMER_FROM ||
+    process.env.SMTP_ORDERS_FROM ||
+    process.env.SMTP_FROM,
+};
+
+/** Delivers due customer notifications (see email-outbox.ts for retries). */
+export async function sendCustomerEmails(
+  limit = 20,
+  customerId?: string,
+  send?: SendMail,
+) {
+  return deliverOutbox(customerOutbox, limit, customerId ?? null, send);
 }

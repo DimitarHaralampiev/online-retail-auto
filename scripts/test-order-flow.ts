@@ -267,7 +267,7 @@ async function main() {
       else process.env.SMTP_PORT = port;
     }
     await pool.query(
-      "UPDATE order_email_outbox SET last_attempt_at=now()-interval '2 minutes' WHERE id=$1",
+      "UPDATE order_email_outbox SET next_attempt_at=now() WHERE id=$1",
       [retryId],
     );
     assert.equal(await sendOrderEmails(1, id), 1);

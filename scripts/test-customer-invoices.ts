@@ -412,7 +412,7 @@ async function main() {
       3,
     );
     await db.query(
-      "UPDATE customer_email_outbox SET last_attempt_at=now()-interval '2 minutes' WHERE customer_id=$1",
+      "UPDATE customer_email_outbox SET next_attempt_at=now() WHERE customer_id=$1",
       [ids[0]],
     );
     assert.equal(await sendCustomerEmails(3, ids[0]), 3);

@@ -1,4 +1,5 @@
-import { currentCustomer, database } from "../../../../lib/accounts";
+import { currentCustomer } from "../../../../lib/accounts";
+import { outboxCounts } from "../../../../lib/email-outbox";
 import {
   scanCustomerNotifications,
   sendCustomerEmails,
@@ -15,10 +16,8 @@ export async function POST(request: Request) {
       return json({ error: "Необходим е администраторски достъп." }, 403);
     const queued = await scanCustomerNotifications();
     const sent = await sendCustomerEmails();
-    const pending = await database().query(
-      "SELECT count(*)::int AS count FROM customer_email_outbox WHERE sent_at IS NULL",
-    );
-    return json({ queued, sent, pending: pending.rows[0].count });
+    const { pending, failed } = await outboxCounts("customer_email_outbox");
+    return json({ queued, sent, pending, failed });
   } catch (e) {
     return orderError(e);
   }

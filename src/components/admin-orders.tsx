@@ -18,12 +18,14 @@ export default function AdminOrders() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingEmails, setPendingEmails] = useState(0);
+  const [failedEmails, setFailedEmails] = useState(0);
   async function refresh() {
     const r = await fetch("/api/admin/orders", { cache: "no-store" });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error);
     setOrders(data.orders);
     setPendingEmails(data.pendingEmails);
+    setFailedEmails(data.failedEmails ?? 0);
   }
   useEffect(() => {
     refresh().catch((e) => setError(e.message));
@@ -73,6 +75,15 @@ export default function AdminOrders() {
             </p>
           )}
           <p>Чакащи имейли: {pendingEmails}</p>
+          {failedEmails > 0 && (
+            <div className="error" role="alert">
+              <p>Неизпратени след всички опити: {failedEmails}</p>
+              <p>
+                Провери SMTP настройките и адресите на получателите, после
+                изпрати отново.
+              </p>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => send({ action: "retry-emails" })}
