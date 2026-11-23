@@ -33,15 +33,16 @@ export default function ProductActions({ product }: { product: Product }) {
           <button
             className={`favorite-button ${favorite ? "is-favorite" : ""}`}
             type="button"
-            aria-label={`${favorite ? "В любими" : "Запази в любими"}: ${product.name}`}
+            // A fixed name; aria-pressed alone says whether it is a favourite
+            // (the name starts with the visible label, WCAG 2.5.3).
+            aria-label={`Любими: ${product.name}`}
             aria-pressed={favorite}
             disabled={!ready || busy}
             onClick={() =>
               act({ action: "favorite", sku: product.sku, enabled: !favorite })
             }
           >
-            <span aria-hidden="true">{favorite ? "♥" : "♡"}</span>{" "}
-            {favorite ? "В любими" : "Запази в любими"}
+            <span aria-hidden="true">{favorite ? "♥" : "♡"}</span> Любими
           </button>
           {customer &&
             favorite &&

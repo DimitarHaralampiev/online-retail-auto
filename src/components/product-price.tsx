@@ -21,6 +21,10 @@ export default function ProductPrice({ product }: { product: Product }) {
           </p>
           {promotion && (
             <p className="promotion-saving">
+              {/* The photo badge is hidden from assistive technology. */}
+              <strong className="discount-percent">
+                Отстъпка {`−${promotion.discountPercent}%`}
+              </strong>{" "}
               Спестяваш {formatMoney(promotion.savingsCents)} в демонстрацията
             </p>
           )}
