@@ -1,3 +1,4 @@
+import { aiLimiter, limited } from "../../../../lib/request-limits";
 import { z } from "zod";
 import { currentCustomer } from "../../../../lib/accounts";
 import { json, requestJson } from "../../../../lib/order-http";
@@ -16,6 +17,12 @@ export async function POST(request: Request) {
     const admin = await currentCustomer();
     if (!admin?.isAdmin)
       return json({ error: "Нужен е администраторски достъп." }, 403);
+    const tooMany = limited(
+      aiLimiter,
+      admin.id,
+      "Лимитът за ИИ заявки е достигнат. Опитай след час.",
+    );
+    if (tooMany) return tooMany;
     const input = schema.parse(await requestJson(request));
     return json(
       await businessInsights(

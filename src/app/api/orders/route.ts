@@ -1,9 +1,20 @@
+import {
+  checkoutLimiter,
+  clientKey,
+  limited,
+} from "../../../lib/request-limits";
 import { currentCustomer, database } from "../../../lib/accounts";
 import { createOrder, orderUrl, publicOrder } from "../../../lib/orders";
 import { checkoutPayment } from "../../../lib/order-payments";
 import { sendOrderEmails } from "../../../lib/order-notifications";
 import { requestJson, json, orderError } from "../../../lib/order-http";
 export async function POST(request: Request) {
+  const tooMany = limited(
+    checkoutLimiter,
+    clientKey(request),
+    "Твърде много поръчки за кратко време. Опитай след няколко минути.",
+  );
+  if (tooMany) return tooMany;
   try {
     const customer = await currentCustomer();
     const order = await createOrder(
