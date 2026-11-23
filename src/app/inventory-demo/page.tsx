@@ -6,7 +6,8 @@ import InventoryDemo from "../../components/inventory-demo";
 import { catalog } from "../../lib/catalog-server";
 
 export default async function InventoryDemoPage() {
-  const products = await catalog(await requestLocale()).listProducts();
+  // A sample is enough for the demonstration, whatever the catalog size.
+  const { items: products } = await catalog(await requestLocale()).browse({});
   return (
     <Localize>
       {

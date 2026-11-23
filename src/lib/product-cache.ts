@@ -93,6 +93,20 @@ export function createProductCache(
         false,
       );
     },
+    /**
+     * Adds products the server already rendered in the current language, so
+     * using one needs no lookup. Products already held are left alone: the
+     * page may be older than the cached answer.
+     */
+    prime(products: readonly Product[]) {
+      let changed = false;
+      for (const product of products)
+        if (!known.get(product.sku)?.product) {
+          known.set(product.sku, { locale, product });
+          changed = true;
+        }
+      if (changed) notify();
+    },
     /** Switches language and refreshes every product loaded or loading. */
     setLocale(next: Locale) {
       if (next === locale) return;

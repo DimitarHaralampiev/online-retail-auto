@@ -26,6 +26,8 @@ type CatalogContextValue = {
    * identity: safe in effect dependencies.
    */
   ensureProducts: (skus: readonly string[]) => Promise<ProductLookup>;
+  /** Makes products the page already shows known without a lookup. */
+  primeProducts: (products: readonly Product[]) => void;
 };
 
 const CatalogContext = createContext<CatalogContextValue | null>(null);
@@ -92,6 +94,7 @@ export default function CatalogProvider({
       // A new function per cache version, so consumers render new data.
       productBySku: lookupAt(cache.get, version),
       ensureProducts,
+      primeProducts: cache.prime,
     }),
     [stable, cache, version, ensureProducts],
   );

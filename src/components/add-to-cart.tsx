@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { Product } from "../lib/catalog";
 import { availableStock } from "../lib/inventory";
 import { useCart } from "./cart-provider";
+import { useCatalog } from "./catalog-provider";
 import Icon from "./icon";
 
 export default function AddToCart({
@@ -15,7 +16,8 @@ export default function AddToCart({
   product: Product;
   allowQuantity?: boolean;
 }) {
-  const { items, ready, add, addItems } = useCart();
+  const { items, ready, add, addItems, unresolved } = useCart();
+  const { primeProducts } = useCatalog();
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -52,6 +54,8 @@ export default function AddToCart({
             disabled={!ready || quantity >= available}
             onClick={async () => {
               setFailed(false);
+              // The page already shows this product: no lookup needed.
+              primeProducts([product]);
               try {
                 if (allowQuantity)
                   await addItems([
@@ -77,7 +81,16 @@ export default function AddToCart({
                 Добавено. <Link href="/cart">Към количката →</Link>
               </>
             )}
-            {failed && "Не успяхме да добавим продукта. Опитай отново."}
+            {failed &&
+              (unresolved.length > 0 ? (
+                <>
+                  Другите продукти в количката не се заредиха. Отвори количката
+                  и избери „Опитай отново“.{" "}
+                  <Link href="/cart">Към количката →</Link>
+                </>
+              ) : (
+                "Не успяхме да добавим продукта. Опитай отново."
+              ))}
           </p>
         </div>
       }

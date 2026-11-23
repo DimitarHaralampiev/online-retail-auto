@@ -344,6 +344,41 @@ test("pages do not ship the product catalog to the browser", async ({
   }
 });
 
+test("adding a product the page already shows needs no lookup", async ({
+  page,
+}) => {
+  const lookups: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/api/catalog/products"))
+      lookups.push(request.url());
+  });
+  await page.goto("/catalog/DEMO-003");
+  await addCurrentProductToCart(page);
+  await expect(
+    page.getByRole("link", { name: "Количка: 1 броя" }),
+  ).toBeVisible();
+  expect(lookups).toEqual([]);
+});
+
+test("promotions and related products are limited lists", async ({ page }) => {
+  await page.goto("/promotions");
+  await expect(page.locator(".promotions-products .product-card")).toHaveCount(
+    3,
+  );
+  // A page past the end offers a way back instead of an empty list.
+  await page.goto("/promotions?page=9");
+  await page.getByRole("link", { name: "Към първата страница" }).click();
+  await expect(page).toHaveURL(/\/promotions$/);
+  // Not numbers: the first page.
+  await page.goto("/promotions?page=abc");
+  await expect(page.locator(".promotions-products .product-card")).toHaveCount(
+    3,
+  );
+  await page.goto("/catalog/DEMO-003");
+  const related = page.locator(".related-products .product-title");
+  await expect(related).toHaveText(["Комплект чистачки"]);
+});
+
 test.describe("cart when product lookups fail", () => {
   test("a stored cart restored while lookups fail survives the next add", async ({
     page,
@@ -377,6 +412,34 @@ test.describe("cart when product lookups fail", () => {
         { sku: "DEMO-003", quantity: 1 },
       ]),
     );
+  });
+
+  test("a failed add points to the cart when its other products are missing", async ({
+    page,
+  }) => {
+    await page.addInitScript(() =>
+      localStorage.setItem(
+        "auto-shop:cart:v1",
+        JSON.stringify({
+          version: 1,
+          items: [{ sku: "DEMO-001", quantity: 1 }],
+        }),
+      ),
+    );
+    await page.route("**/api/catalog/products**", (route) => route.abort());
+    await page.goto("/catalog/DEMO-003");
+    await page.getByRole("button", { name: addToCart }).first().click();
+    const message = page
+      .getByRole("status")
+      .filter({ hasText: "Другите продукти в количката не се заредиха." });
+    await expect(message).toBeVisible();
+    await page.unroute("**/api/catalog/products**");
+    await message.getByRole("link", { name: "Към количката →" }).click();
+    await expect(page).toHaveURL(/\/cart$/);
+    await page.getByRole("button", { name: "Опитай отново" }).click();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Органайзер за багажник" }),
+    ).toBeVisible();
   });
 
   test("checkout waits for missing products and can retry", async ({

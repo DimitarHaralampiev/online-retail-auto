@@ -40,6 +40,8 @@ export async function generateMetadata({
   });
 }
 
+const RELATED_PRODUCTS = 8;
+
 export default async function ProductPage({
   params,
 }: {
@@ -68,9 +70,15 @@ export default async function ProductPage({
     catalogSource() === "postgres"
       ? await publishedReviews(product.sku).catch(() => null)
       : null;
-  const related = (await store.listProducts()).filter(
-    (p) => p.sku !== sku && p.category.id === product.category.id,
-  );
+  // One more than shown, as the page may include this product itself.
+  const related = (
+    await store.browse({
+      category: product.category.id,
+      pageSize: RELATED_PRODUCTS + 1,
+    })
+  ).items
+    .filter((p) => p.sku !== product.sku)
+    .slice(0, RELATED_PRODUCTS);
   return (
     <Localize>
       {
