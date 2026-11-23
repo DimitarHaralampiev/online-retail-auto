@@ -100,7 +100,9 @@ test("checkout previews an address delivery with cash on delivery", async ({
   await page
     .getByRole("textbox", { name: "Име и фамилия" })
     .fill("Иван Петров");
-  await page.getByRole("textbox", { name: "Имейл" }).fill("e2e@example.test");
+  await page
+    .getByRole("textbox", { name: "Имейл", exact: true })
+    .fill("e2e@example.test");
   await page.getByRole("textbox", { name: "Телефон" }).fill("0888 123 456");
   await page.getByRole("radio", { name: "До адрес" }).check();
   await page.getByRole("textbox", { name: /Населено място/i }).fill("София");
@@ -127,7 +129,9 @@ test("checkout rejects an invalid phone number", async ({ page }) => {
   await page
     .getByRole("textbox", { name: "Име и фамилия" })
     .fill("Иван Петров");
-  await page.getByRole("textbox", { name: "Имейл" }).fill("e2e@example.test");
+  await page
+    .getByRole("textbox", { name: "Имейл", exact: true })
+    .fill("e2e@example.test");
   await page.getByRole("textbox", { name: "Телефон" }).fill("12345");
   await page.getByRole("radio", { name: "До адрес" }).check();
   await page.getByRole("textbox", { name: /Населено място/i }).fill("София");
