@@ -1,0 +1,60 @@
+name: Deploy
+
+# Manual (#56): Actions → Deploy → Run workflow, from main. Deploys the
+# commit it runs on to the chosen environment once CI passed on it and
+# published its images. Each GitHub environment (staging, production) needs
+# the secret DEPLOY_SSH_KEY and the variables DEPLOY_TARGET (user@host) and
+# DEPLOY_KNOWN_HOSTS (the server's ssh-keyscan line). Give production
+# required reviewers. Server setup: docs/operations/runbook.md.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment
+        type: choice
+        options: [staging, production]
+        default: staging
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Require a passed CI run on main for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push&status=completed" \
+            --jq '.workflow_runs[0].conclusion // ""')"
+          if [[ "$conclusion" != success ]]; then
+            echo "::error::CI on main has not passed for $GITHUB_SHA (found: ${conclusion:-no run}); its images may be missing."
+            exit 1
+          fi
+      - name: Deploy over SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          TARGET: ${{ vars.DEPLOY_TARGET }}
+          KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          if [[ -z "$SSH_KEY" || -z "$TARGET" || -z "$KNOWN_HOSTS" ]]; then
+            echo "::error::Set DEPLOY_SSH_KEY, DEPLOY_TARGET and DEPLOY_KNOWN_HOSTS for the $ENVIRONMENT environment."
+            exit 1
+          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # The server's forced command (deploy/ssh-deploy.sh) accepts only this.
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes "$TARGET" "$ENVIRONMENT $GITHUB_SHA"

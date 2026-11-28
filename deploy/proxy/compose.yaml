@@ -1,0 +1,18 @@
+# HTTPS in front of the shop (#56): one Caddy per server for production and
+# staging. It gets and renews Let's Encrypt certificates by itself.
+#   cp deploy/proxy/Caddyfile.example deploy/proxy/Caddyfile   # then edit it
+#   docker compose -f deploy/proxy/compose.yaml up -d
+# Uses the host network to reach the shops on 127.0.0.1 (WEB_PORT).
+name: auto-shop-proxy
+services:
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+volumes:
+  caddy_data:
+  caddy_config:

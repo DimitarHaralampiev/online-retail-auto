@@ -26,6 +26,16 @@ npm start
 
 `typecheck` проверява TypeScript, `test` изпълнява вградения Node.js test runner чрез tsx, `build` подготвя production версия, а `start` я стартира след успешен build. Складовите тестове проверяват резервиране, продажба, отказ от резервация, връщане и невалидни количества.
 
+## Хостинг, внедряване и архиви
+
+Магазинът се пуска в два контейнерни образа (`Dockerfile`: `web` и `tasks`), еднакви за всеки хостинг. `deploy/` съдържа настройката за един сървър с production и staging, HTTPS чрез Caddy и `deploy/deploy.sh`, който архивира базата, прилага миграциите и чак тогава стартира новата версия. Базата се архивира всеки ден, архивът се възстановява на пробна база за проверка, а копието извън сървъра е криптирано. Решението и сравнението на доставчиците: [ADR 0007](docs/architecture/0007-hosting-and-deployment.md). Инструкции: [сървър](docs/operations/runbook.md), [архиви и възстановяване](docs/operations/backups.md). Локална проверка на образите (нужен е Docker):
+
+```bash
+docker build --target web -t auto-shop-web:dev .
+docker build --target tasks -t auto-shop-tasks:dev .
+scripts/image-smoke.sh
+```
+
 ## Структура
 
 - `src/app/page.tsx`: начална страница.

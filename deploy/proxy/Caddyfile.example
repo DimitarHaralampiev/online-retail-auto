@@ -1,0 +1,27 @@
+# Copy to deploy/proxy/Caddyfile and replace the example domains (#56).
+# Point both DNS names at the server first; Caddy then gets certificates.
+{
+	email admin@shop.example
+}
+
+# Production: the shop's public address and its www alias.
+shop.example, www.shop.example {
+	@www host www.shop.example
+	redir @www https://shop.example{uri} permanent
+	encode zstd gzip
+	# Caddy replaces any X-Forwarded-For sent by the visitor, so the first
+	# entry the shop sees (rate limits) is the real client address.
+	reverse_proxy 127.0.0.1:3000
+}
+
+# Staging: the same code with test settings, behind a password. Create the
+# hash with: docker run --rm caddy:2.10 caddy hash-password
+# Stripe's webhook stays reachable; the shop verifies its signature.
+staging.shop.example {
+	@protected not path /api/payments/webhook
+	basic_auth @protected {
+		staging $2a$14$replace-with-the-hash
+	}
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3001
+}
