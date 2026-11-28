@@ -58,13 +58,11 @@ These steps assume Ubuntu 24.04 LTS with at least 4 GB of RAM.
      `DB_PASSWORD` and secrets, Stripe _test_ keys, and never
      `SITE_INDEXABLE`.
    - Restrict the files to the owner: `chmod 600 deploy/*.env`.
-5. **Images.** CI publishes them to GHCR. New packages start private, so
-   do one of the following:
-   - make `online-retail-auto-web` and `online-retail-auto-tasks` public
-     (GitHub → Packages → Package settings), or
-   - as the `deploy` user, run
-     `docker login ghcr.io -u <github user>` with a token that has only
-     `read:packages`.
+5. **Images.** CI publishes them to GHCR. Like the repository, they are
+   public, so the server pulls them without logging in. If the repository
+   ever becomes private, run
+   `docker login ghcr.io -u <github user>` as the `deploy` user, with a
+   token that has only `read:packages`.
 6. **HTTPS.**
    - Point the domain (and `www`, and `staging.`) at the server.
    - Copy `deploy/proxy/Caddyfile.example` to `deploy/proxy/Caddyfile` in

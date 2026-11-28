@@ -168,7 +168,8 @@ domain set up in DNS.
 - the provider account and payment;
 - the domain and DNS;
 - a Brevo account;
-- the GitHub environments, with their secrets and variables;
-- a decision on the GHCR packages, which CI creates as private: make them
-  public, or let the server log in with a read-only token
-  ([runbook](../operations/runbook.md)).
+- the GitHub environments, with their secrets and variables.
+
+The GHCR images are public, like the repository: an anonymous pull worked
+on 2026-11-28. A server needs no registry login unless the repository
+becomes private ([runbook](../operations/runbook.md)).
