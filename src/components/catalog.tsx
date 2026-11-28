@@ -21,6 +21,11 @@ import {
   type CatalogUrlState,
 } from "../lib/catalog-url";
 import { useCatalog } from "./catalog-provider";
+import {
+  CatalogViewFrame,
+  CatalogViewProvider,
+  CatalogViewSwitch,
+} from "./catalog-view";
 import { useLocale } from "./locale-provider";
 import ProductCard from "./product-card";
 import type { FitStatus } from "../lib/vehicles";
@@ -62,7 +67,6 @@ export default function Catalog({
   const subcategories = taxonomy.flatMap((c) =>
     c.subcategories.map((s) => ({ ...s, category: c.id })),
   );
-  const [view, setView] = useState("grid");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Typed inputs keep local values while the visitor types.
@@ -203,7 +207,7 @@ export default function Catalog({
   const products = result?.items ?? [];
 
   return (
-    <>
+    <CatalogViewProvider>
       <nav
         className="breadcrumbs"
         aria-label={text("Път до категорията", "Category breadcrumb")}
@@ -476,28 +480,7 @@ export default function Catalog({
                 </option>
               </select>
             </label>
-            <div
-              className="catalog-view-switch"
-              role="group"
-              aria-label={text("Изглед", "View")}
-            >
-              <button
-                type="button"
-                aria-pressed={view === "grid"}
-                onClick={() => setView("grid")}
-                aria-label={text("Мрежа", "Grid")}
-              >
-                ▦
-              </button>
-              <button
-                type="button"
-                aria-pressed={view === "list"}
-                onClick={() => setView("list")}
-                aria-label={text("Списък", "List")}
-              >
-                ☷
-              </button>
-            </div>
+            <CatalogViewSwitch />
           </div>
           {activeCount > 0 && (
             <div
@@ -565,9 +548,7 @@ export default function Catalog({
               </button>
             </div>
           )}
-          <div
-            className={`product-grid ${view === "list" ? "catalog-list-view" : ""}`}
-          >
+          <CatalogViewFrame>
             {products.map((product) => (
               <ProductCard
                 key={product.sku}
@@ -575,7 +556,7 @@ export default function Catalog({
                 fit={fit[product.sku]}
               />
             ))}
-          </div>
+          </CatalogViewFrame>
           {result && result.pageCount > 1 && products.length > 0 && (
             <nav
               className="catalog-pagination"
@@ -655,6 +636,6 @@ export default function Catalog({
           )}
         </div>
       </div>
-    </>
+    </CatalogViewProvider>
   );
 }

@@ -10,8 +10,8 @@ export default function CategoryMenu() {
   const en = locale === "en";
   useEffect(() => {
     function outside(e: PointerEvent) {
-      if (details.current && !details.current.contains(e.target as Node))
-        details.current.open = false;
+      const menu = details.current;
+      if (menu?.open && !menu.contains(e.target as Node)) menu.open = false;
     }
     function escape(e: KeyboardEvent) {
       if (e.key === "Escape" && details.current?.open) {
