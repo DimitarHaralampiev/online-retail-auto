@@ -1,0 +1,21 @@
+# Never in an image: secrets, local data and build leftovers.
+.env*
+!.env.example
+.git
+node_modules
+.next
+out
+coverage
+playwright-report
+test-results
+e2e-db/.fixtures.json
+*.log
+.agents
+.aws
+.codex
+.idea
+.claude
+docs/screenshots
+deploy/.env
+deploy/*.env
+deploy/proxy/Caddyfile

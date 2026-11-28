@@ -14,3 +14,7 @@ coverage/
 playwright-report/
 test-results/
 e2e-db/.fixtures.json
+# Server settings (deploy/*.example are the templates).
+deploy/.env
+deploy/*.env
+deploy/proxy/Caddyfile

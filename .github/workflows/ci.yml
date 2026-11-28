@@ -136,6 +136,42 @@ jobs:
             test-results/
           retention-days: 7
 
+  images:
+    # The images that deploy/deploy.sh runs (#56). Every pull request builds
+    # and tests them; merges to main also publish them as
+    # ghcr.io/<owner>/<repo>-web|tasks:sha-<commit> for the Deploy workflow.
+    name: Container images
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the web and tasks images
+        run: |
+          for target in web tasks; do
+            docker build --target "$target" \
+              --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              --tag "auto-shop-$target:ci" .
+          done
+      - name: Migrations, shop, worker, backups and restores in the images
+        run: scripts/image-smoke.sh auto-shop-web:ci auto-shop-tasks:ci
+      - name: Publish the tested images
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          images="ghcr.io/${GITHUB_REPOSITORY,,}"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          for target in web tasks; do
+            docker tag "auto-shop-$target:ci" "$images-$target:sha-$GITHUB_SHA"
+            docker push --quiet "$images-$target:sha-$GITHUB_SHA"
+          done
+
   audit:
     # Separate job so a new advisory never hides the other check results.
     # To unblock: bump the package or add an npm "overrides" entry, never delete this job.
